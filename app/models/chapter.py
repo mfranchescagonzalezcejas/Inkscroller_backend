@@ -1,0 +1,13 @@
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+class Chapter(BaseModel):
+    id: str
+    number: Optional[str]
+    title: Optional[str]
+    date: Optional[datetime]
+
+    readable: bool
+    external: bool
+    externalUrl: Optional[str]
