@@ -1,97 +1,10 @@
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Optional
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from app.sources.jikan_client import JikanClient
+from app.services.manga_mapper import map_mangadex_manga, map_jikan_manga
 
-COVER_BASE_URL = "https://uploads.mangadex.org/covers"
-
-
-def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
-    attributes = item.get("attributes", {})
-    relationships = item.get("relationships", [])
-
-    # Title
-    titles = attributes.get("title", {})
-    title = titles.get("en") or next(iter(titles.values()), "Unknown")
-
-    # Description (base, Jikan la mejorará)
-    descriptions = attributes.get("description", {})
-    description = descriptions.get("en")
-
-    # Demographic
-    demographic = attributes.get("publicationDemographic")
-
-    # Status
-    status = attributes.get("status")
-
-    # Cover
-    cover_file = None
-    for rel in relationships:
-        if rel.get("type") == "cover_art":
-            cover_file = rel.get("attributes", {}).get("fileName")
-            break
-
-    cover_url = (
-        f"{COVER_BASE_URL}/{item['id']}/{cover_file}.256.jpg"
-        if cover_file
-        else None
-    )
-
-    return {
-        "id": item.get("id"),
-        "title": title,
-        "description": description,
-        "coverUrl": cover_url,
-        "demographic": demographic,
-        "status": status,
-
-        # ⬇️ EXTRAS (vacíos, Jikan los rellena)
-        "genres": [],
-        "score": None,
-        "rank": None,
-        "popularity": None,
-        "members": None,
-        "favorites": None,
-        "authors": [],
-        "serialization": None,
-        "chapters": None,
-        "startYear": None,
-        "endYear": None,
-    }
-
-
-def map_jikan_manga(payload: dict[str, Any]) -> dict[str, Any] | None:
-    data = payload.get("data", [])
-    if not data:
-        return None
-
-    manga = data[0]
-
-    demographics = manga.get("demographics") or []
-    demographic = demographics[0]["name"].lower() if demographics else None
-
-    return {
-        "description": manga.get("synopsis"),
-        "status": manga.get("status"),
-        "score": manga.get("score"),
-        "rank": manga.get("rank"),
-        "popularity": manga.get("popularity"),
-        "members": manga.get("members"),
-        "favorites": manga.get("favorites"),
-
-        "genres": [g["name"].lower() for g in manga.get("genres", [])],
-        "authors": [a["name"] for a in manga.get("authors", [])],
-        "serialization": (
-            manga.get("serializations", [{}])[0].get("name")
-            if manga.get("serializations")
-            else None
-        ),
-        "demographic": demographic,
-
-        "startYear": manga.get("published", {}).get("prop", {}).get("from", {}).get("year"),
-        "endYear": manga.get("published", {}).get("prop", {}).get("to", {}).get("year"),
-    }
 
 class MangaService:
     def __init__(
@@ -172,8 +85,6 @@ class MangaService:
         try:
             jikan_payload = await self._jikan.search_manga(result["title"])
             jikan_data = map_jikan_manga(jikan_payload)
-            print("JIKAN DATA:", jikan_data)
-
 
             if jikan_data:
                 for key, value in jikan_data.items():

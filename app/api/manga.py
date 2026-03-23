@@ -7,9 +7,6 @@ from fastapi import HTTPException
 router = APIRouter(prefix="/manga", tags=["Manga"])
 service = MangaService()
 
-router = APIRouter(prefix="/manga", tags=["Manga"])
-service = MangaService()
-
 
 @router.get("/search", response_model=List[Manga])
 async def search_manga(q: str = Query(..., min_length=1)):
