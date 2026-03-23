@@ -88,12 +88,12 @@ Inkscroller_backend/
     ├── api/                         # FastAPI route handlers
     │   ├── health.py                # GET /ping
     │   ├── manga.py                 # GET /manga, /manga/search, /manga/{id}
-    │   ├── chapters.py              # GET /chapters/manga/{id}
-    │   └── pages.py                 # GET /chapters/{id}/pages
+    │   └── chapters.py              # GET /chapters/manga/{id}, /chapters/{id}/pages
     │
     ├── core/
     │   ├── cache.py                 # SimpleCache — TTL-based in-memory cache
-    │   └── config.py                # Settings — env var configuration
+    │   ├── config.py                # Settings — env var configuration
+    │   └── dependencies.py          # FastAPI DI factories for shared services
     │
     ├── models/                      # Pydantic response models
     │   ├── manga.py                 # Manga model (unified MangaDex + Jikan fields)
@@ -109,7 +109,12 @@ Inkscroller_backend/
     └── sources/                     # External API clients (async httpx)
         ├── mangadex_client.py       # MangaDexClient
         └── jikan_client.py          # JikanClient
+
+tests/
+└── test_app.py                      # Smoke tests for app startup and DI overrides
 ```
+
+`main.py` now exposes a `create_app()` factory so tests can instantiate the FastAPI app without importing a prebuilt singleton, while shared HTTP clients and cache are created once in the application lifespan.
 
 ---
 

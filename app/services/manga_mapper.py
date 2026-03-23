@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+from app.services.jikan_mapper import map_jikan_detail
 
 COVER_BASE_URL = "https://uploads.mangadex.org/covers"
 
@@ -57,35 +58,3 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "endYear": None,
     }
 
-
-def map_jikan_manga(payload: dict[str, Any]) -> dict[str, Any] | None:
-    data = payload.get("data", [])
-    if not data:
-        return None
-
-    manga = data[0]
-
-    demographics = manga.get("demographics") or []
-    demographic = demographics[0]["name"].lower() if demographics else None
-
-    return {
-        "description": manga.get("synopsis"),
-        "status": manga.get("status"),
-        "score": manga.get("score"),
-        "rank": manga.get("rank"),
-        "popularity": manga.get("popularity"),
-        "members": manga.get("members"),
-        "favorites": manga.get("favorites"),
-
-        "genres": [g["name"].lower() for g in manga.get("genres", [])],
-        "authors": [a["name"] for a in manga.get("authors", [])],
-        "serialization": (
-            manga.get("serializations", [{}])[0].get("name")
-            if manga.get("serializations")
-            else None
-        ),
-        "demographic": demographic,
-
-        "startYear": manga.get("published", {}).get("prop", {}).get("from", {}).get("year"),
-        "endYear": manga.get("published", {}).get("prop", {}).get("to", {}).get("year"),
-    }
