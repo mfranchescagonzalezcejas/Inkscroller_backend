@@ -1,11 +1,16 @@
 import httpx
+from typing import Any
+
+from app.core.resilience import with_retry
 
 BASE_URL = "https://api.mangadex.org"
+
 
 class MangaDexClient:
     def __init__(self):
         self.client = httpx.AsyncClient(base_url=BASE_URL)
 
+    @with_retry()
     async def search_manga(self, query: str, limit: int = 5):
         response = await self.client.get(
             "/manga",
@@ -17,6 +22,8 @@ class MangaDexClient:
         )
         response.raise_for_status()
         return response.json()
+
+    @with_retry()
     async def get_manga(self, manga_id: str):
         response = await self.client.get(
             f"/manga/{manga_id}",
@@ -26,7 +33,8 @@ class MangaDexClient:
         )
         response.raise_for_status()
         return response.json()
-    
+
+    @with_retry()
     async def get_chapters(
         self,
         manga_id: str,
@@ -45,6 +53,7 @@ class MangaDexClient:
         response.raise_for_status()
         return response.json()
 
+    @with_retry()
     async def get_chapter_pages(self, chapter_id: str) -> dict:
         response = await self.client.get(
             f"/at-home/server/{chapter_id}"
@@ -52,6 +61,7 @@ class MangaDexClient:
         response.raise_for_status()
         return response.json()
 
+    @with_retry()
     async def list_manga(
         self,
         limit: int,
