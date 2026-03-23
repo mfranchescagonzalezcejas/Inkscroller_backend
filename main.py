@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 import httpx
@@ -9,6 +10,10 @@ from app.api.chapters import router as chapters_router
 from app.core.cache import SimpleCache
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.core.logging import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -36,6 +41,8 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+
+    logger.info("Inkscroller API v%s starting (debug=%s)", settings.version, settings.debug)
 
     app.add_middleware(
         CORSMiddleware,
