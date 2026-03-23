@@ -7,6 +7,7 @@ from app.api.manga import router as manga_router
 from app.api.chapters import router as chapters_router
 from app.core.cache import SimpleCache
 from app.core.config import settings
+from app.core.exceptions import register_exception_handlers
 
 
 @asynccontextmanager
@@ -34,6 +35,8 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+
+    register_exception_handlers(app)
 
     app.include_router(health_router)
     app.include_router(manga_router)
