@@ -1,4 +1,5 @@
 import httpx
+from typing import Any
 
 BASE_URL = "https://api.mangadex.org"
 
