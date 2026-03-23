@@ -3,10 +3,11 @@ from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from app.services.chapter_mapper import map_mangadex_chapter
 
+
 class ChapterService:
-    def __init__(self, client: MangaDexClient | None = None):
-        self._client = client or MangaDexClient()
-        self._cache = SimpleCache(ttl_seconds=300)
+    def __init__(self, client: MangaDexClient, cache: SimpleCache):
+        self._client = client
+        self._cache = cache
 
     async def get_chapters(
         self,

@@ -2,10 +2,11 @@ from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from httpx import HTTPStatusError
 
+
 class ChapterPagesService:
-    def __init__(self, client: MangaDexClient | None = None):
-        self._client = client or MangaDexClient()
-        self._cache = SimpleCache(ttl_seconds=300)
+    def __init__(self, client: MangaDexClient, cache: SimpleCache):
+        self._client = client
+        self._cache = cache
 
     async def get_pages(self, chapter_id: str) -> dict:
         chapter_id = chapter_id.strip()

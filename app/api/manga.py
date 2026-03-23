@@ -1,20 +1,25 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
+from app.core.dependencies import get_manga_service
 from app.models.manga import Manga
 from app.services.manga_service import MangaService
-from fastapi import HTTPException
 
 router = APIRouter(prefix="/manga", tags=["Manga"])
-service = MangaService()
 
 
 @router.get("/search", response_model=List[Manga])
-async def search_manga(q: str = Query(..., min_length=1)):
+async def search_manga(
+    q: str = Query(..., min_length=1),
+    service: MangaService = Depends(get_manga_service),
+):
     return await service.search(q)
 
 
 @router.get("/{manga_id}", response_model=Manga)
-async def get_manga(manga_id: str):
+async def get_manga(
+    manga_id: str,
+    service: MangaService = Depends(get_manga_service),
+):
     manga_id = manga_id.strip()  # 👈 🔥 ESTO
     manga = await service.get_by_id(manga_id)
     if manga is None:
@@ -29,6 +34,7 @@ async def list_manga(
     demographic: str | None = None,
     status: str | None = None,
     order: str | None = None,
+    service: MangaService = Depends(get_manga_service),
 ):
     return await service.list_manga(
         limit=limit,
@@ -38,4 +44,3 @@ async def list_manga(
         status=status,
         order=order,
     )
-

@@ -10,12 +10,13 @@ from app.services.jikan_mapper import map_jikan_detail
 class MangaService:
     def __init__(
         self,
-        client: Optional[MangaDexClient] = None,
-        jikan: Optional[JikanClient] = None,
+        client: MangaDexClient,
+        jikan: JikanClient,
+        cache: SimpleCache,
     ):
-        self._client = client or MangaDexClient()
-        self._jikan = jikan or JikanClient()
-        self._cache = SimpleCache(ttl_seconds=300)  # 5 minutos
+        self._client = client
+        self._jikan = jikan
+        self._cache = cache
 
     async def search(self, query: str, limit: int = 5):
         cache_key = f"search:{query}:{limit}"

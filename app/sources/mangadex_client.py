@@ -1,11 +1,9 @@
 import httpx
 from typing import Any
 
-BASE_URL = "https://api.mangadex.org"
-
 class MangaDexClient:
-    def __init__(self):
-        self.client = httpx.AsyncClient(base_url=BASE_URL)
+    def __init__(self, client: httpx.AsyncClient):
+        self.client = client
 
     async def search_manga(self, query: str, limit: int = 5):
         response = await self.client.get(
