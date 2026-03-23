@@ -15,5 +15,9 @@ class Settings:
 
     cache_ttl_seconds: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
 
+    cors_origins: list[str] = os.getenv(
+        "CORS_ORIGINS", "*"
+    ).split(",")
+
 
 settings = Settings()

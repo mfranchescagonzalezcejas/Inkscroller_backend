@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.manga import router as manga_router
 from app.api.chapters import router as chapters_router
@@ -34,6 +35,14 @@ def create_app() -> FastAPI:
         version=settings.version,
         debug=settings.debug,
         lifespan=lifespan,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     register_exception_handlers(app)
