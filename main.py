@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
@@ -6,11 +8,17 @@ from app.api.chapters import router as chapters_router
 from app.api.pages import router as pages_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.core.logging import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Inkscroller API",
     version="0.1.0",
 )
+
+logger.info("Inkscroller API v%s starting (debug=%s)", settings.version, settings.debug)
 
 app.add_middleware(
     CORSMiddleware,

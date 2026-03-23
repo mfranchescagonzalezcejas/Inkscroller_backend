@@ -1,9 +1,14 @@
 from __future__ import annotations
+
+import logging
 from typing import Optional
+
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from app.sources.jikan_client import JikanClient
 from app.services.manga_mapper import map_mangadex_manga, map_jikan_manga
+
+logger = logging.getLogger(__name__)
 
 
 class MangaService:
@@ -92,7 +97,11 @@ class MangaService:
                     if result.get(key) in (None, [], "") and value not in (None, [], ""):
                         result[key] = value
         except Exception:
-            pass  # Jikan nunca debe romper la API
+            logger.warning(
+                "Jikan enrichment failed for manga %s, continuing without it",
+                manga_id,
+                exc_info=True,
+            )
 
         self._cache.set(cache_key, result)
         return result
