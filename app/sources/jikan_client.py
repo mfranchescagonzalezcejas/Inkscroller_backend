@@ -1,11 +1,9 @@
 import httpx
 
-BASE_URL = "https://api.jikan.moe/v4"
-
 
 class JikanClient:
-    def __init__(self):
-        self.client = httpx.AsyncClient(base_url=BASE_URL)
+    def __init__(self, client: httpx.AsyncClient):
+        self.client = client
 
     async def search_manga(self, title: str):
         response = await self.client.get(
