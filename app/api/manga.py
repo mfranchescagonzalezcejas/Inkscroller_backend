@@ -20,7 +20,7 @@ async def get_manga(
     manga_id: str,
     service: MangaService = Depends(get_manga_service),
 ):
-    manga_id = manga_id.strip()  # 👈 🔥 ESTO
+    manga_id = manga_id.strip()
     manga = await service.get_by_id(manga_id)
     if manga is None:
         raise HTTPException(status_code=404, detail="Manga not found")

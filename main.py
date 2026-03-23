@@ -26,13 +26,20 @@ async def lifespan(app: FastAPI):
     await app.state.mangadex_http.aclose()
     await app.state.jikan_http.aclose()
 
-app = FastAPI(
-    title="Inkscroller API",
-    version="0.1.0",
-    lifespan=lifespan,
-)
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title=settings.app_name,
+        version=settings.version,
+        debug=settings.debug,
+        lifespan=lifespan,
+    )
+
+    app.include_router(health_router)
+    app.include_router(manga_router)
+    app.include_router(chapters_router)
+
+    return app
 
 
-app.include_router(health_router)
-app.include_router(manga_router)
-app.include_router(chapters_router)
+app = create_app()
