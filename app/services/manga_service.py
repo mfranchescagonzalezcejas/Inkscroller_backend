@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
@@ -110,5 +109,4 @@ class MangaService:
 
         self._cache.set(cache_key, result)
         return result
-
 
