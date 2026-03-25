@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+
 def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
     attr = item.get("attributes", {})
 
@@ -9,16 +10,13 @@ def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
 
     date = None
     if attr.get("publishAt"):
-        date = datetime.fromisoformat(
-            attr["publishAt"].replace("Z", "+00:00")
-        )
+        date = datetime.fromisoformat(attr["publishAt"].replace("Z", "+00:00"))
 
     return {
         "id": item.get("id"),
         "number": attr.get("chapter"),
         "title": attr.get("title"),
         "date": date,
-
         # 🔑 LO IMPORTANTE
         "readable": pages > 0,
         "external": external_url is not None,

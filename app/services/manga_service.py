@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from app.sources.jikan_client import JikanClient
 from app.services.manga_mapper import map_mangadex_manga
 from app.services.jikan_mapper import map_jikan_detail
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class MangaService:
 
         self._cache.set(cache_key, result)
         return result
-    
+
     async def list_manga(
         self,
         limit: int = 20,
@@ -45,7 +46,9 @@ class MangaService:
         status: str | None = None,
         order: str | None = None,
     ):
-        cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}"
+        cache_key = (
+            f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}"
+        )
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -92,12 +95,18 @@ class MangaService:
         try:
             jikan_payload = await self._jikan.search_manga(result["title"])
             search_data = jikan_payload.get("data", [])
-            jikan_data = map_jikan_detail({"data": search_data[0]}) if search_data else None
+            jikan_data = (
+                map_jikan_detail({"data": search_data[0]}) if search_data else None
+            )
 
             if jikan_data is not None:
                 for key, value in jikan_data.items():
                     # Solo rellenamos si MangaDex no tenía el dato
-                    if result.get(key) in (None, [], "") and value not in (None, [], ""):
+                    if result.get(key) in (None, [], "") and value not in (
+                        None,
+                        [],
+                        "",
+                    ):
                         result[key] = value
         except Exception:
             logger.warning(
@@ -108,5 +117,3 @@ class MangaService:
 
         self._cache.set(cache_key, result)
         return result
-
-

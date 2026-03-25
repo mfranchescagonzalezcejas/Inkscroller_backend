@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Any
-from app.services.jikan_mapper import map_jikan_detail
 
 COVER_BASE_URL = "https://uploads.mangadex.org/covers"
 
@@ -31,9 +30,7 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
             break
 
     cover_url = (
-        f"{COVER_BASE_URL}/{item['id']}/{cover_file}.256.jpg"
-        if cover_file
-        else None
+        f"{COVER_BASE_URL}/{item['id']}/{cover_file}.256.jpg" if cover_file else None
     )
 
     return {
@@ -43,7 +40,6 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "coverUrl": cover_url,
         "demographic": demographic,
         "status": status,
-
         # ⬇️ EXTRAS (vacíos, Jikan los rellena)
         "genres": [],
         "score": None,
@@ -57,4 +53,3 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "startYear": None,
         "endYear": None,
     }
-

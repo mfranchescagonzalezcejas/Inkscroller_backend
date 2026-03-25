@@ -31,8 +31,8 @@ class ChapterService:
             if (
                 item.get("attributes", {}).get("pages", 0) > 0
                 or item.get("attributes", {}).get("externalUrl") is not None
-                )
-            ]
+            )
+        ]
 
         self._cache.set(cache_key, result)
         return result

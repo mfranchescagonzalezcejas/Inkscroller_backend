@@ -39,10 +39,7 @@ class ChapterPagesService:
                 "external": True,
             }
 
-        pages = [
-            f"{base_url}/data/{hash_}/{file}"
-            for file in files
-        ]
+        pages = [f"{base_url}/data/{hash_}/{file}" for file in files]
 
         result = {
             "readable": True,

@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+
 class Chapter(BaseModel):
     id: str
     number: Optional[str]

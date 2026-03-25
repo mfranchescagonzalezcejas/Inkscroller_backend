@@ -35,6 +35,7 @@ def with_retry(
 
     Only retries on transient errors (timeouts, connection errors, 429/5xx).
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -49,7 +50,7 @@ def with_retry(
                     if not _is_retryable(exc) or attempt == max_retries:
                         raise
 
-                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    delay = min(base_delay * (2**attempt), max_delay)
                     logger.warning(
                         "Retry %d/%d for %s after %.1fs (%s)",
                         attempt + 1,
@@ -61,5 +62,7 @@ def with_retry(
                     await asyncio.sleep(delay)
 
             raise last_exc  # type: ignore[misc]
+
         return wrapper
+
     return decorator
