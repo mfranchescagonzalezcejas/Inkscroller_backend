@@ -26,6 +26,7 @@ async def get_manga(
         raise HTTPException(status_code=404, detail="Manga not found")
     return manga
 
+
 @router.get("")
 async def list_manga(
     limit: int = Query(20, ge=1, le=100),

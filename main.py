@@ -43,7 +43,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    logger.info("Inkscroller API v%s starting (debug=%s)", settings.version, settings.debug)
+    logger.info(
+        "Inkscroller API v%s starting (debug=%s)", settings.version, settings.debug
+    )
 
     app.add_middleware(
         CORSMiddleware,
