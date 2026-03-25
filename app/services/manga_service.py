@@ -6,7 +6,10 @@ from typing import Optional
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from app.sources.jikan_client import JikanClient
-from app.services.manga_mapper import map_mangadex_manga, map_jikan_manga
+from app.services.manga_mapper import map_mangadex_manga
+from app.services.jikan_mapper import map_jikan_detail
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -14,12 +17,13 @@ logger = logging.getLogger(__name__)
 class MangaService:
     def __init__(
         self,
-        client: Optional[MangaDexClient] = None,
-        jikan: Optional[JikanClient] = None,
+        client: MangaDexClient,
+        jikan: JikanClient,
+        cache: SimpleCache,
     ):
-        self._client = client or MangaDexClient()
-        self._jikan = jikan or JikanClient()
-        self._cache = SimpleCache(ttl_seconds=300)  # 5 minutos
+        self._client = client
+        self._jikan = jikan
+        self._cache = cache
 
     async def search(self, query: str, limit: int = 5):
         cache_key = f"search:{query}:{limit}"
@@ -89,9 +93,10 @@ class MangaService:
         # 🔥 Enriquecimiento con Jikan (rellenar huecos)
         try:
             jikan_payload = await self._jikan.search_manga(result["title"])
-            jikan_data = map_jikan_manga(jikan_payload)
+            search_data = jikan_payload.get("data", [])
+            jikan_data = map_jikan_detail({"data": search_data[0]}) if search_data else None
 
-            if jikan_data:
+            if jikan_data is not None:
                 for key, value in jikan_data.items():
                     # Solo rellenamos si MangaDex no tenía el dato
                     if result.get(key) in (None, [], "") and value not in (None, [], ""):

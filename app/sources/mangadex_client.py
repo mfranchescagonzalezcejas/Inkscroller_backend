@@ -3,12 +3,11 @@ from typing import Any
 
 from app.core.resilience import with_retry
 
-BASE_URL = "https://api.mangadex.org"
 
 
 class MangaDexClient:
-    def __init__(self):
-        self.client = httpx.AsyncClient(base_url=BASE_URL)
+    def __init__(self, client: httpx.AsyncClient):
+        self.client = client
 
     @with_retry()
     async def search_manga(self, query: str, limit: int = 5):
@@ -17,7 +16,7 @@ class MangaDexClient:
             params={
                 "title": query,
                 "limit": limit,
-                "includes[]": ["cover_art"],  # 👈 CLAVE
+                "includes[]": ["cover_art"],
             },
         )
         response.raise_for_status()
@@ -87,7 +86,6 @@ class MangaDexClient:
             params["status[]"] = status
 
         if order:
-            # Ejemplo: order=latest
             if order == "latest":
                 params["order[latestUploadedChapter]"] = "desc"
             elif order == "title":
