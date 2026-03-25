@@ -53,9 +53,7 @@ class MangaDexClient:
 
     @with_retry()
     async def get_chapter_pages(self, chapter_id: str) -> dict:
-        response = await self.client.get(
-            f"/at-home/server/{chapter_id}"
-        )
+        response = await self.client.get(f"/at-home/server/{chapter_id}")
         response.raise_for_status()
         return response.json()
 

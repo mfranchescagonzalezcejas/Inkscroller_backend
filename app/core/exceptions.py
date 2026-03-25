@@ -33,7 +33,9 @@ async def handle_http_status_error(
     logger.error("Upstream HTTP %d from %s", upstream_status, url)
 
     if upstream_status == 404:
-        return _error_response(404, "not_found", "The requested resource was not found upstream.")
+        return _error_response(
+            404, "not_found", "The requested resource was not found upstream."
+        )
     if upstream_status == 429:
         return _error_response(
             503, "rate_limited", "Upstream API rate limit exceeded. Please retry later."
@@ -45,9 +47,7 @@ async def handle_http_status_error(
 
 async def handle_timeout(request: Request, exc: TimeoutException) -> JSONResponse:
     logger.error("Upstream timeout: %s", exc)
-    return _error_response(
-        504, "timeout", "Upstream service did not respond in time."
-    )
+    return _error_response(504, "timeout", "Upstream service did not respond in time.")
 
 
 async def handle_connect_error(request: Request, exc: ConnectError) -> JSONResponse:
@@ -68,9 +68,7 @@ async def handle_upstream_service_error(
 
 async def handle_unhandled(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
-    return _error_response(
-        500, "internal_error", "An unexpected error occurred."
-    )
+    return _error_response(500, "internal_error", "An unexpected error occurred.")
 
 
 def register_exception_handlers(app: FastAPI) -> None:

@@ -4,9 +4,10 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.chapters import router as chapters_router
 from app.api.health import router as health_router
 from app.api.manga import router as manga_router
-from app.api.chapters import router as chapters_router
 from app.core.cache import SimpleCache
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
@@ -42,7 +43,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    logger.info("Inkscroller API v%s starting (debug=%s)", settings.version, settings.debug)
+    logger.info(
+        "Inkscroller API v%s starting (debug=%s)", settings.version, settings.debug
+    )
 
     app.add_middleware(
         CORSMiddleware,
