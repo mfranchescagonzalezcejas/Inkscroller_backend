@@ -1,5 +1,9 @@
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class Settings:
     app_name: str = "Inkscroller API"
@@ -12,6 +16,10 @@ class Settings:
     cache_ttl_seconds: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
 
     cors_origins: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")
+
+    # Phase 5 — Firebase Auth Foundation
+    firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
+    db_path: str = os.getenv("DB_PATH", "./inkscroller.db")
 
 
 settings = Settings()
