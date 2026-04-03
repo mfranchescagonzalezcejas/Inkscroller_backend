@@ -71,10 +71,40 @@ async def handle_unhandled(request: Request, exc: Exception) -> JSONResponse:
     return _error_response(500, "internal_error", "An unexpected error occurred.")
 
 
+class AuthError(Exception):
+    """Raised when a request fails authentication or authorization."""
+
+    def __init__(self, detail: str = "Authentication required."):
+        self.detail = detail
+        super().__init__(detail)
+
+
+class PreferencesValidationError(Exception):
+    """Raised when a preferences update payload is invalid."""
+
+    def __init__(self, detail: str = "Invalid preferences payload."):
+        self.detail = detail
+        super().__init__(detail)
+
+
+async def handle_auth_error(request: Request, exc: AuthError) -> JSONResponse:
+    logger.warning("Auth error on %s %s: %s", request.method, request.url.path, exc.detail)
+    return _error_response(401, "authentication_error", exc.detail)
+
+
+async def handle_preferences_validation_error(
+    request: Request, exc: PreferencesValidationError
+) -> JSONResponse:
+    logger.warning("Preferences validation error: %s", exc.detail)
+    return _error_response(422, "validation_error", exc.detail)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach all exception handlers to the FastAPI app."""
     app.add_exception_handler(HTTPStatusError, handle_http_status_error)
     app.add_exception_handler(TimeoutException, handle_timeout)
     app.add_exception_handler(ConnectError, handle_connect_error)
     app.add_exception_handler(UpstreamServiceError, handle_upstream_service_error)
+    app.add_exception_handler(AuthError, handle_auth_error)
+    app.add_exception_handler(PreferencesValidationError, handle_preferences_validation_error)
     app.add_exception_handler(Exception, handle_unhandled)
