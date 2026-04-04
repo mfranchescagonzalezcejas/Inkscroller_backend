@@ -317,6 +317,8 @@ Cache keys include all relevant parameters, so `GET /manga?limit=20&offset=0` an
 
 ## Running Locally
 
+### Quick start
+
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
@@ -328,10 +330,31 @@ source venv/bin/activate        # Linux / macOS
 # venv\Scripts\activate          # Windows
 
 # 3. Install dependencies
-pip install -r requirements.txt
+# Use `python -m pip` instead of `pip` to avoid launcher path issues
+python -m pip install -r requirements.txt
 
-# 4. Start the development server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# 4. Configure environment variables (see below)
+# Copy .env.example to .env and fill in your values
+cp .env.example .env             # Linux / macOS
+copy .env.example .env           # Windows
+
+# 5. Start the development server
+# Use `python -m uvicorn` instead of `uvicorn` to avoid launcher path issues
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+> **Windows note:** If you get `Fatal error in launcher: Unable to create process using...`, always use `python -m pip` and `python -m uvicorn` instead of the bare `pip` / `uvicorn` commands. This happens when the virtual environment was created with a different path than the current one.
+
+### If your venv is broken
+
+If the virtual environment was created with a different path (e.g., after renaming the project folder), recreate it:
+
+```powershell
+# Windows PowerShell
+Remove-Item -Recurse -Force venv
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
 The API will be available at:
@@ -348,7 +371,12 @@ The API will be available at:
 
 ## Environment / Configuration
 
-Configuration is handled via `app/core/config.py` using environment variables. All settings have sensible defaults and require no `.env` file for local development.
+Configuration is handled via environment variables. Copy `.env.example` to `.env` and fill in your values.
+
+```bash
+cp .env.example .env             # Linux / macOS
+copy .env.example .env           # Windows
+```
 
 | Variable | Default | Description |
 |---|---|---|
@@ -356,8 +384,24 @@ Configuration is handled via `app/core/config.py` using environment variables. A
 | `JIKAN_BASE_URL` | `https://api.jikan.moe/v4` | Jikan API base URL |
 | `CACHE_TTL_SECONDS` | `300` | Cache TTL in seconds |
 | `DEBUG` | `false` | Enable debug mode |
+| `FIREBASE_PROJECT_ID` | *(required for Phase 5)* | Firebase project ID (e.g., `inkscroller-aed59`) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | *(required for Phase 5)* | Path to Firebase service account JSON key |
+| `DB_PATH` | `./inkscroller.db` | SQLite database file path |
 
-> **Note:** The external API clients (`MangaDexClient`, `JikanClient`) currently hardcode their base URLs directly. The `Settings` class in `config.py` exposes the env vars but the clients do not yet consume them — the defaults match, so behavior is identical.
+### Phase 5: Firebase Auth setup
+
+To enable authenticated endpoints (`/users/me`, `/users/me/preferences`):
+
+1. **Download the service account JSON** from Firebase Console → Project Settings → Service Accounts → Generate new private key
+2. **Save it outside the repo** (e.g., `C:\Users\<user>\.ssh\<filename>.json`)
+3. **Set these variables in `.env`:**
+
+```env
+FIREBASE_PROJECT_ID=inkscroller-aed59
+GOOGLE_APPLICATION_CREDENTIALS=C:\Users\<user>\.ssh\<filename>.json
+```
+
+> ⚠️ **Never commit the service account JSON file.** It is already covered by `.gitignore`.
 
 ---
 
