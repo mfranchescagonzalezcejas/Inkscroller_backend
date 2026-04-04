@@ -1,0 +1,96 @@
+name: Bug report
+description: Report a bug in InkScroller backend
+title: "fix(scope): short bug description"
+labels: [bug]
+assignees: [mfranchescagonzalezcejas]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a backend bug. Please include enough detail to reproduce it.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I can reproduce this on the current branch/build I tested
+          required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug description
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the API...
+        2. Call endpoint...
+        3. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected area
+      options:
+        - Auth / Firebase
+        - Users / Preferences
+        - Manga catalogue
+        - Chapters / Pages
+        - Database / SQLite
+        - Deploy / Environment
+        - CI / Workflows
+        - Tooling / Setup
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local development
+        - Windows
+        - Linux
+        - macOS
+        - CI
+        - Staging
+        - Production
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or request/response details
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
