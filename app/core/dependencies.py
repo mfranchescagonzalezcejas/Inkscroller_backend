@@ -6,7 +6,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.cache import SimpleCache
 from app.core.exceptions import AuthError
-from app.core.firebase_auth import AuthenticationError, FirebaseTokenPayload, verify_firebase_token
+from app.core.firebase_auth import (
+    AuthenticationError,
+    FirebaseTokenPayload,
+    verify_firebase_token,
+)
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
 from app.services.manga_service import MangaService
