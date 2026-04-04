@@ -1,0 +1,62 @@
+name: Feature request
+description: Propose a feature or improvement for InkScroller backend
+title: "feat(scope): short feature description"
+labels: [enhancement]
+assignees: [mfranchescagonzalezcejas]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a backend improvement. Please keep the scope concrete and tied to a real problem.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: This request is relevant to the current backend roadmap
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem description
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected area
+      options:
+        - Auth / Firebase
+        - Users / Preferences
+        - Manga catalogue
+        - Chapters / Pages
+        - Database / SQLite
+        - Deploy / Environment
+        - CI / Workflows
+        - Documentation
+        - Tooling / Setup
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
