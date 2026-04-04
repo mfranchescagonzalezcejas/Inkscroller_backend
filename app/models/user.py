@@ -1,6 +1,6 @@
 """Pydantic models for the user profile and reading preferences endpoints."""
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class UserProfile(BaseModel):
