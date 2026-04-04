@@ -88,7 +88,9 @@ class PreferencesValidationError(Exception):
 
 
 async def handle_auth_error(request: Request, exc: AuthError) -> JSONResponse:
-    logger.warning("Auth error on %s %s: %s", request.method, request.url.path, exc.detail)
+    logger.warning(
+        "Auth error on %s %s: %s", request.method, request.url.path, exc.detail
+    )
     return _error_response(401, "authentication_error", exc.detail)
 
 
@@ -106,5 +108,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ConnectError, handle_connect_error)
     app.add_exception_handler(UpstreamServiceError, handle_upstream_service_error)
     app.add_exception_handler(AuthError, handle_auth_error)
-    app.add_exception_handler(PreferencesValidationError, handle_preferences_validation_error)
+    app.add_exception_handler(
+        PreferencesValidationError, handle_preferences_validation_error
+    )
     app.add_exception_handler(Exception, handle_unhandled)

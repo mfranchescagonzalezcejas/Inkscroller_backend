@@ -86,12 +86,18 @@ class UserService:
         Raises :class:`~app.core.exceptions.PreferencesValidationError` when
         a supplied value is not in the accepted set.
         """
-        if req.default_reader_mode is not None and req.default_reader_mode not in _VALID_READER_MODES:
+        if (
+            req.default_reader_mode is not None
+            and req.default_reader_mode not in _VALID_READER_MODES
+        ):
             raise PreferencesValidationError(
                 f"Invalid reader mode '{req.default_reader_mode}'. "
                 f"Accepted values: {sorted(_VALID_READER_MODES)}."
             )
-        if req.default_language is not None and req.default_language not in _VALID_LANGUAGES:
+        if (
+            req.default_language is not None
+            and req.default_language not in _VALID_LANGUAGES
+        ):
             raise PreferencesValidationError(
                 f"Invalid language '{req.default_language}'. "
                 f"Accepted values: {sorted(_VALID_LANGUAGES)}."
@@ -121,7 +127,9 @@ class UserService:
             updated_at=now,
         )
 
-    async def _create_default_preferences(self, firebase_uid: str) -> ReadingPreferences:
+    async def _create_default_preferences(
+        self, firebase_uid: str
+    ) -> ReadingPreferences:
         now = _utc_now()
         await self._db.execute(
             "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, updated_at) "

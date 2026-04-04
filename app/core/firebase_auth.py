@@ -59,7 +59,9 @@ def init_firebase_admin() -> None:
     try:
         cred = credentials.ApplicationDefault()
         firebase_admin.initialize_app(cred, {"projectId": settings.firebase_project_id})
-        logger.info("Firebase Admin SDK initialized (project: %s)", settings.firebase_project_id)
+        logger.info(
+            "Firebase Admin SDK initialized (project: %s)", settings.firebase_project_id
+        )
     except Exception as exc:
         logger.warning(
             "Firebase Admin SDK initialization failed (%s). "
@@ -102,6 +104,8 @@ async def verify_firebase_token(token: str) -> FirebaseTokenPayload:
     display_name: str | None = decoded.get("name")
 
     if not uid or not email:
-        raise AuthenticationError("Firebase token missing required claims (uid, email).")
+        raise AuthenticationError(
+            "Firebase token missing required claims (uid, email)."
+        )
 
     return FirebaseTokenPayload(uid=uid, email=email, display_name=display_name)
