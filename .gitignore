@@ -32,3 +32,5 @@ htmlcov/
 
 # Local SQLite runtime artifacts
 *.db
+*.db-shm
+*.db-wal
