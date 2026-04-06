@@ -7,12 +7,9 @@ from app.core.cache import SimpleCache
 from app.sources.jikan_client import JikanClient
 from app.services.manga_mapper import map_mangadex_manga
 from app.services.jikan_mapper import map_jikan_detail
+from app.core.manga_tags import GENRE_TAG_UUIDS
 
 logger = logging.getLogger(__name__)
-
-logger = logging.getLogger(__name__)
-
-
 class MangaService:
     def __init__(
         self,
@@ -45,13 +42,21 @@ class MangaService:
         demographic: str | None = None,
         status: str | None = None,
         order: str | None = None,
+        genre: str | None = None,
     ):
         cache_key = (
-            f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}"
+            f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}"
         )
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
+
+        # Resolve genre name to MangaDex tag UUID
+        included_tags: list[str] | None = None
+        if genre:
+            tag_uuid = GENRE_TAG_UUIDS.get(genre.lower())
+            if tag_uuid:
+                included_tags = [tag_uuid]
 
         payload = await self._client.list_manga(
             limit=limit,
@@ -60,6 +65,7 @@ class MangaService:
             demographic=demographic,
             status=status,
             order=order,
+            included_tags=included_tags,
         )
 
         items = payload.get("data", [])
