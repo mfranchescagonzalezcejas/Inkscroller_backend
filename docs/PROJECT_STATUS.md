@@ -2,7 +2,7 @@
 
 > **Cross-repo source of truth:** Obsidian under `1-PROJECTS/InkScroller/`
 > **Repo role:** backend implementation status for the FastAPI service
-> **Last updated:** 2026-04-06 (deploy complete)
+> **Last updated:** 2026-04-06 (Sprint 2 closed — PR #7 merged, 3 environments tested on physical device)
 
 ---
 
@@ -22,11 +22,20 @@ This file is the **backend-side status mirror** of the product's shared planning
 |------|-------|
 | Product phase | Phase 5 — Identity & Adaptive Reading |
 | Backend phase state | **M1 complete; deployed to Cloud Run** |
-| Current sprint mirror | Sprint 2 — complete |
+| Current sprint mirror | Sprint 2 — **closed** ✅ |
 | Repo status | Active |
 | Current branch | `develop` |
 | Docker image | ✅ Created (`Dockerfile`, `.dockerignore`) |
-| Live URL | `https://inkscroller-backend-708894048002.us-central1.run.app` |
+
+---
+
+### Cloud Run Deployments (Multi-project)
+
+| Environment | GCP Project | Firebase Project | Cloud Run URL |
+|------------|-------------|------------------|---------------|
+| **dev** | `inkscroller-aed59` | `inkscroller-aed59` | `https://inkscroller-backend-708894048002.us-central1.run.app` |
+| **staging** | `inkscroller-stg` | `inkscroller-stg` | `https://inkscroller-backend-391760656950.us-central1.run.app` |
+| **prod** | `inkscroller-8fa87` | `inkscroller-8fa87` | `https://inkscroller-backend-806863502436.us-central1.run.app` |
 
 ---
 
@@ -77,7 +86,7 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| `BTASK-003` Deploy strategy | High | ✅ Complete — Oracle Cloud Always Free recommended |
+| `BTASK-003` Deploy strategy | High | ✅ Complete — Google Cloud (Cloud Run) |
 | Firebase env setup for live validation | Medium | `FIREBASE_PROJECT_ID` placeholder still in `.env` |
 | MangaDex language configurable by user preference | Medium | Currently hardcoded to `en` |
 | End-to-end validation with Flutter | Low | Frontend M3 is now complete, ready for testing |
@@ -209,8 +218,8 @@ source ~/.bashrc
 
 | Topic | Type | Impact |
 |------|------|--------|
-| `FIREBASE_PROJECT_ID` env not set to real value | validation | Protected endpoints reject requests during live testing |
-| Deploy target not chosen | deploy | ✅ SOLVED — Google Cloud (Cloud Run) |
+| Staging `/users/me` fails for new users | validation | Expected — user doesn't exist in staging Firebase project yet |
+| Deploy target | deploy | ✅ SOLVED — Google Cloud (Cloud Run), tested on physical device 2026-04-06 |
 
 ---
 
