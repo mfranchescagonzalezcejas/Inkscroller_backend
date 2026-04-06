@@ -66,6 +66,7 @@ class MangaDexClient:
         demographic: str | None = None,
         status: str | None = None,
         order: str | None = None,
+        included_tags: list[str] | None = None,
     ):
         params: dict[str, Any] = {
             "limit": limit,
@@ -87,6 +88,9 @@ class MangaDexClient:
                 params["order[latestUploadedChapter]"] = "desc"
             elif order == "title":
                 params["order[title]"] = "asc"
+
+        if included_tags:
+            params["includedTags[]"] = included_tags
 
         response = await self.client.get("/manga", params=params)
         response.raise_for_status()

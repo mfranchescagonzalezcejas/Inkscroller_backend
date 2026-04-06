@@ -35,6 +35,7 @@ async def list_manga(
     demographic: str | None = None,
     status: str | None = None,
     order: str | None = None,
+    genre: str | None = None,
     service: MangaService = Depends(get_manga_service),
 ):
     return await service.list_manga(
@@ -44,4 +45,5 @@ async def list_manga(
         demographic=demographic,
         status=status,
         order=order,
+        genre=genre,
     )
