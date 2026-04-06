@@ -405,6 +405,47 @@ GOOGLE_APPLICATION_CREDENTIALS=C:\Users\<user>\.ssh\<filename>.json
 
 ---
 
+## Deployment
+
+### Google Cloud Run (Recommended)
+
+The backend is deployed to Google Cloud Run. See the [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions.
+
+**Live URL:**
+```
+https://inkscroller-backend-708894048002.us-central1.run.app
+```
+
+**Quick Deploy:**
+
+```bash
+# Build
+docker build -t gcr.io/inkscroller-aed59/inkscroller-backend:latest .
+
+# Push
+docker push gcr.io/inkscroller-aed59/inkscroller-backend:latest
+
+# Deploy
+gcloud run deploy inkscroller-backend \
+  --image gcr.io/inkscroller-aed59/inkscroller-backend:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars FIREBASE_PROJECT_ID=inkscroller-aed59,DB_PATH=/app/data/inkscroller.db
+```
+
+### Multiple Flavor Support
+
+To deploy for different Firebase projects:
+
+| Flavor | Firebase Project | Deploy Command |
+|--------|------------------|----------------|
+| dev | `inkscroller-aed59` | `--set-env-vars FIREBASE_PROJECT_ID=inkscroller-aed59` |
+| staging | `inkscroller-stg` | `--set-env-vars FIREBASE_PROJECT_ID=inkscroller-stg` |
+| prod | `inkscroller-8fa87` | `--set-env-vars FIREBASE_PROJECT_ID=inkscroller-8fa87` |
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please open an issue first to discuss what you would like to change.
