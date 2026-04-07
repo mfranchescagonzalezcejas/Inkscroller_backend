@@ -134,6 +134,7 @@ class AppSmokeTests(unittest.TestCase):
                     "demographic": None,
                     "status": "ongoing",
                     "order": "latest",
+                    "genre": None,
                 }
             ],
         )
