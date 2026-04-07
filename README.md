@@ -160,6 +160,19 @@ tests/
 
 ---
 
+## Atribución y Disclaimer
+
+InkScroller Backend agrega datos de las siguientes fuentes externas:
+
+- **MangaDex** — fuente primaria de catálogo, capítulos e imágenes de manga. InkScroller no está afiliado a MangaDex. Todo el contenido pertenece a sus respectivos autores y grupos de scanlation. Se respetan los [Términos de Servicio de MangaDex](https://mangadex.org/about/terms-of-service).
+- **Jikan / MyAnimeList** — capa de enriquecimiento de metadatos (score, rank, géneros). Jikan es un servicio no oficial de terceros. InkScroller no está afiliado a MyAnimeList ni a Jikan. Se respetan los [Términos de Uso de MyAnimeList](https://myanimelist.net/about/terms_of_use).
+
+Este proyecto actúa como **proxy de lectura**. No almacena ni redistribuye imágenes de manga. Los derechos sobre el contenido pertenecen a sus titulares originales.
+
+Para consultas legales o solicitudes de takedown, ver [`docs/legal/api-compliance.md`](docs/legal/api-compliance.md).
+
+---
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.

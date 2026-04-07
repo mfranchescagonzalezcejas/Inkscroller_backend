@@ -5,7 +5,7 @@ import logging
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
 from app.sources.jikan_client import JikanClient
-from app.services.manga_mapper import map_mangadex_manga
+from app.services.manga_mapper import map_mangadex_manga, apply_statistics
 from app.services.jikan_mapper import map_jikan_detail
 from app.core.manga_tags import GENRE_TAG_UUIDS
 
@@ -72,6 +72,23 @@ class MangaService:
         total = payload.get("total", 0)
 
         result = [map_mangadex_manga(item) for item in items]
+
+        # Always fetch statistics to get rating for all manga lists
+        if result:
+            try:
+                manga_ids = [m["id"] for m in result]
+                stats_payload = await self._client.get_statistics(manga_ids)
+                stats_dict = stats_payload.get("statistics", {})
+                
+                # Apply statistics to each manga
+                for manga in result:
+                    manga_stats = stats_dict.get(manga["id"], {})
+                    apply_statistics(manga, manga_stats)
+            except Exception:
+                logger.warning(
+                    "Failed to fetch statistics for manga list, continuing without ratings",
+                    exc_info=True,
+                )
 
         response = {
             "data": result,
