@@ -6,6 +6,8 @@ from app.core.resilience import with_retry
 
 
 class MangaDexClient:
+    _ALLOWED_CONTENT_RATINGS = ["safe", "suggestive"]
+
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
 
@@ -17,6 +19,7 @@ class MangaDexClient:
                 "title": query,
                 "limit": limit,
                 "includes[]": ["cover_art"],
+                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
             },
         )
         response.raise_for_status()
@@ -47,6 +50,7 @@ class MangaDexClient:
                 "translatedLanguage[]": language,
                 "order[chapter]": "asc",
                 "limit": limit,
+                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
             },
         )
         response.raise_for_status()
@@ -61,6 +65,7 @@ class MangaDexClient:
                 # readableAt yields real currently readable releases.
                 "order[readableAt]": "desc",
                 "limit": limit,
+                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
             },
         )
         response.raise_for_status()
@@ -77,6 +82,7 @@ class MangaDexClient:
                 "ids[]": manga_ids,
                 "includes[]": ["cover_art"],
                 "limit": min(len(manga_ids), 100),
+                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
             },
         )
         response.raise_for_status()
@@ -104,6 +110,7 @@ class MangaDexClient:
             "limit": limit,
             "offset": offset,
             "includes[]": ["cover_art"],
+            "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
         }
 
         if title:
