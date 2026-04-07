@@ -33,6 +33,14 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         f"{COVER_BASE_URL}/{item['id']}/{cover_file}.256.jpg" if cover_file else None
     )
 
+    # Tags - extract genre names from attributes
+    tags = attributes.get("tags", [])
+    genre_names = [
+        tag.get("attributes", {}).get("name", {}).get("en", "")
+        for tag in tags
+        if tag.get("attributes", {}).get("group") == "genre"
+    ]
+
     return {
         "id": item.get("id"),
         "title": title,
@@ -40,8 +48,8 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "coverUrl": cover_url,
         "demographic": demographic,
         "status": status,
-        # ⬇️ EXTRAS (vacíos, Jikan los rellena)
-        "genres": [],
+        "genres": genre_names,
+        # ⬇️ Statistics (filled by get_statistics in service)
         "score": None,
         "rank": None,
         "popularity": None,
@@ -53,3 +61,19 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "startYear": None,
         "endYear": None,
     }
+
+
+def apply_statistics(manga: dict[str, Any], stats: dict[str, Any]) -> dict[str, Any]:
+    """Apply statistics (rating, follows) to a manga dict."""
+    if not stats:
+        return manga
+    
+    rating = stats.get("rating", {})
+    follows = stats.get("follows", 0)
+    
+    # Update with actual values from MangaDex
+    manga["score"] = rating.get("bayesian") or rating.get("average")
+    manga["popularity"] = follows
+    manga["favorites"] = follows  # Same value, keeping for compatibility
+    
+    return manga
