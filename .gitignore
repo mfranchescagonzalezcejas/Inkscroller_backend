@@ -15,6 +15,12 @@ env/
 .env.*
 !.env.example
 
+# Firebase service account keys (injected via CI — see SECURITY_PUBLIC_READINESS.md)
+serviceAccountKey.json
+*serviceAccount*.json
+firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+
 # Distribution / packaging
 dist/
 build/
@@ -32,3 +38,15 @@ htmlcov/
 
 # Local SQLite runtime artifacts
 *.db
+
+# -------------------------------------------------------
+# PUBLIC-READY SECURITY BASELINE
+# See SECURITY_PUBLIC_READINESS.md for full details
+# -------------------------------------------------------
+
+# Google Cloud / GCP credentials
+*credentials*.json
+gcloud-*.json
+
+# Docker secrets
+docker-compose.override.yml
