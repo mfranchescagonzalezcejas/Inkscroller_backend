@@ -57,8 +57,8 @@
 
 | # | Ítem | Criticidad | Estado |
 |---|------|-----------|--------|
-| 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ☐ |
-| 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ☐ |
+| 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — 8/8 (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
+| 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 | 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ⏳ Pendiente de evidencia operacional (ver guía/plantilla P0-B1) |
 | 5.4 | Revisión de logs de las últimas 24 hs — sin errores críticos ni picos de 429 | 🟡 ADVERTENCIA | ☐ |
 
@@ -116,7 +116,7 @@ Firma: ___________
 | P0-B5 | No existe endpoint de bulk download | 1.3 | ⏳ pendiente |
 | **P0-B6** | **Contenido adulto filtrado (`contentRating=[safe,suggestive]`)** | **1.7** | **✅ 2026-04-08** |
 | **P0-B7** | **No se envían datos de usuarios a MangaDex ni Jikan** | **3.1** | **✅ 2026-04-08** — PASS — auditoría estática + 7 tests (evidencia: [`templates/p0-b7-evidence.md`](./templates/p0-b7-evidence.md)) |
-| P0-B8 | Tests de smoke pasan y `/ping` responde en prod | 5.1 / 5.2 | ⏳ pendiente |
+| **P0-B8** | **Tests de smoke pasan y `/ping` responde en prod** | **5.1 / 5.2** | **✅ 2026-04-08** — PASS — 8/8 smoke tests + `/ping` HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 
 ### Evidencias — P0-B6
 
@@ -199,6 +199,22 @@ P0-B7 **CERRADO** con auditoría estática completa de clientes upstream y tests
 - **Resultado:** No hay transmisión de Firebase UID, email, tokens ni PII a APIs externas
 - **Evidencia completa:** [`docs/release/templates/p0-b7-evidence.md`](./templates/p0-b7-evidence.md)
 - **Rama:** `feature/p0-b7-upstream-data-privacy`
+
+### Cierre P0-B8 — PASS (2026-04-08)
+
+P0-B8 **CERRADO** con ejecución real de smoke tests y verificación directa contra producción.
+
+- **Ejecución ejecutada:**
+  1. `python -m pytest tests/test_app.py -v` → 8/8 PASS (0.72s) — Python 3.12.10, pytest 9.0.3
+  2. `./scripts/release/smoke_prod.sh` → 4/4 PASS contra `https://inkscroller-backend-806863502436.us-central1.run.app`
+  3. `curl -is "${PROD_URL}/ping"` → HTTP/2 200 `{"ok":true}` en 0.185s
+  4. `GET /manga?limit=1` → HTTP 200 — catálogo MangaDex responde correctamente
+  5. `GET /manga/search?q=berserk` → HTTP 200 — búsqueda responde correctamente
+  6. `GET /manga/%20invalid-id%20` → HTTP 404 — manejo de errores correcto
+- **Script reproducible:** `scripts/release/smoke_prod.sh` — soporta `PROD_URL` y `TIMEOUT` env vars, código de salida 0/1 (integrable en CI)
+- **Resultado:** Todos los endpoints públicos responden correctamente en producción. `/ping` confirma uptime.
+- **Evidencia completa:** [`docs/release/templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)
+- **Rama:** `feature/p0-b8-smoke-prod-evidence`
 
 ---
 
