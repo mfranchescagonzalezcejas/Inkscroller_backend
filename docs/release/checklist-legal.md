@@ -109,7 +109,7 @@ Firma: ___________
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
-| P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente |
+| P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente — ver guía en [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md) |
 | P0-B2 | `.env` de producción NO en el repositorio | 3.3 | ⏳ pendiente |
 | P0-B3 | Firebase Admin SDK credentials via env var, no hardcodeadas | 3.4 | ⏳ pendiente |
 | P0-B4 | No se cachean binarios de imágenes (solo URLs) | 1.2 | ⏳ pendiente |
@@ -126,6 +126,25 @@ Firma: ___________
 - **Referencia cruzada**: Control Tower V1.0 (Obsidian) → P0-B6 marcado ✅ 2026-04-08
 
 > ⚠️ **Nota de alcance**: La evidencia registrada corresponde a revisión indicada en tracking y deploy logs. La verificación formal end-to-end con QA automatizado queda pendiente como parte de P0-B8.
+
+### Pendiente de ejecución manual — P0-B1
+
+P0-B1 **requiere acceso a Cloud Run prod** para verificarse. No puede cerrarse localmente.
+
+- **Guía completa** con comandos `gcloud` exactos: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md)
+- **Variables críticas a verificar:**
+  - `FIREBASE_PROJECT_ID=inkscroller-8fa87`
+  - `DEBUG=false`
+  - `CORS_ORIGINS` ≠ `*` (o justificación documentada si se deja abierto)
+  - `DB_PATH` apunta a ruta persistente
+- **Comando de verificación rápido:**
+  ```bash
+  gcloud run services describe inkscroller-backend \
+    --region us-central1 \
+    --project inkscroller-8fa87 \
+    --format="value(spec.template.spec.containers[0].env)"
+  ```
+- **Para marcar como ✅**: ejecutar la guía, documentar el output en `env-vars-cloudrun-prod.md` § "Evidencias de cierre" y actualizar este tracking.
 
 ---
 
