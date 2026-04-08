@@ -40,7 +40,7 @@
 
 | # | Ítem | Criticidad | Estado |
 |---|------|-----------|--------|
-| 3.1 | No se envían datos de usuarios (Firebase UID, email) a MangaDex ni Jikan | 🔴 BLOQUEANTE | ☐ |
+| 3.1 | No se envían datos de usuarios (Firebase UID, email) a MangaDex ni Jikan | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b7-evidence.md`](./templates/p0-b7-evidence.md)) |
 | 3.2 | Las variables de entorno sensibles NO están hardcodeadas (revisar `.env` vs código) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | 3.3 | El `.env` de producción no está en el repositorio | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | 3.4 | Firebase Admin SDK credentials están configuradas via env var, no en el repo | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
@@ -115,7 +115,7 @@ Firma: ___________
 | P0-B4 | No se cachean binarios de imágenes (solo URLs) | 1.2 | ⏳ pendiente |
 | P0-B5 | No existe endpoint de bulk download | 1.3 | ⏳ pendiente |
 | **P0-B6** | **Contenido adulto filtrado (`contentRating=[safe,suggestive]`)** | **1.7** | **✅ 2026-04-08** |
-| P0-B7 | No se envían datos de usuarios a MangaDex ni Jikan | 3.1 | ⏳ pendiente |
+| **P0-B7** | **No se envían datos de usuarios a MangaDex ni Jikan** | **3.1** | **✅ 2026-04-08** — PASS — auditoría estática + 7 tests (evidencia: [`templates/p0-b7-evidence.md`](./templates/p0-b7-evidence.md)) |
 | P0-B8 | Tests de smoke pasan y `/ping` responde en prod | 5.1 / 5.2 | ⏳ pendiente |
 
 ### Evidencias — P0-B6
@@ -184,6 +184,21 @@ P0-B3 **CERRADO** con evidencia de auditoría de código y historial git.
 - **Flujo certificado:** ADC (Application Default Credentials) en Cloud Run / Workload Identity. Archivo JSON de service account solo para dev local, fuera del repo.
 - **Evidencia completa:** [`docs/release/templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)
 - **Rama:** `feature/p0-b2-b3-secrets-compliance`
+
+### Cierre P0-B7 — PASS (2026-04-08)
+
+P0-B7 **CERRADO** con auditoría estática completa de clientes upstream y tests unitarios formales.
+
+- **Auditoría ejecutada:**
+  1. Revisión de firmas de todos los métodos públicos de `MangaDexClient` (8 métodos) — 0 parámetros PII
+  2. Revisión de firmas de todos los métodos públicos de `JikanClient` (1 método) — 0 parámetros PII
+  3. Revisión de inicialización `httpx.AsyncClient` en `main.py` — sin headers de usuario
+  4. Verificación de separación arquitectural: flujo de autenticación (Firebase/SQLite) independiente del flujo de contenido (MangaDex/Jikan)
+  5. Revisión de endpoint ad-hoc `/manga/tags` — sin PII en request
+- **Tests formales:** `tests/test_upstream_privacy.py` — 7/7 PASS
+- **Resultado:** No hay transmisión de Firebase UID, email, tokens ni PII a APIs externas
+- **Evidencia completa:** [`docs/release/templates/p0-b7-evidence.md`](./templates/p0-b7-evidence.md)
+- **Rama:** `feature/p0-b7-upstream-data-privacy`
 
 ---
 
