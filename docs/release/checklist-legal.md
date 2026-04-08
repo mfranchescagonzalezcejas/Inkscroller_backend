@@ -18,8 +18,8 @@
 | # | Ítem | Criticidad | Estado |
 |---|------|-----------|--------|
 | 1.1 | El backend actúa como proxy — Flutter **no** llama a MangaDex directamente | 🔴 BLOQUEANTE | ☐ |
-| 1.2 | No se cachean binarios de imágenes en el servidor (solo URLs) | 🔴 BLOQUEANTE | ☐ |
-| 1.3 | No existe endpoint de bulk download de capítulos | 🔴 BLOQUEANTE | ☐ |
+| 1.2 | No se cachean binarios de imágenes en el servidor (solo URLs) | 🔴 BLOQUEANTE | ✅ 2026-04-09 — PASS (ver [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
+| 1.3 | No existe endpoint de bulk download de capítulos | 🔴 BLOQUEANTE | ✅ 2026-04-09 — PASS (ver [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
 | 1.4 | El caché in-memory está activo (TTL 5 min) para reducir llamadas a MangaDex | 🟡 ADVERTENCIA | ☐ |
 | 1.5 | Todos los clientes HTTP incluyen header `User-Agent: InkScroller-Backend/...` | 🟡 ADVERTENCIA | ☐ |
 | 1.6 | Existe manejo de HTTP 429 (retry con backoff o log de warning) | 🟡 ADVERTENCIA | ☐ |
@@ -112,11 +112,43 @@ Firma: ___________
 | P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente — evidencia manual requerida (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), plantilla: [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
 | **P0-B2** | **`.env` de producción NO en el repositorio** | **3.3** | **✅ 2026-04-08** — PASS — auditoría repo + historial git limpio (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B3** | **Firebase Admin SDK credentials via env var, no hardcodeadas** | **3.4** | **✅ 2026-04-08** — PASS — ApplicationDefault() + os.getenv, sin Certificate(), sin hardcoding (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
-| P0-B4 | No se cachean binarios de imágenes (solo URLs) | 1.2 | ⏳ pendiente |
-| P0-B5 | No existe endpoint de bulk download | 1.3 | ⏳ pendiente |
+| **P0-B4** | **No se cachean binarios de imágenes (solo URLs)** | **1.2** | **✅ 2026-04-09** — PASS — auditoría estática + 14 tests unitarios (evidencia: [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
+| **P0-B5** | **No existe endpoint de bulk download** | **1.3** | **✅ 2026-04-09** — PASS — inventario completo de 12 rutas auditado + 14 tests unitarios (evidencia: [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
 | **P0-B6** | **Contenido adulto filtrado (`contentRating=[safe,suggestive]`)** | **1.7** | **✅ 2026-04-08** |
 | **P0-B7** | **No se envían datos de usuarios a MangaDex ni Jikan** | **3.1** | **✅ 2026-04-08** — PASS — auditoría estática + 7 tests (evidencia: [`templates/p0-b7-evidence.md`](./templates/p0-b7-evidence.md)) |
 | **P0-B8** | **Tests de smoke pasan y `/ping` responde en prod** | **5.1 / 5.2** | **✅ 2026-04-08** — PASS — 8/8 smoke tests + `/ping` HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
+
+### Cierre P0-B4 — PASS (2026-04-09)
+
+P0-B4 **CERRADO** con auditoría estática completa y tests unitarios formales.
+
+- **Auditoría ejecutada:**
+  1. Análisis de `SimpleCache` (`app/core/cache.py`): almacenamiento in-memory `dict[str, tuple[float, Any]]` — sin persistencia a disco, sin Redis, sin almacenamiento externo.
+  2. Análisis de `ChapterPagesService.get_pages()` (`app/services/chapter_pages_service.py`): cachea `{"readable": bool, "external": bool, "pages": [str, str, ...]}` — lista de strings URL, no bytes. El cliente MangaDex sólo llama a `/at-home/server/{chapter_id}` para obtener metadata JSON.
+  3. `coverUrl` en `MangaService` es un string URL de CDN (`.256.jpg`) — no binario descargado.
+  4. DDL SQLite (`app/core/database.py`): 2 tablas (`users`, `reading_preferences`) — cero columnas BLOB/IMAGE/BYTEA.
+  5. Búsqueda `StreamingResponse|FileResponse|application/octet-stream` → 0 matches en todo el código.
+  6. Búsqueda `b64encode|BytesIO|.read()|open(|write(` en servicios → 0 matches.
+- **Tests formales:** `tests/test_image_cache_and_bulk_download.py` — 14/14 PASS (clases `TestNoBinaryCaching` y `TestNoBulkDownloadEndpoint`)
+- **Resultado:** El backend actúa como proxy de URLs — obtiene rutas del CDN de MangaDex y las retorna al cliente. Nunca descarga ni almacena contenido binario de imágenes.
+- **Evidencia completa:** [`docs/release/templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)
+- **Rama:** `feature/p0-b4-b5-final-backend-compliance`
+
+### Cierre P0-B5 — PASS (2026-04-09)
+
+P0-B5 **CERRADO** con inventario completo de endpoints auditado y tests unitarios formales.
+
+- **Auditoría ejecutada:**
+  1. Inventario completo de 12 rutas API (4 routers): `chapters` (3), `manga` (5), `users` (3), `health` (1).
+  2. Ninguna ruta contiene "download" o "bulk" en path ni nombre de función.
+  3. Único endpoint relacionado con imágenes `GET /{chapter_id}/pages`: retorna lista de URLs, nunca descarga binarios. El cliente Flutter carga las imágenes directamente desde el CDN de MangaDex.
+  4. Búsqueda `zipfile|tarfile|ZipFile|TarFile|shutil.make_archive` en servicios/routers → 0 matches.
+  5. El comentario en `MangaDexClient.get_statistics()` confirma diseño explícito: "MangaDex doesn't support bulk".
+  6. Todos los endpoints de chapters usan método GET exclusivamente.
+- **Tests formales:** `tests/test_image_cache_and_bulk_download.py` — 14/14 PASS (clase `TestNoBulkDownloadEndpoint` con 7 tests específicos)
+- **Resultado:** No existe ningún endpoint de bulk download. El inventario de rutas está auditado y los tests protegen contra adición inadvertida.
+- **Evidencia completa:** [`docs/release/templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)
+- **Rama:** `feature/p0-b4-b5-final-backend-compliance`
 
 ### Evidencias — P0-B6
 
