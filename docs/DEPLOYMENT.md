@@ -77,6 +77,18 @@ One backend image serves all flavors — just change `FIREBASE_PROJECT_ID` at de
 | `MANGADEX_BASE_URL` | — | `https://api.mangadex.org` | MangaDex base URL |
 | `JIKAN_BASE_URL` | — | `https://api.jikan.moe/v4` | Jikan base URL |
 
+### Verificación operacional de env vars en prod (P0-B1)
+
+Antes de marcar release en **GO** para producción, ejecutar y adjuntar evidencia:
+
+```bash
+./scripts/release/verify_prod_env_cloud_run.sh
+```
+
+- Si no hay acceso real a `gcloud`/proyecto prod, registrar el estado como **MANUAL PENDING**.
+- No marcar P0-B1 como `✅` en `docs/release/checklist-legal.md` sin output real de `gcloud run services describe`.
+- Completar evidencia en: `docs/release/templates/p0-b1-evidence-template.md`.
+
 ---
 
 ## Known Gotchas
