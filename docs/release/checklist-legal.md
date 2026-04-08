@@ -57,9 +57,10 @@
 
 | # | Ítem | Criticidad | Estado |
 |---|------|-----------|--------|
+<<<<<<< HEAD
 | 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — 8/8 (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 | 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
-| 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ⏳ Pendiente de evidencia operacional (ver guía/plantilla P0-B1) |
+| 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md) y [`templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
 | 5.4 | Revisión de logs de las últimas 24 hs — sin errores críticos ni picos de 429 | 🟡 ADVERTENCIA | ☐ |
 
 ---
@@ -109,7 +110,8 @@ Firma: ___________
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
-| P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente — evidencia manual requerida (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), plantilla: [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
+<<<<<<< HEAD
+| **P0-B1** | **Variables de entorno de producción configuradas en Cloud Run** | **5.3** | **✅ 2026-04-08** — PASS — revisión `00005-mj9` prod (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), evidencia: [`templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
 | **P0-B2** | **`.env` de producción NO en el repositorio** | **3.3** | **✅ 2026-04-08** — PASS — auditoría repo + historial git limpio (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B3** | **Firebase Admin SDK credentials via env var, no hardcodeadas** | **3.4** | **✅ 2026-04-08** — PASS — ApplicationDefault() + os.getenv, sin Certificate(), sin hardcoding (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B4** | **No se cachean binarios de imágenes (solo URLs)** | **1.2** | **✅ 2026-04-09** — PASS — auditoría estática + 14 tests unitarios (evidencia: [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
@@ -159,37 +161,33 @@ P0-B5 **CERRADO** con inventario completo de endpoints auditado y tests unitario
 
 > ⚠️ **Nota de alcance**: La evidencia registrada corresponde a revisión indicada en tracking y deploy logs. La verificación formal end-to-end con QA automatizado queda pendiente como parte de P0-B8.
 
-### Pendiente de ejecución manual — P0-B1
+### Cierre P0-B1 — PASS (2026-04-08 21:26 UTC)
 
-P0-B1 **requiere acceso a Cloud Run prod** para verificarse. No puede cerrarse localmente.
+P0-B1 **CERRADO** con evidencia real de Cloud Run prod.
 
-- **Guía completa** con comandos `gcloud` exactos: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md)
-- **Variables críticas a verificar:**
-  - `FIREBASE_PROJECT_ID=inkscroller-8fa87`
-  - `DEBUG=false`
-  - `CORS_ORIGINS` ≠ `*` (o justificación documentada si se deja abierto)
-  - `DB_PATH` apunta a ruta persistente
-- **Comando de verificación rápido:**
-  ```bash
-  gcloud run services describe inkscroller-backend \
-    --region us-central1 \
-    --project inkscroller-8fa87 \
-    --format="value(spec.template.spec.containers[0].env)"
-  ```
-- **Para marcar como ✅**: ejecutar la guía, documentar el output en `env-vars-cloudrun-prod.md` § "Evidencias de cierre" y actualizar este tracking.
-- **Plantilla obligatoria de evidencia**: completar `docs/release/templates/p0-b1-evidence-template.md` con fecha, ejecutor, snippet de output y decisión PASS/FAIL.
+- **Acciones tomadas:**
+  1. Se detectaron gaps: `DEBUG=false` y `CORS_ORIGINS` no configurados explícitamente.
+  2. Se ejecutó `gcloud run services update` con `--update-env-vars DEBUG=false,CORS_ORIGINS=https://inkscroller-app.web.app`.
+  3. Nueva revisión `inkscroller-backend-00005-mj9` desplegada en `us-central1`.
+  4. Se re-ejecutó `./scripts/release/verify_prod_env_cloud_run.sh` → **PASS 5/5**.
+- **Evidencia completa:** [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)
+- **Guía de referencia:** [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md)
 
-### Evidencia operacional registrada (2026-04-08)
+### Evidencias registradas — P0-B1
 
-- Se ejecutó `./scripts/release/verify_prod_env_cloud_run.sh` contra prod.
-- Resultado: **FAIL** para P0-B1 (se mantiene `⏳ pendiente`).
-- Hallazgos:
-  - ✅ `FIREBASE_PROJECT_ID` correcto
-  - ✅ `DB_PATH` presente con valor esperado
-  - ❌ `DEBUG=false` no figura explícitamente en variables de Cloud Run
-  - ❌ `CORS_ORIGINS` no figura explícitamente en variables de Cloud Run (riesgo de default `*`)
-  - ✅ `/ping` responde 200
-- Referencia detallada: `docs/release/env-vars-cloudrun-prod.md` (sección "Ejecución más reciente (operacional)").
+| Fecha | Resultado | Notas |
+|-------|-----------|-------|
+| 2026-04-08 (primera ejecución) | FAIL | `DEBUG` y `CORS_ORIGINS` ausentes en Cloud Run |
+| 2026-04-08 21:26 UTC (cierre) | **PASS ✅** | 5/5 checks — revisión `00005-mj9` prod |
+
+**Env dump final (Cloud Run prod — revisión 00005-mj9):**
+```text
+FIREBASE_PROJECT_ID=inkscroller-8fa87  ✅
+DB_PATH=/app/data/inkscroller.db       ✅
+DEBUG=false                            ✅
+CORS_ORIGINS=https://inkscroller-app.web.app  ✅ (no wildcard)
+/ping → HTTP 200                       ✅
+```
 
 ### Cierre P0-B2 — PASS (2026-04-08)
 
