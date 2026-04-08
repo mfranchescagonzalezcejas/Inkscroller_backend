@@ -59,7 +59,7 @@
 |---|------|-----------|--------|
 | 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ☐ |
 | 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ☐ |
-| 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ☐ |
+| 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ⏳ Pendiente de evidencia operacional (ver guía/plantilla P0-B1) |
 | 5.4 | Revisión de logs de las últimas 24 hs — sin errores críticos ni picos de 429 | 🟡 ADVERTENCIA | ☐ |
 
 ---
@@ -109,7 +109,7 @@ Firma: ___________
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
-| P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente — ver guía en [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md) |
+| P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente — evidencia manual requerida (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), plantilla: [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
 | P0-B2 | `.env` de producción NO en el repositorio | 3.3 | ⏳ pendiente |
 | P0-B3 | Firebase Admin SDK credentials via env var, no hardcodeadas | 3.4 | ⏳ pendiente |
 | P0-B4 | No se cachean binarios de imágenes (solo URLs) | 1.2 | ⏳ pendiente |
@@ -145,6 +145,19 @@ P0-B1 **requiere acceso a Cloud Run prod** para verificarse. No puede cerrarse l
     --format="value(spec.template.spec.containers[0].env)"
   ```
 - **Para marcar como ✅**: ejecutar la guía, documentar el output en `env-vars-cloudrun-prod.md` § "Evidencias de cierre" y actualizar este tracking.
+- **Plantilla obligatoria de evidencia**: completar `docs/release/templates/p0-b1-evidence-template.md` con fecha, ejecutor, snippet de output y decisión PASS/FAIL.
+
+### Evidencia operacional registrada (2026-04-08)
+
+- Se ejecutó `./scripts/release/verify_prod_env_cloud_run.sh` contra prod.
+- Resultado: **FAIL** para P0-B1 (se mantiene `⏳ pendiente`).
+- Hallazgos:
+  - ✅ `FIREBASE_PROJECT_ID` correcto
+  - ✅ `DB_PATH` presente con valor esperado
+  - ❌ `DEBUG=false` no figura explícitamente en variables de Cloud Run
+  - ❌ `CORS_ORIGINS` no figura explícitamente en variables de Cloud Run (riesgo de default `*`)
+  - ✅ `/ping` responde 200
+- Referencia detallada: `docs/release/env-vars-cloudrun-prod.md` (sección "Ejecución más reciente (operacional)").
 
 ---
 

@@ -43,6 +43,16 @@ los comandos exactos para que el operador los ejecute manualmente.
 
 ## Comandos de verificación (ejecutar tú)
 
+### Opción rápida reproducible (script)
+
+```bash
+./scripts/release/verify_prod_env_cloud_run.sh
+```
+
+Si el entorno local no tiene `gcloud` autenticado o no tiene permisos al proyecto prod,
+el script termina en estado `MANUAL PENDING` y deja comandos copy-paste + expected output
+para ejecutar desde una terminal con acceso real.
+
 ### 1. Ver todas las env vars actuales en Cloud Run prod
 
 ```bash
@@ -161,7 +171,23 @@ permisos sobre el proyecto `inkscroller-8fa87`. Pasos pendientes:
 
 ## Evidencias de cierre
 
-> *(Completar cuando se ejecuten los comandos de verificación)*
+> Usar esta plantilla: [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)
+> *(Completar cuando se ejecuten los comandos de verificación con acceso real a GCP)*
+
+### Ejecución más reciente (operacional)
+
+- **Fecha:** 2026-04-08
+- **Ejecutor:** agente local (CLI)
+- **Resultado:** **FAIL** (P0-B1 sigue pendiente)
+- **Resumen de salida real:**
+  - `FIREBASE_PROJECT_ID=inkscroller-8fa87` ✅
+  - `DB_PATH=/app/data/inkscroller.db` ✅
+  - `DEBUG=false` no aparece explícitamente en env vars ❌
+  - `CORS_ORIGINS` no aparece explícitamente en env vars (riesgo de default `*`) ❌
+  - `GET /ping` retorna `HTTP 200` ✅
+
+> Hasta que `DEBUG` y `CORS_ORIGINS` queden explícitos en Cloud Run prod y se vuelva a ejecutar
+> la verificación con output documentado en plantilla, **P0-B1 no se marca como ✅**.
 
 ```
 Fecha: ___________
@@ -179,5 +205,6 @@ Decisión: ☐ CONFORME  ☐ NO CONFORME (listar gaps)
 
 - [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) — proceso completo de deploy y URLs de Cloud Run
 - [`docs/release/checklist-legal.md`](./checklist-legal.md) — checklist de compliance y tracking P0
+- [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md) — formato estándar de evidencia para P0-B1
 - [`.env.example`](../../.env.example) — referencia de variables de entorno del backend
 - [`app/core/config.py`](../../app/core/config.py) — código que lee las env vars en runtime
