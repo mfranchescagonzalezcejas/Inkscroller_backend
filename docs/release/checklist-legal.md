@@ -41,9 +41,9 @@
 | # | Ítem | Criticidad | Estado |
 |---|------|-----------|--------|
 | 3.1 | No se envían datos de usuarios (Firebase UID, email) a MangaDex ni Jikan | 🔴 BLOQUEANTE | ☐ |
-| 3.2 | Las variables de entorno sensibles NO están hardcodeadas (revisar `.env` vs código) | 🔴 BLOQUEANTE | ☐ |
-| 3.3 | El `.env` de producción no está en el repositorio | 🔴 BLOQUEANTE | ☐ |
-| 3.4 | Firebase Admin SDK credentials están configuradas via env var, no en el repo | 🔴 BLOQUEANTE | ☐ |
+| 3.2 | Las variables de entorno sensibles NO están hardcodeadas (revisar `.env` vs código) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
+| 3.3 | El `.env` de producción no está en el repositorio | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
+| 3.4 | Firebase Admin SDK credentials están configuradas via env var, no en el repo | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 
 ## Bloque 4 — Atribución y disclaimers
 
@@ -110,8 +110,8 @@ Firma: ___________
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
 | P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente — evidencia manual requerida (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), plantilla: [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
-| P0-B2 | `.env` de producción NO en el repositorio | 3.3 | ⏳ pendiente |
-| P0-B3 | Firebase Admin SDK credentials via env var, no hardcodeadas | 3.4 | ⏳ pendiente |
+| **P0-B2** | **`.env` de producción NO en el repositorio** | **3.3** | **✅ 2026-04-08** — PASS — auditoría repo + historial git limpio (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
+| **P0-B3** | **Firebase Admin SDK credentials via env var, no hardcodeadas** | **3.4** | **✅ 2026-04-08** — PASS — ApplicationDefault() + os.getenv, sin Certificate(), sin hardcoding (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | P0-B4 | No se cachean binarios de imágenes (solo URLs) | 1.2 | ⏳ pendiente |
 | P0-B5 | No existe endpoint de bulk download | 1.3 | ⏳ pendiente |
 | **P0-B6** | **Contenido adulto filtrado (`contentRating=[safe,suggestive]`)** | **1.7** | **✅ 2026-04-08** |
@@ -158,6 +158,32 @@ P0-B1 **requiere acceso a Cloud Run prod** para verificarse. No puede cerrarse l
   - ❌ `CORS_ORIGINS` no figura explícitamente en variables de Cloud Run (riesgo de default `*`)
   - ✅ `/ping` responde 200
 - Referencia detallada: `docs/release/env-vars-cloudrun-prod.md` (sección "Ejecución más reciente (operacional)").
+
+### Cierre P0-B2 — PASS (2026-04-08)
+
+P0-B2 **CERRADO** con evidencia de auditoría de repositorio.
+
+- **Auditoría ejecutada:**
+  1. `git ls-files --error-unmatch .env` → `.env` no está tracked por git
+  2. `git log --all --full-history -- ".env" --oneline` → sin historial — nunca commiteado
+  3. `.gitignore` líneas 14-15: `.env` y `.env.*` cubiertos explícitamente
+- **Evidencia completa:** [`docs/release/templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)
+- **Rama:** `feature/p0-b2-b3-secrets-compliance`
+
+### Cierre P0-B3 — PASS (2026-04-08)
+
+P0-B3 **CERRADO** con evidencia de auditoría de código y historial git.
+
+- **Auditoría ejecutada:**
+  1. `grep -rn "credentials\.Certificate" app/` → sin resultados — no se usa credencial hardcodeada
+  2. `app/core/firebase_auth.py:60` usa `credentials.ApplicationDefault()` — carga desde env
+  3. `app/core/config.py:21` usa `os.getenv("FIREBASE_PROJECT_ID", "")` — sin fallback real
+  4. `grep -rn "inkscroller-aed59\|inkscroller-8fa87" app/` → sin resultados en código fuente
+  5. `git log --all -S '"private_key"'` y `git log --all -S '"client_email"'` → sin historial
+  6. `git log --all --full-history -- "*serviceAccount*.json"` → sin historial
+- **Flujo certificado:** ADC (Application Default Credentials) en Cloud Run / Workload Identity. Archivo JSON de service account solo para dev local, fuera del repo.
+- **Evidencia completa:** [`docs/release/templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)
+- **Rama:** `feature/p0-b2-b3-secrets-compliance`
 
 ---
 

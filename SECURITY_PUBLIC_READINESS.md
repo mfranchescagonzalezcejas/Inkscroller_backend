@@ -182,14 +182,21 @@ Ejecutar esta checklist antes de cambiar el repo a público:
 
 | Archivo | En `.gitignore` | Commiteado actualmente | Estado |
 |---------|----------------|----------------------|--------|
-| `.env` | ✅ | ❌ (no debería estar) | ✅ Seguro |
+| `.env` | ✅ | ❌ — nunca commiteado (auditoría P0-B2 ✅) | ✅ Seguro |
 | `inkscroller.db` | ✅ | ❌ | ✅ Seguro |
-| `serviceAccountKey.json` | ⚠️ No explícito | — | ⚠️ Agregar a `.gitignore` |
+| `serviceAccountKey.json` | ✅ (línea 19) | ❌ — nunca commiteado (auditoría P0-B3 ✅) | ✅ Seguro |
+| `*serviceAccount*.json` | ✅ (línea 20) | — | ✅ |
+| `firebase-adminsdk-*.json` | ✅ (líneas 21-22) | — | ✅ |
+| `*credentials*.json` | ✅ (línea 48) | — | ✅ |
 | `venv/` | ✅ | — | ✅ |
 | `__pycache__/` | ✅ | — | ✅ |
 
-> El archivo `serviceAccountKey.json` no está explícitamente en `.gitignore` — se agrega en este baseline.
+> **Auditoría P0-B2/B3 completada — 2026-04-08:**
+> - `.env` nunca commiteado — historial git limpio — `.gitignore` cubre `.env` y `.env.*`
+> - `serviceAccountKey.json` nunca commiteado — `.gitignore` cubre todos los patrones de nombre de service account
+> - Firebase Admin SDK usa `credentials.ApplicationDefault()` + `FIREBASE_PROJECT_ID` via `os.getenv()` — sin hardcoding
+> - Evidencia formal: `docs/release/templates/p0-b2-b3-evidence.md`
 
 ---
 
-_Última actualización: 2026-04-08 — baseline inicial para public-ready mode_
+_Última actualización: 2026-04-08 — P0-B2 y P0-B3 cerrados con evidencia de auditoría_
