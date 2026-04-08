@@ -2,7 +2,7 @@
 
 > **Cross-repo source of truth:** Obsidian under `1-PROJECTS/InkScroller/`
 > **Repo role:** backend implementation status for the FastAPI service
-> **Last updated:** 2026-04-06 (Sprint 2 closed — PR #7 merged, 3 environments tested on physical device)
+> **Last updated:** 2026-04-08 (Sprint 3 active — compliance/release synchronization with Obsidian)
 
 ---
 
@@ -21,8 +21,8 @@ This file is the **backend-side status mirror** of the product's shared planning
 | Field | Value |
 |------|-------|
 | Product phase | Phase 5 — Identity & Adaptive Reading |
-| Backend phase state | **M1 complete; deployed to Cloud Run** |
-| Current sprint mirror | Sprint 2 — **closed** ✅ |
+| Backend phase state | **Sprint 3 active — compliance/release support + hardening** |
+| Current sprint mirror | Sprint 3 — **active** |
 | Repo status | Active |
 | Current branch | `develop` |
 | Docker image | ✅ Created (`Dockerfile`, `.dockerignore`) |
@@ -87,9 +87,17 @@ This file is the **backend-side status mirror** of the product's shared planning
 | Item | Priority | Notes |
 |------|----------|-------|
 | `BTASK-003` Deploy strategy | High | ✅ Complete — Google Cloud (Cloud Run) |
+| `BTASK-010` Sprint 3 compliance pack | High | Active — backend support for release/legal evidence tracking |
+| P0-B1..P0-B8 compliance closure | High | Active — sync evidence with Control Tower before release gate |
 | Firebase env setup for live validation | Medium | `FIREBASE_PROJECT_ID` placeholder still in `.env` |
 | MangaDex language configurable by user preference | Medium | Currently hardcoded to `en` |
 | End-to-end validation with Flutter | Low | Frontend M3 is now complete, ready for testing |
+
+### Sprint 3 — Compliance evidence focus (Control Tower alignment)
+
+- Sprint 3 is currently active for backend-side compliance/release readiness support.
+- Prioridad operativa: `BTASK-010` + cierre de ítems `P0-B1..P0-B8` con evidencia verificable.
+- Regla documental: no marcar ítems P0 como cerrados sin evidencia explícita en checklist/status espejo.
 
 ---
 
