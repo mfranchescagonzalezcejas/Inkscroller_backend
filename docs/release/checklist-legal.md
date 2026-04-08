@@ -23,7 +23,7 @@
 | 1.4 | El caché in-memory está activo (TTL 5 min) para reducir llamadas a MangaDex | 🟡 ADVERTENCIA | ☐ |
 | 1.5 | Todos los clientes HTTP incluyen header `User-Agent: InkScroller-Backend/...` | 🟡 ADVERTENCIA | ☐ |
 | 1.6 | Existe manejo de HTTP 429 (retry con backoff o log de warning) | 🟡 ADVERTENCIA | ☐ |
-| 1.7 | El contenido con `contentRating: erotica/pornographic` está filtrado o requiere verificación de edad | 🔴 BLOQUEANTE | ☐ |
+| 1.7 | El contenido con `contentRating: erotica/pornographic` está filtrado o requiere verificación de edad | 🔴 BLOQUEANTE | ✅ 2026-04-08 |
 | 1.8 | La respuesta de capítulos incluye o puede incluir `scanlation_group` para atribución | 🟡 ADVERTENCIA | ☐ |
 
 ## Bloque 2 — Jikan / MyAnimeList
@@ -97,6 +97,35 @@ Firma: ___________
 | P-3 | Agregar fallback graceful en cliente Jikan — retornar datos parciales ante error o 429 | 2.2 | `Inkscroller_backend` | Media |
 | P-4 | Agregar `ENABLE_JIKAN_ENRICHMENT=true` a `.env.example` y leerlo en el servicio Jikan | 2.5 | `Inkscroller_backend` | Baja |
 | P-5 | *(Para Flutter)* Crear pantalla About/Créditos con disclaimer de no afiliación a MangaDex y MAL | 3.4 (flutter) | `inkscroller_flutter` | Media |
+
+---
+
+---
+
+## Tracking P0 — Estado de compliance por ítem (Control Tower V1.0)
+
+> Espejo del tracking de Control Tower V1.0 en Obsidian. La fuente de verdad es Obsidian.
+> Mantener sincronizado cuando cambia el estado de un ítem P0 en la fuente.
+
+| Ítem | Descripción | Checklist ref | Estado |
+|------|------------|---------------|--------|
+| P0-B1 | Variables de entorno de producción configuradas en Cloud Run | 5.3 | ⏳ pendiente |
+| P0-B2 | `.env` de producción NO en el repositorio | 3.3 | ⏳ pendiente |
+| P0-B3 | Firebase Admin SDK credentials via env var, no hardcodeadas | 3.4 | ⏳ pendiente |
+| P0-B4 | No se cachean binarios de imágenes (solo URLs) | 1.2 | ⏳ pendiente |
+| P0-B5 | No existe endpoint de bulk download | 1.3 | ⏳ pendiente |
+| **P0-B6** | **Contenido adulto filtrado (`contentRating=[safe,suggestive]`)** | **1.7** | **✅ 2026-04-08** |
+| P0-B7 | No se envían datos de usuarios a MangaDex ni Jikan | 3.1 | ⏳ pendiente |
+| P0-B8 | Tests de smoke pasan y `/ping` responde en prod | 5.1 / 5.2 | ⏳ pendiente |
+
+### Evidencias — P0-B6
+
+- **Qué**: `contentRating=[safe, suggestive]` configurado como parámetro fijo en las queries a MangaDex. Excluye `erotica` y `pornographic` en todos los endpoints de catálogo y búsqueda.
+- **Verificación**: Revisión de deploy logs en dev / staging / prod — revision `00006` desplegada en los tres entornos Cloud Run. Smoke test de muestra confirmó `leaks=0` (ningún resultado con rating restringido en respuesta).
+- **Fecha de cierre**: 2026-04-08
+- **Referencia cruzada**: Control Tower V1.0 (Obsidian) → P0-B6 marcado ✅ 2026-04-08
+
+> ⚠️ **Nota de alcance**: La evidencia registrada corresponde a revisión indicada en tracking y deploy logs. La verificación formal end-to-end con QA automatizado queda pendiente como parte de P0-B8.
 
 ---
 
