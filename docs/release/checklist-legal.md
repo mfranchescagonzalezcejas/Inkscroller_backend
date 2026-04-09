@@ -57,7 +57,6 @@
 
 | # | Ítem | Criticidad | Estado |
 |---|------|-----------|--------|
-<<<<<<< HEAD
 | 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — 8/8 (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 | 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 | 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md) y [`templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
@@ -110,7 +109,6 @@ Firma: ___________
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
-<<<<<<< HEAD
 | **P0-B1** | **Variables de entorno de producción configuradas en Cloud Run** | **5.3** | **✅ 2026-04-08** — PASS — revisión `00005-mj9` prod (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), evidencia: [`templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
 | **P0-B2** | **`.env` de producción NO en el repositorio** | **3.3** | **✅ 2026-04-08** — PASS — auditoría repo + historial git limpio (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B3** | **Firebase Admin SDK credentials via env var, no hardcodeadas** | **3.4** | **✅ 2026-04-08** — PASS — ApplicationDefault() + os.getenv, sin Certificate(), sin hardcoding (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
