@@ -137,6 +137,7 @@ class ChapterService:
                     "mangaCoverUrl": manga_info["coverUrl"],
                     "chapterNumber": chapter_base.get("number"),
                     "chapterTitle": chapter_base.get("title"),
+                    "scanlation_group": chapter_base.get("scanlation_group"),
                     "publishAt": chapter_base.get("date"),
                     "readable": chapter_base.get("readable", False),
                     "external": chapter_base.get("external", False),
