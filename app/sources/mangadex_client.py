@@ -48,6 +48,7 @@ class MangaDexClient:
             params={
                 "manga": manga_id,
                 "translatedLanguage[]": language,
+                "includes[]": ["scanlation_group"],
                 "order[chapter]": "asc",
                 "limit": limit,
                 "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
@@ -62,6 +63,7 @@ class MangaDexClient:
             "/chapter",
             params={
                 "translatedLanguage[]": language,
+                "includes[]": ["scanlation_group"],
                 # readableAt yields real currently readable releases.
                 "order[readableAt]": "desc",
                 "limit": limit,

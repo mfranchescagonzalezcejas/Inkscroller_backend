@@ -9,6 +9,7 @@ class HomeChapter(BaseModel):
     mangaCoverUrl: str | None = None
     chapterNumber: str | None = None
     chapterTitle: str | None = None
+    scanlation_group: str | None = None
     publishAt: datetime | None = None
     readable: bool
     external: bool

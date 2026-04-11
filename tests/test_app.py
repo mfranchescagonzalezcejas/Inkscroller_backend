@@ -147,6 +147,7 @@ class AppSmokeTests(unittest.TestCase):
                     "number": "1",
                     "title": "Arrival",
                     "date": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
+                    "scanlation_group": "Team Ink",
                     "readable": True,
                     "external": False,
                     "externalUrl": None,
@@ -161,6 +162,7 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(fake_service.calls, [{"manga_id": "manga-77", "language": "es"}])
         self.assertEqual(response.json()[0]["id"], "chapter-1")
+        self.assertEqual(response.json()[0]["scanlation_group"], "Team Ink")
 
     def test_chapters_route_returns_404_when_service_returns_empty(self):
         fake_service = FakeChapterService(chapters=[])
