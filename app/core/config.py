@@ -14,7 +14,9 @@ class Settings:
     jikan_base_url: str = os.getenv("JIKAN_BASE_URL", "https://api.jikan.moe/v4")
 
     # Feature flags
-    enable_jikan_enrichment: bool = os.getenv("ENABLE_JIKAN_ENRICHMENT", "true").lower() == "true"
+    enable_jikan_enrichment: bool = (
+        os.getenv("ENABLE_JIKAN_ENRICHMENT", "true").lower() == "true"
+    )
 
     cache_ttl_seconds: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
 
