@@ -10,6 +10,8 @@ from app.services.jikan_mapper import map_jikan_detail
 from app.core.manga_tags import GENRE_TAG_UUIDS
 
 logger = logging.getLogger(__name__)
+
+
 class MangaService:
     def __init__(
         self,
@@ -44,9 +46,7 @@ class MangaService:
         order: str | None = None,
         genre: str | None = None,
     ):
-        cache_key = (
-            f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}"
-        )
+        cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -79,7 +79,7 @@ class MangaService:
                 manga_ids = [m["id"] for m in result]
                 stats_payload = await self._client.get_statistics(manga_ids)
                 stats_dict = stats_payload.get("statistics", {})
-                
+
                 # Apply statistics to each manga
                 for manga in result:
                     manga_stats = stats_dict.get(manga["id"], {})
