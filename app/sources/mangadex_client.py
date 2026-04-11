@@ -132,7 +132,7 @@ class MangaDexClient:
                 params["order[followedCount]"] = "desc"
             elif order == "rating":
                 params["order[rating]"] = "desc"
-        
+
         if order_map:
             for key, value in order_map.items():
                 params[f"order[{key}]"] = value
@@ -147,12 +147,12 @@ class MangaDexClient:
     @with_retry()
     async def get_statistics(self, manga_ids: list[str]) -> dict[str, Any]:
         """Fetch statistics (rating, follows) for multiple manga IDs.
-        
+
         MangaDex doesn't support bulk - fetches one by one in parallel.
         """
         if not manga_ids:
             return {}
-        
+
         # Fetch all stats in parallel
         async def fetch_one(manga_id: str) -> tuple[str, dict]:
             try:
@@ -163,8 +163,8 @@ class MangaDexClient:
                 return manga_id, stats
             except Exception:
                 return manga_id, {}
-        
+
         results = await asyncio.gather(*[fetch_one(mid) for mid in manga_ids])
-        
+
         # Convert to statistics dict format
         return {"statistics": dict(results)}
