@@ -67,13 +67,13 @@ def apply_statistics(manga: dict[str, Any], stats: dict[str, Any]) -> dict[str, 
     """Apply statistics (rating, follows) to a manga dict."""
     if not stats:
         return manga
-    
+
     rating = stats.get("rating", {})
     follows = stats.get("follows", 0)
-    
+
     # Update with actual values from MangaDex
     manga["score"] = rating.get("bayesian") or rating.get("average")
     manga["popularity"] = follows
     manga["favorites"] = follows  # Same value, keeping for compatibility
-    
+
     return manga

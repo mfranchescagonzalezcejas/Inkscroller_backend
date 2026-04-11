@@ -14,20 +14,20 @@ router = APIRouter(prefix="/manga", tags=["Manga"])
 async def list_tags(request: Request):
     """
     Returns all available tags from MangaDex, grouped by type.
-    
+
     Groups: genre, theme, format, content
     Each tag has: id (UUID), name (en), group
-    
+
     Cached for 1 hour to avoid hitting MangaDex API on every request.
     """
     cache: SimpleCache = request.app.state.cache
     cache_key = "mangadex:tags"
-    
+
     # Check cache first
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
-    
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -38,12 +38,17 @@ async def list_tags(request: Request):
             data = response.json()
     except Exception:
         # Fallback to hardcoded tags if MangaDex is unreachable
-        fallback = {"genres": _fallback_tags(), "themes": [], "formats": [], "content": []}
+        fallback = {
+            "genres": _fallback_tags(),
+            "themes": [],
+            "formats": [],
+            "content": [],
+        }
         cache.set(cache_key, fallback)
         return fallback
-    
+
     collection = data.get("data", [])
-    
+
     # Group tags by their group attribute
     grouped = {
         "genres": [],
@@ -51,17 +56,17 @@ async def list_tags(request: Request):
         "formats": [],
         "content": [],
     }
-    
+
     for tag in collection:
         attrs = tag.get("attributes", {})
         name = attrs.get("name", {}).get("en", "")
         group = attrs.get("group", "")
-        
+
         tag_info = {
             "id": tag["id"],
             "name": name,
         }
-        
+
         if group == "genre":
             grouped["genres"].append(tag_info)
         elif group == "theme":
@@ -70,10 +75,10 @@ async def list_tags(request: Request):
             grouped["formats"].append(tag_info)
         elif group == "content":
             grouped["content"].append(tag_info)
-    
+
     # Cache for 1 hour (3600 seconds) - tags don't change often
     cache.set(cache_key, grouped)
-    
+
     return grouped
 
 
