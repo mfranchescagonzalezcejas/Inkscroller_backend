@@ -127,6 +127,34 @@ class UserService:
             updated_at=now,
         )
 
+    # ── Library ──────────────────────────────────────────────────────────────
+
+    async def get_library_ids(self, firebase_uid: str) -> list[str]:
+        """Return the manga IDs saved in the user's library, newest first."""
+        async with self._db.execute(
+            "SELECT manga_id FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
+            (firebase_uid,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [row["manga_id"] for row in rows]
+
+    async def add_to_library(self, firebase_uid: str, manga_id: str) -> None:
+        """Save a manga to the user's library. No-op if already saved."""
+        await self._db.execute(
+            "INSERT OR IGNORE INTO user_library (firebase_uid, manga_id, added_at) VALUES (?, ?, ?)",
+            (firebase_uid, manga_id, _utc_now()),
+        )
+        await self._db.commit()
+
+    async def remove_from_library(self, firebase_uid: str, manga_id: str) -> bool:
+        """Remove a manga from the user's library. Returns True if it existed."""
+        cursor = await self._db.execute(
+            "DELETE FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
+            (firebase_uid, manga_id),
+        )
+        await self._db.commit()
+        return cursor.rowcount > 0
+
     async def _create_default_preferences(
         self, firebase_uid: str
     ) -> ReadingPreferences:

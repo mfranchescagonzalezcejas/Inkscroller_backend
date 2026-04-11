@@ -283,10 +283,11 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
         # Inventario auditado:
         # chapters: 3 rutas (latest, manga/{id}, {id}/pages)
         # manga: 5 rutas (tags, genres, search, {id}, "")
-        # users: 3 rutas (me, me/preferences GET, me/preferences PUT)
+        # users: 6 rutas (me, me/preferences GET, me/preferences PUT,
+        #                  me/library GET, me/library/{id} POST, me/library/{id} DELETE)
         # health: 1 ruta (ping)
-        # Total: 12 rutas
-        EXPECTED_ROUTE_COUNT = 12
+        # Total: 15 rutas
+        EXPECTED_ROUTE_COUNT = 15
 
         self.assertEqual(
             len(routes),
