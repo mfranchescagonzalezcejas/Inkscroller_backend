@@ -103,7 +103,9 @@ class ChapterService:
                     break
 
             cover_url = (
-                f"{COVER_BASE_URL}/{manga_id}/{cover_file}.256.jpg" if cover_file else None
+                f"{COVER_BASE_URL}/{manga_id}/{cover_file}.256.jpg"
+                if cover_file
+                else None
             )
 
             if manga_id:
