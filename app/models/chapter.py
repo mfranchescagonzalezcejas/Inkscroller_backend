@@ -8,6 +8,7 @@ class Chapter(BaseModel):
     number: Optional[str]
     title: Optional[str]
     date: Optional[datetime]
+    scanlation_group: Optional[str] = None
 
     readable: bool
     external: bool
