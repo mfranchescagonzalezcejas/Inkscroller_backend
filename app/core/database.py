@@ -112,11 +112,17 @@ async def _migrate_sqlite_columns(conn: object) -> None:
     columns = {row["name"] for row in rows}
 
     migrations = [
-        ("library_status", "ALTER TABLE user_library ADD COLUMN library_status TEXT NOT NULL DEFAULT 'reading'"),
-        ("updated_at",     "ALTER TABLE user_library ADD COLUMN updated_at TEXT"),
-        ("title",          "ALTER TABLE user_library ADD COLUMN title TEXT"),
-        ("cover_url",      "ALTER TABLE user_library ADD COLUMN cover_url TEXT"),
-        ("authors",        "ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'"),
+        (
+            "library_status",
+            "ALTER TABLE user_library ADD COLUMN library_status TEXT NOT NULL DEFAULT 'reading'",
+        ),
+        ("updated_at", "ALTER TABLE user_library ADD COLUMN updated_at TEXT"),
+        ("title", "ALTER TABLE user_library ADD COLUMN title TEXT"),
+        ("cover_url", "ALTER TABLE user_library ADD COLUMN cover_url TEXT"),
+        (
+            "authors",
+            "ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'",
+        ),
     ]
     for col, ddl in migrations:
         if col not in columns:
@@ -153,10 +159,15 @@ async def _init_postgres() -> DatabaseAdapter:
             )
 
         pool = await asyncpg.create_pool(connect=_getconn, min_size=1, max_size=10)
-        logger.info("PostgreSQL pool ready via Cloud SQL connector (%s)", settings.cloud_sql_instance)
+        logger.info(
+            "PostgreSQL pool ready via Cloud SQL connector (%s)",
+            settings.cloud_sql_instance,
+        )
     else:
         # Direct DATABASE_URL — useful for local Docker Compose or CI.
-        pool = await asyncpg.create_pool(dsn=settings.database_url, min_size=1, max_size=10)
+        pool = await asyncpg.create_pool(
+            dsn=settings.database_url, min_size=1, max_size=10
+        )
         logger.info("PostgreSQL pool ready via DATABASE_URL")
 
     # Apply DDL (idempotent CREATE TABLE IF NOT EXISTS).
