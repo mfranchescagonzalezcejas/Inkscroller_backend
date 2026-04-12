@@ -149,7 +149,7 @@ async def _init_postgres() -> DatabaseAdapter:
 
         connector = Connector()
 
-        async def _getconn() -> object:
+        async def _getconn(**_kwargs) -> object:
             return await connector.connect_async(
                 settings.cloud_sql_instance,
                 "asyncpg",
