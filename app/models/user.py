@@ -1,5 +1,7 @@
 """Pydantic models for the user profile and reading preferences endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -26,3 +28,9 @@ class UpdatePreferencesRequest(BaseModel):
 
     default_reader_mode: str | None = None
     default_language: str | None = None
+
+
+class UpdateLibraryStatusRequest(BaseModel):
+    """Payload accepted by `PATCH /users/me/library/{manga_id}`."""
+
+    library_status: Literal["reading", "completed", "paused"]

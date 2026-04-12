@@ -6,8 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_current_user, get_manga_service, get_user_service
 from app.core.firebase_auth import FirebaseTokenPayload
-from app.models.manga import Manga
-from app.models.user import ReadingPreferences, UpdatePreferencesRequest, UserProfile
+from app.models.manga import LibraryMetadata, Manga
+from app.models.user import (
+    ReadingPreferences,
+    UpdateLibraryStatusRequest,
+    UpdatePreferencesRequest,
+    UserProfile,
+)
 from app.services.manga_service import MangaService
 from app.services.user_service import UserService
 
@@ -54,16 +59,30 @@ async def get_library(
     manga_service: MangaService = Depends(get_manga_service),
 ) -> list[Manga]:
     """Return the full manga objects saved in the authenticated user's library."""
-    manga_ids = await user_service.get_library_ids(current_user.uid)
-    if not manga_ids:
+    entries = await user_service.get_library_entries(current_user.uid)
+    if not entries:
         return []
+
+    manga_ids = [entry["manga_id"] for entry in entries]
 
     results = await asyncio.gather(
         *[manga_service.get_by_id(mid) for mid in manga_ids],
         return_exceptions=True,
     )
 
-    return [m for m in results if isinstance(m, Manga)]
+    enriched: list[Manga] = []
+    for entry, manga in zip(entries, results):
+        if not isinstance(manga, Manga):
+            continue
+
+        metadata = LibraryMetadata(
+            library_status=entry["library_status"],
+            added_at=entry["added_at"],
+            updated_at=entry["updated_at"],
+        )
+        enriched.append(manga.model_copy(update={"library": metadata}))
+
+    return enriched
 
 
 @router.post("/me/library/{manga_id}", status_code=204)
@@ -74,6 +93,27 @@ async def add_to_library(
 ) -> None:
     """Save a manga to the authenticated user's library."""
     await user_service.add_to_library(current_user.uid, manga_id)
+
+
+@router.patch("/me/library/{manga_id}", response_model=LibraryMetadata)
+async def update_library_status(
+    manga_id: str,
+    body: UpdateLibraryStatusRequest,
+    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service),
+) -> LibraryMetadata:
+    """Update library status for a saved manga and return updated metadata."""
+    updated = await user_service.update_library_status(
+        current_user.uid, manga_id, body.library_status
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Manga not in library")
+
+    return LibraryMetadata(
+        library_status=updated["library_status"],
+        added_at=updated["added_at"],
+        updated_at=updated["updated_at"],
+    )
 
 
 @router.delete("/me/library/{manga_id}", status_code=204)
