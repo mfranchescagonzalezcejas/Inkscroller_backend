@@ -8,6 +8,7 @@ from app.sources.jikan_client import JikanClient
 from app.services.manga_mapper import map_mangadex_manga, apply_statistics
 from app.services.jikan_mapper import map_jikan_detail
 from app.core.manga_tags import GENRE_TAG_UUIDS
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,11 @@ class MangaService:
         # Base MangaDex
         result = map_mangadex_manga(item)
 
-        # 🔥 Enriquecimiento con Jikan (rellenar huecos)
+        # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
+        if not settings.enable_jikan_enrichment:
+            self._cache.set(cache_key, result)
+            return result
+
         try:
             jikan_payload = await self._jikan.search_manga(result["title"])
             search_data = jikan_payload.get("data", [])
