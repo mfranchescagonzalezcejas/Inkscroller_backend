@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ── Phase 5: Firebase Admin + SQLite ────────────────────────
+    # ── Database (SQLite local / PostgreSQL Cloud Run) ───────────
     init_firebase_admin()
     app.state.db = await init_db()
 
