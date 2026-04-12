@@ -37,7 +37,10 @@ class UserService:
             now = _utc_now()
             await self._db.execute(
                 "INSERT INTO users (firebase_uid, email, display_name, created_at) VALUES (?, ?, ?, ?)",
-                payload.uid, payload.email, payload.display_name, now,
+                payload.uid,
+                payload.email,
+                payload.display_name,
+                now,
             )
             await self._db.commit()
             logger.info("Bootstrapped new local user for Firebase UID %s", payload.uid)
@@ -107,7 +110,10 @@ class UserService:
                    default_reader_mode = excluded.default_reader_mode,
                    default_language    = excluded.default_language,
                    updated_at          = excluded.updated_at""",
-            firebase_uid, new_mode, new_lang, now,
+            firebase_uid,
+            new_mode,
+            new_lang,
+            now,
         )
         await self._db.commit()
 
@@ -168,7 +174,13 @@ class UserService:
             "title = COALESCE(excluded.title, title), "
             "cover_url = COALESCE(excluded.cover_url, cover_url), "
             "authors = COALESCE(excluded.authors, authors)",
-            firebase_uid, manga_id, now, now, title, cover_url, authors_json,
+            firebase_uid,
+            manga_id,
+            now,
+            now,
+            title,
+            cover_url,
+            authors_json,
         )
         await self._db.commit()
 
@@ -183,7 +195,10 @@ class UserService:
         rowcount = await self._db.execute(
             "UPDATE user_library SET library_status = ?, updated_at = ? "
             "WHERE firebase_uid = ? AND manga_id = ?",
-            library_status, now, firebase_uid, manga_id,
+            library_status,
+            now,
+            firebase_uid,
+            manga_id,
         )
         await self._db.commit()
 
@@ -193,7 +208,8 @@ class UserService:
         row = await self._db.fetchone(
             "SELECT manga_id, library_status, added_at, updated_at "
             "FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
-            firebase_uid, manga_id,
+            firebase_uid,
+            manga_id,
         )
 
         if row is None:
@@ -210,7 +226,8 @@ class UserService:
         """Remove a manga from the user's library. Returns True if it existed."""
         rowcount = await self._db.execute(
             "DELETE FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
-            firebase_uid, manga_id,
+            firebase_uid,
+            manga_id,
         )
         await self._db.commit()
         return rowcount > 0
@@ -222,7 +239,8 @@ class UserService:
         await self._db.execute(
             "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, updated_at) "
             "VALUES (?, 'vertical', 'en', ?)",
-            firebase_uid, now,
+            firebase_uid,
+            now,
         )
         await self._db.commit()
         return ReadingPreferences(
