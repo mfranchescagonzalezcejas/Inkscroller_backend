@@ -34,3 +34,16 @@ class UpdateLibraryStatusRequest(BaseModel):
     """Payload accepted by `PATCH /users/me/library/{manga_id}`."""
 
     library_status: Literal["reading", "completed", "paused"]
+
+
+class AddToLibraryRequest(BaseModel):
+    """Optional payload accepted by `POST /users/me/library/{manga_id}`.
+
+    Carries manga metadata so the backend can cache it in SQLite and serve
+    the library without depending on Jikan at read time.
+    All fields are optional for backwards compatibility with older clients.
+    """
+
+    title: str | None = None
+    cover_url: str | None = None
+    authors: list[str] = []

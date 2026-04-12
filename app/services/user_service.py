@@ -1,5 +1,6 @@
 """User service: get-or-create bootstrap by Firebase UID, preferences CRUD."""
 
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -130,10 +131,10 @@ class UserService:
 
     # ── Library ──────────────────────────────────────────────────────────────
 
-    async def get_library_entries(self, firebase_uid: str) -> list[dict[str, str]]:
-        """Return user-library rows, newest first."""
+    async def get_library_entries(self, firebase_uid: str) -> list[dict]:
+        """Return user-library rows with cached manga metadata, newest first."""
         async with self._db.execute(
-            "SELECT manga_id, library_status, added_at, updated_at "
+            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             (firebase_uid,),
         ) as cursor:
@@ -145,6 +146,9 @@ class UserService:
                 "library_status": row["library_status"],
                 "added_at": row["added_at"],
                 "updated_at": row["updated_at"],
+                "title": row["title"] or "",
+                "cover_url": row["cover_url"],
+                "authors": json.loads(row["authors"] or "[]"),
             }
             for row in rows
         ]
@@ -154,14 +158,30 @@ class UserService:
         entries = await self.get_library_entries(firebase_uid)
         return [entry["manga_id"] for entry in entries]
 
-    async def add_to_library(self, firebase_uid: str, manga_id: str) -> None:
-        """Save a manga to the user's library. No-op if already saved."""
+    async def add_to_library(
+        self,
+        firebase_uid: str,
+        manga_id: str,
+        title: str | None = None,
+        cover_url: str | None = None,
+        authors: list[str] | None = None,
+    ) -> None:
+        """Save a manga to the user's library, caching its metadata.
+
+        Uses upsert so that re-adding an existing entry refreshes the cached
+        metadata without resetting the library status or added_at timestamp.
+        """
         now = _utc_now()
+        authors_json = json.dumps(authors or [])
         await self._db.execute(
-            "INSERT OR IGNORE INTO user_library "
-            "(firebase_uid, manga_id, added_at, library_status, updated_at) "
-            "VALUES (?, ?, ?, 'reading', ?)",
-            (firebase_uid, manga_id, now, now),
+            "INSERT INTO user_library "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors) "
+            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?) "
+            "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
+            "title = COALESCE(excluded.title, title), "
+            "cover_url = COALESCE(excluded.cover_url, cover_url), "
+            "authors = COALESCE(excluded.authors, authors)",
+            (firebase_uid, manga_id, now, now, title, cover_url, authors_json),
         )
         await self._db.commit()
 
