@@ -1,22 +1,24 @@
 """Users router - authenticated endpoints for profile, reading preferences and library."""
 
-import asyncio
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.dependencies import get_current_user, get_manga_service, get_user_service
+from app.core.dependencies import get_current_user, get_user_service
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import LibraryMetadata, Manga
 from app.models.user import (
+    AddToLibraryRequest,
     ReadingPreferences,
     UpdateLibraryStatusRequest,
     UpdatePreferencesRequest,
     UserProfile,
 )
-from app.services.manga_service import MangaService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+logger = logging.getLogger(__name__)
 
 
 @router.get("/me", response_model=UserProfile)
@@ -56,43 +58,40 @@ async def update_preferences(
 async def get_library(
     current_user: FirebaseTokenPayload = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service),
-    manga_service: MangaService = Depends(get_manga_service),
 ) -> list[Manga]:
-    """Return the full manga objects saved in the authenticated user's library."""
+    """Return the user's library from cached SQLite data — no Jikan dependency."""
     entries = await user_service.get_library_entries(current_user.uid)
-    if not entries:
-        return []
-
-    manga_ids = [entry["manga_id"] for entry in entries]
-
-    results = await asyncio.gather(
-        *[manga_service.get_by_id(mid) for mid in manga_ids],
-        return_exceptions=True,
-    )
-
-    enriched: list[Manga] = []
-    for entry, manga in zip(entries, results):
-        if not isinstance(manga, Manga):
-            continue
-
-        metadata = LibraryMetadata(
-            library_status=entry["library_status"],
-            added_at=entry["added_at"],
-            updated_at=entry["updated_at"],
+    return [
+        Manga(
+            id=entry["manga_id"],
+            title=entry["title"] or entry["manga_id"],
+            coverUrl=entry["cover_url"],
+            authors=entry["authors"],
+            library=LibraryMetadata(
+                library_status=entry["library_status"],
+                added_at=entry["added_at"],
+                updated_at=entry["updated_at"],
+            ),
         )
-        enriched.append(manga.model_copy(update={"library": metadata}))
-
-    return enriched
+        for entry in entries
+    ]
 
 
 @router.post("/me/library/{manga_id}", status_code=204)
 async def add_to_library(
     manga_id: str,
+    body: AddToLibraryRequest = AddToLibraryRequest(),
     current_user: FirebaseTokenPayload = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service),
 ) -> None:
-    """Save a manga to the authenticated user's library."""
-    await user_service.add_to_library(current_user.uid, manga_id)
+    """Save a manga to the authenticated user's library, caching its metadata."""
+    await user_service.add_to_library(
+        current_user.uid,
+        manga_id,
+        title=body.title,
+        cover_url=body.cover_url,
+        authors=body.authors,
+    )
 
 
 @router.patch("/me/library/{manga_id}", response_model=LibraryMetadata)
