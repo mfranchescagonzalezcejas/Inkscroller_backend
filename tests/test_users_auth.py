@@ -16,10 +16,10 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock
 
-import aiosqlite
 from fastapi.testclient import TestClient
 
 from app.core.database import init_db
+from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_current_user, get_db, get_manga_service
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import Manga
@@ -44,7 +44,7 @@ _FAKE_MANGA = Manga(
 )
 
 
-async def _make_test_db() -> aiosqlite.Connection:
+async def _make_test_db() -> DatabaseAdapter:
     """Create an in-memory SQLite DB using the real production DDL via init_db."""
     return await init_db(":memory:")
 
