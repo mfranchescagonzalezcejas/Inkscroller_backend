@@ -11,6 +11,7 @@ from app.models.user import ReadingPreferences, UpdatePreferencesRequest, UserPr
 
 _VALID_READER_MODES = frozenset({"vertical", "paged"})
 _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it", "ja", "ko", "zh"})
+_VALID_LIBRARY_STATUSES = frozenset({"reading", "completed", "paused"})
 
 logger = logging.getLogger(__name__)
 
@@ -129,22 +130,75 @@ class UserService:
 
     # ── Library ──────────────────────────────────────────────────────────────
 
-    async def get_library_ids(self, firebase_uid: str) -> list[str]:
-        """Return the manga IDs saved in the user's library, newest first."""
+    async def get_library_entries(self, firebase_uid: str) -> list[dict[str, str]]:
+        """Return user-library rows, newest first."""
         async with self._db.execute(
-            "SELECT manga_id FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
+            "SELECT manga_id, library_status, added_at, updated_at "
+            "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             (firebase_uid,),
         ) as cursor:
             rows = await cursor.fetchall()
-        return [row["manga_id"] for row in rows]
+
+        return [
+            {
+                "manga_id": row["manga_id"],
+                "library_status": row["library_status"],
+                "added_at": row["added_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    async def get_library_ids(self, firebase_uid: str) -> list[str]:
+        """Return the manga IDs saved in the user's library, newest first."""
+        entries = await self.get_library_entries(firebase_uid)
+        return [entry["manga_id"] for entry in entries]
 
     async def add_to_library(self, firebase_uid: str, manga_id: str) -> None:
         """Save a manga to the user's library. No-op if already saved."""
+        now = _utc_now()
         await self._db.execute(
-            "INSERT OR IGNORE INTO user_library (firebase_uid, manga_id, added_at) VALUES (?, ?, ?)",
-            (firebase_uid, manga_id, _utc_now()),
+            "INSERT OR IGNORE INTO user_library "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at) "
+            "VALUES (?, ?, ?, 'reading', ?)",
+            (firebase_uid, manga_id, now, now),
         )
         await self._db.commit()
+
+    async def update_library_status(
+        self, firebase_uid: str, manga_id: str, library_status: str
+    ) -> dict[str, str] | None:
+        """Update status and `updated_at` for a library row; returns row if found."""
+        if library_status not in _VALID_LIBRARY_STATUSES:
+            return None
+
+        now = _utc_now()
+        cursor = await self._db.execute(
+            "UPDATE user_library SET library_status = ?, updated_at = ? "
+            "WHERE firebase_uid = ? AND manga_id = ?",
+            (library_status, now, firebase_uid, manga_id),
+        )
+        await self._db.commit()
+
+        if cursor.rowcount == 0:
+            return None
+
+        async with self._db.execute(
+            "SELECT manga_id, library_status, added_at, updated_at "
+            "FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
+            (firebase_uid, manga_id),
+        ) as select_cursor:
+            row = await select_cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "manga_id": row["manga_id"],
+            "library_status": row["library_status"],
+            "added_at": row["added_at"],
+            "updated_at": row["updated_at"],
+        }
 
     async def remove_from_library(self, firebase_uid: str, manga_id: str) -> bool:
         """Remove a manga from the user's library. Returns True if it existed."""

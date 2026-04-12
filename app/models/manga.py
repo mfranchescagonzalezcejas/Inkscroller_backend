@@ -2,6 +2,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
+class LibraryMetadata(BaseModel):
+    library_status: str
+    added_at: str
+    updated_at: str
+
+
 class Manga(BaseModel):
     id: str
     title: str
@@ -29,3 +35,6 @@ class Manga(BaseModel):
     # Fechas
     startYear: Optional[int] = None
     endYear: Optional[int] = None
+
+    # User-library metadata (only present on authenticated library responses)
+    library: Optional[LibraryMetadata] = None
