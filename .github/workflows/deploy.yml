@@ -68,7 +68,8 @@ jobs:
             --region us-central1 \
             --project inkscroller-aed59 \
             --allow-unauthenticated \
-            --set-env-vars FIREBASE_PROJECT_ID=inkscroller-aed59,DB_PATH=/app/data/inkscroller.db \
+            --add-cloudsql-instances inkscroller-aed59:us-central1:inkscroller-db \
+            --set-env-vars "FIREBASE_PROJECT_ID=inkscroller-aed59,CLOUD_SQL_INSTANCE=inkscroller-aed59:us-central1:inkscroller-db,DB_USER=inkscroller,DB_NAME=inkscroller,DB_PASS=${{ secrets.DB_PASS_DEV }}" \
             --quiet
 
       # ── Deploy STAGING ───────────────────────────────────────────────────────
@@ -99,7 +100,8 @@ jobs:
             --region us-central1 \
             --project inkscroller-stg \
             --allow-unauthenticated \
-            --set-env-vars FIREBASE_PROJECT_ID=inkscroller-stg,DB_PATH=/app/data/inkscroller.db \
+            --add-cloudsql-instances inkscroller-stg:us-central1:inkscroller-db \
+            --set-env-vars "FIREBASE_PROJECT_ID=inkscroller-stg,CLOUD_SQL_INSTANCE=inkscroller-stg:us-central1:inkscroller-db,DB_USER=inkscroller,DB_NAME=inkscroller,DB_PASS=${{ secrets.DB_PASS_STG }}" \
             --quiet
 
       # ── Deploy PRO ───────────────────────────────────────────────────────────
@@ -130,5 +132,6 @@ jobs:
             --region us-central1 \
             --project inkscroller-8fa87 \
             --allow-unauthenticated \
-            --set-env-vars FIREBASE_PROJECT_ID=inkscroller-8fa87,DB_PATH=/app/data/inkscroller.db \
+            --add-cloudsql-instances inkscroller-8fa87:us-central1:inkscroller-db \
+            --set-env-vars "FIREBASE_PROJECT_ID=inkscroller-8fa87,CLOUD_SQL_INSTANCE=inkscroller-8fa87:us-central1:inkscroller-db,DB_USER=inkscroller,DB_NAME=inkscroller,DB_PASS=${{ secrets.DB_PASS_PRO }}" \
             --quiet

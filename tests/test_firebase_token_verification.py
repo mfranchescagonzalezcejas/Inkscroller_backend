@@ -16,10 +16,10 @@ import asyncio
 import unittest
 from unittest.mock import MagicMock, patch
 
-import aiosqlite
 from fastapi.testclient import TestClient
 
 from app.core.database import init_db
+from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_db
 from main import create_app
 
@@ -34,31 +34,9 @@ _FAKE_DECODED_TOKEN = {
 }
 
 
-async def _make_test_db() -> aiosqlite.Connection:
-    """Create an in-memory SQLite DB with the full auth schema."""
-    db = await aiosqlite.connect(":memory:")
-    db.row_factory = aiosqlite.Row
-    ddl = """
-    PRAGMA journal_mode=WAL;
-    CREATE TABLE IF NOT EXISTS users (
-        firebase_uid  TEXT    PRIMARY KEY,
-        email         TEXT    NOT NULL,
-        display_name  TEXT,
-        created_at    TEXT    NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS reading_preferences (
-        firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
-        default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
-        default_language     TEXT    NOT NULL DEFAULT 'en',
-        updated_at           TEXT    NOT NULL
-    );
-    """
-    for stmt in ddl.strip().split(";"):
-        s = stmt.strip()
-        if s:
-            await db.execute(s)
-    await db.commit()
-    return db
+async def _make_test_db() -> DatabaseAdapter:
+    """Create an in-memory SQLite DB using the real production DDL via init_db."""
+    return await init_db(":memory:")
 
 
 # ---------------------------------------------------------------------------

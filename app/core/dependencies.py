@@ -1,10 +1,10 @@
 import logging
 
-import aiosqlite
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.cache import SimpleCache
+from app.core.db_adapter import DatabaseAdapter
 from app.core.exceptions import AuthError
 from app.core.firebase_auth import (
     AuthenticationError,
@@ -27,12 +27,12 @@ def get_shared_cache(request: Request) -> SimpleCache:
     return request.app.state.cache
 
 
-def get_db(request: Request) -> aiosqlite.Connection:
-    """Return the shared SQLite connection stored in ``app.state.db``."""
+def get_db(request: Request) -> DatabaseAdapter:
+    """Return the shared database adapter stored in ``app.state.db``."""
     return request.app.state.db
 
 
-def get_user_service(db: aiosqlite.Connection = Depends(get_db)) -> UserService:
+def get_user_service(db: DatabaseAdapter = Depends(get_db)) -> UserService:
     """Construct a :class:`UserService` for the current request."""
     return UserService(db)
 

@@ -16,10 +16,10 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock
 
-import aiosqlite
 from fastapi.testclient import TestClient
 
 from app.core.database import init_db
+from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_current_user, get_db, get_manga_service
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import Manga
@@ -44,7 +44,7 @@ _FAKE_MANGA = Manga(
 )
 
 
-async def _make_test_db() -> aiosqlite.Connection:
+async def _make_test_db() -> DatabaseAdapter:
     """Create an in-memory SQLite DB using the real production DDL via init_db."""
     return await init_db(":memory:")
 
@@ -223,6 +223,10 @@ class LibraryEndpointTests(unittest.TestCase):
         data = response.json()
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["id"], _FAKE_MANGA.id)
+        self.assertIn("library", data[0])
+        self.assertEqual(data[0]["library"]["library_status"], "reading")
+        self.assertIn("added_at", data[0]["library"])
+        self.assertIn("updated_at", data[0]["library"])
 
     # -- POST /users/me/library/{manga_id} ------------------------------------
 
@@ -247,6 +251,70 @@ class LibraryEndpointTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 204)
+
+    # -- PATCH /users/me/library/{manga_id} -----------------------------------
+
+    def test_patch_library_status_returns_200_and_metadata(self):
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-abc-123",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me/library/manga-abc-123",
+                json={"library_status": "completed"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["library_status"], "completed")
+        self.assertIn("added_at", data)
+        self.assertIn("updated_at", data)
+
+    def test_patch_library_status_reflected_in_get_library(self):
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-abc-123",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            client.patch(
+                "/users/me/library/manga-abc-123",
+                json={"library_status": "paused"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["library"]["library_status"], "paused")
+
+    def test_patch_nonexistent_library_item_returns_404(self):
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me/library/does-not-exist",
+                json={"library_status": "completed"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_patch_library_status_invalid_value_returns_422(self):
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-abc-123",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me/library/manga-abc-123",
+                json={"library_status": "dropped"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 422)
 
     # -- DELETE /users/me/library/{manga_id} ----------------------------------
 
@@ -289,6 +357,16 @@ class LibraryEndpointTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_openapi_library_item_route_includes_patch(self):
+        with TestClient(self.app) as client:
+            response = client.get("/openapi.json")
+
+        self.assertEqual(response.status_code, 200)
+        path_item = response.json()["paths"]["/users/me/library/{manga_id}"]
+        self.assertIn("post", path_item)
+        self.assertIn("patch", path_item)
+        self.assertIn("delete", path_item)
 
 
 if __name__ == "__main__":
