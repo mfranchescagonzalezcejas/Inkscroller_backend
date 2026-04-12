@@ -53,6 +53,15 @@ async def _migrate_user_library_table(db: aiosqlite.Connection) -> None:
     if "updated_at" not in columns:
         await db.execute("ALTER TABLE user_library ADD COLUMN updated_at TEXT")
 
+    if "title" not in columns:
+        await db.execute("ALTER TABLE user_library ADD COLUMN title TEXT")
+
+    if "cover_url" not in columns:
+        await db.execute("ALTER TABLE user_library ADD COLUMN cover_url TEXT")
+
+    if "authors" not in columns:
+        await db.execute("ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'")
+
     await db.execute(
         "UPDATE user_library "
         "SET library_status = COALESCE(library_status, 'reading'), "
