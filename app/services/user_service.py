@@ -171,9 +171,9 @@ class UserService:
             "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors) "
             "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
-            "title = COALESCE(excluded.title, title), "
-            "cover_url = COALESCE(excluded.cover_url, cover_url), "
-            "authors = COALESCE(excluded.authors, authors)",
+            "title = COALESCE(excluded.title, user_library.title), "
+            "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
+            "authors = COALESCE(excluded.authors, user_library.authors)",
             firebase_uid,
             manga_id,
             now,
