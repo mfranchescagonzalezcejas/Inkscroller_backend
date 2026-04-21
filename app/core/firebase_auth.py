@@ -47,7 +47,9 @@ def _load_railway_firebase_credentials() -> credentials.Base:
     try:
         service_account_info = json.loads(decoded_json)
     except json.JSONDecodeError as exc:
-        raise ValueError("Decoded Firebase service-account payload is not valid JSON.") from exc
+        raise ValueError(
+            "Decoded Firebase service-account payload is not valid JSON."
+        ) from exc
 
     return credentials.Certificate(service_account_info)
 
