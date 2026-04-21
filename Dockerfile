@@ -45,12 +45,12 @@ RUN mkdir -p /app/data && chown appuser:appgroup /app/data
 # Switch to non-root user
 USER appuser
 
-# Expose port (8080 is standard for Cloud Run)
+# Expose default port (Railway injects PORT dynamically)
 EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8080/health', timeout=5)" || exit 1
+    CMD python -c "import os, httpx; httpx.get(f'http://localhost:{os.getenv(\"PORT\", \"8080\")}/ping', timeout=5).raise_for_status()" || exit 1
 
 # Run uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
