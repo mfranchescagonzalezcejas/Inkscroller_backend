@@ -2,7 +2,7 @@
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
-![Cloud Run](https://img.shields.io/badge/Deploy-Cloud%20Run-4285F4?style=flat-square&logo=googlecloud&logoColor=white)
+![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and Jikan (MyAnimeList) data, and provides authenticated user preferences via Firebase Auth.
@@ -35,9 +35,9 @@ REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and J
 | Data validation | Pydantic v2 |
 | ASGI server | Uvicorn |
 | Auth | Firebase Admin SDK |
-| Persistence | SQLite via aiosqlite |
+| Persistence | PostgreSQL on Railway (`DATABASE_URL`) / SQLite local fallback |
 | Runtime | Python 3.12 |
-| Deploy | Google Cloud Run (3 environments) |
+| Deploy | Railway (dev / staging / production) |
 
 ---
 
@@ -79,7 +79,8 @@ python -m pip install -r requirements.txt
 
 # 3. Configure environment
 cp .env.example .env
-# Edit .env — set FIREBASE_PROJECT_ID and GOOGLE_APPLICATION_CREDENTIALS
+# Edit .env — set FIREBASE_PROJECT_ID and either
+# GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway)
 
 # 4. Start server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -97,15 +98,15 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## Deployment
 
-Deployed to **Google Cloud Run** across 3 environments:
+Deployed to **Railway** across 3 environments:
 
-| Environment | Cloud Run URL |
-|------------|--------------|
-| dev | `https://inkscroller-backend-708894048002.us-central1.run.app` |
-| staging | `https://inkscroller-backend-391760656950.us-central1.run.app` |
-| prod | `https://inkscroller-backend-806863502436.us-central1.run.app` |
+| Environment | Railway URL |
+|------------|-------------|
+| dev | `https://inkscrollerbackend-dev.up.railway.app` |
+| staging | `https://inkscrollerbackend-stg.up.railway.app` |
+| prod | `https://inkscrollerbackend-pro.up.railway.app` |
 
-> Full deployment guide (Docker, gcloud CLI, multi-flavor deploy): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+> Full deployment guide (Railway environments, Firebase secrets, Postgres): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
 ---
 
@@ -114,7 +115,7 @@ Deployed to **Google Cloud Run** across 3 environments:
 ```
 Inkscroller_backend/
 ├── main.py                        # App entry — mounts all routers
-├── Dockerfile                     # Multi-stage build for Cloud Run
+├── Dockerfile                     # Multi-stage build for Railway / container deploys
 ├── requirements.txt
 │
 └── app/

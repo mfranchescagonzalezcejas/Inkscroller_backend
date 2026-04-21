@@ -1,5 +1,7 @@
 # P0-B1 — Guía de verificación: Variables de entorno en Cloud Run (prod)
 
+> **Legacy note (2026-04-21):** Esta guía se mantiene como evidencia histórica del modelo anterior en Cloud Run. El flujo activo usa Railway; las nuevas verificaciones equivalentes deben hacerse desde variables del environment y deploy logs de Railway.
+
 > **Ítem:** P0-B1 — Variables de entorno de producción configuradas en Cloud Run  
 > **Checklist ref:** `docs/release/checklist-legal.md` § 5.3  
 > **Estado actual:** ✅ PASS — 2026-04-08  

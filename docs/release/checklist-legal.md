@@ -1,5 +1,7 @@
 # Checklist Legal — Release InkScroller Backend
 
+> **Nota (2026-04-21):** El target activo de despliegue ahora es **Railway**. Las evidencias de Cloud Run que siguen abajo se conservan como historial/auditoría, pero los próximos releases deben adjuntar evidencia basada en Railway (variables, logs y smoke tests en Railway).
+
 > **Propósito:** Validar el cumplimiento legal y de APIs antes de promover a producción.  
 > **Usar en:** Cada release a `staging` y `prod`.  
 > **Referencia:** [`docs/legal/api-compliance.md`](../legal/api-compliance.md)
