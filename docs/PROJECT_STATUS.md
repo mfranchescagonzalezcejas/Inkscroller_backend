@@ -2,7 +2,7 @@
 
 > **Cross-repo source of truth:** Obsidian under `1-PROJECTS/InkScroller/`
 > **Repo role:** backend implementation status for the FastAPI service
-> **Last updated:** 2026-04-08 (Sprint 3 active — compliance/release synchronization with Obsidian)
+> **Last updated:** 2026-04-21 (Railway migration validated in dev / staging / prod)
 
 ---
 
@@ -29,13 +29,13 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 ---
 
-### Cloud Run Deployments (Multi-project)
+### Railway Deployments (Multi-environment)
 
-| Environment | GCP Project | Firebase Project | Cloud Run URL |
-|------------|-------------|------------------|---------------|
-| **dev** | `inkscroller-aed59` | `inkscroller-aed59` | `https://inkscroller-backend-708894048002.us-central1.run.app` |
-| **staging** | `inkscroller-stg` | `inkscroller-stg` | `https://inkscroller-backend-391760656950.us-central1.run.app` |
-| **prod** | `inkscroller-8fa87` | `inkscroller-8fa87` | `https://inkscroller-backend-806863502436.us-central1.run.app` |
+| Environment | Railway Environment | Firebase Project | Backend URL |
+|------------|---------------------|------------------|-------------|
+| **dev** | `dev` | `inkscroller-aed59` | `https://inkscrollerbackend-dev.up.railway.app` |
+| **staging** | `staging` | `inkscroller-stg` | `https://inkscrollerbackend-stg.up.railway.app` |
+| **prod** | `production` | `inkscroller-8fa87` | `https://inkscrollerbackend-pro.up.railway.app` |
 
 ---
 
@@ -44,7 +44,6 @@ This file is the **backend-side status mirror** of the product's shared planning
 ### M1 — Backend auth foundation
 
 - Firebase Admin SDK for ID token verification
-- SQLite persistence with `aiosqlite`
 - `GET /users/me` — creates user row if not exists
 - `GET /users/me/preferences` — reading preferences
 - `PUT /users/me/preferences` — update `defaultReaderMode`, `defaultLanguage`
@@ -72,13 +71,14 @@ This file is the **backend-side status mirror** of the product's shared planning
 - Global exception handlers
 - Dependency injection factories
 - Smoke tests with DI overrides
-- **Docker** — Multi-stage Dockerfile for production deployment
+- **Docker** — Multi-stage Dockerfile for Railway/container deployment
+- **PostgreSQL** — production persistence path via `DATABASE_URL`
 
 ### Repo hygiene
 
-- Tracked virtualenv files removed from git
-- SQLite runtime artifacts ignored (`*.db-shm`, `*.db-wal`)
-- `.env.example` with all required variables documented
+- `.env.example` documents Railway/Firebase/Postgres variables
+- Deployment workflow simplified: GitHub Actions validates `main`, Railway deploys by branch/environment
+- Frontend cloud environments now target Railway dev/staging/prod URLs
 
 ---
 
@@ -86,12 +86,11 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| `BTASK-003` Deploy strategy | High | ✅ Complete — Google Cloud (Cloud Run) |
+| `BTASK-003` Deploy strategy | High | ✅ Complete — Railway + Postgres + Firebase per environment |
 | `BTASK-010` Sprint 3 compliance pack | High | Active — backend support for release/legal evidence tracking |
-| P0-B1..P0-B8 compliance closure | High | Active — sync evidence with Control Tower before release gate |
-| Firebase env setup for live validation | Medium | `FIREBASE_PROJECT_ID` placeholder still in `.env` |
+| P0-B1..P0-B8 compliance closure | High | Active — update evidence paths from historical Cloud Run model to Railway runbooks/logs |
 | MangaDex language configurable by user preference | Medium | Currently hardcoded to `en` |
-| End-to-end validation with Flutter | Low | Frontend M3 is now complete, ready for testing |
+| End-to-end validation with Flutter | Low | Dev/staging/prod Railway URLs validated; continue broader functional smoke coverage |
 
 ### Sprint 3 — Compliance evidence focus (Control Tower alignment)
 
@@ -107,10 +106,10 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 | Contract | Status | Notes |
 |---------|--------|-------|
-| Public manga catalogue/search/detail/chapter | ✅ Available | Confirmed working locally |
-| `/users/me` | ✅ Implemented | Requires Firebase env for live validation |
+| Public manga catalogue/search/detail/chapter | ✅ Available | Validated against Railway environments |
+| `/users/me` | ✅ Implemented | Validated with Firebase per environment |
 | `/users/me/preferences` | ✅ Implemented | Required by frontend M3 |
-| Firebase token verification | ✅ Implemented | Requires backend env for live validation |
+| Firebase token verification | ✅ Implemented | Verified on Railway dev/staging/prod |
 
 ### Depends on frontend for full product value
 
@@ -124,101 +123,33 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 ## 6. Deployment
 
-### ✅ Chosen Target: Google Cloud (Cloud Run)
+### ✅ Chosen Target: Railway
 
-**Why Google Cloud:**
-- Same project ID as Firebase (`inkscroller-aed59`)
-- Cloud Run free tier: 2M requests/mes
-- Native Firebase integration
-- SQLite sufficient for current + future (10-20MB data)
-- No card required for free tier
+**Why Railway:**
+- simpler developer experience for multi-environment backend delivery
+- easy environment-scoped variables and deploys
+- Railway Postgres provides the production persistence path
+- still compatible with Firebase Auth via Admin SDK
 
-### Alternativas considered
+### Alternatives considered
 
 | Platform | Pros | Cons |
 |----------|------|------|
-| **Oracle Cloud Always Free** | 200GB disk | Requires card verification, capacity issues |
-| **Koyeb** | Very easy setup | No persistent storage (loses data on redeploy) |
-
-### Docker Image
-
-```bash
-# Build
-docker build -t inkscroller-backend:latest .
-
-# Run locally
-docker run -p 8000:8000 \
-  -e FIREBASE_PROJECT_ID=inkscroller-aed59 \
-  -e DB_PATH=/app/data/inkscroller.db \
-  inkscroller-backend:latest
-```
+| **Cloud Run** | Native GCP/Firebase ecosystem | More operational friction for this project |
+| **VPS / self-hosting** | Full control, potentially low cost | Higher ops burden, backups/security on us |
 
 ### Environment Variables Required
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `FIREBASE_PROJECT_ID` | Yes | Your Firebase project ID |
-| `DB_PATH` | No | Default: `./inkscroller.db` |
+| `FIREBASE_PROJECT_ID` | Yes | Per-environment Firebase project |
+| `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | Yes (Railway) | Service account per environment |
+| `DATABASE_URL` | Yes (Railway) | Injected from Railway Postgres |
+| `DB_PATH` | No | Local fallback only |
 | `CORS_ORIGINS` | No | Comma-separated, default: `*` |
 | `CACHE_TTL_SECONDS` | No | Default: `300` |
 | `MANGADEX_BASE_URL` | No | Default: `https://api.mangadex.org` |
 | `JIKAN_BASE_URL` | No | Default: `https://api.jikan.moe/v4` |
-
-### Alternative: Koyeb (if Oracle Cloud is too complex)
-
-- Free tier: 1 service, no persistent storage
-- Acceptable for current (~12KB SQLite) but NOT for future (favorites/progress need persistent storage)
-- Cold starts: ~30s on first request
-
-### Google Cloud Deployment Steps
-
-```bash
-# 1. Install Docker and gcloud CLI (see below)
-
-# 2. Configure gcloud
-gcloud init
-gcloud auth login
-
-# 3. Build and push to GCR
-docker build -t gcr.io/inkscroller-aed59/inkscroller-backend:latest .
-docker push gcr.io/inkscroller-aed59/inkscroller-backend:latest
-
-# 4. Deploy to Cloud Run
-gcloud run deploy inkscroller-backend \
-  --image gcr.io/inkscroller-aed59/inkscroller-backend:latest \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars FIREBASE_PROJECT_ID=inkscroller-aed59,DB_PATH=/app/data/inkscroller.db
-```
-
-### Install Docker (Ubuntu 24.04)
-
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg lsb-release
-
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER
-sudo systemctl start docker
-```
-
-### Install Google Cloud CLI
-
-```bash
-curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-496.0.0-linux-x86_64.tar.gz
-tar -xf google-cloud-cli-496.0.0-linux-x86_64.tar.gz
-./google-cloud-sdk/install.sh
-echo 'export PATH="$HOME/google-cloud-sdk/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
 
 ---
 
@@ -226,8 +157,8 @@ source ~/.bashrc
 
 | Topic | Type | Impact |
 |------|------|--------|
-| Staging `/users/me` fails for new users | validation | Expected — user doesn't exist in staging Firebase project yet |
-| Deploy target | deploy | ✅ SOLVED — Google Cloud (Cloud Run), tested on physical device 2026-04-06 |
+| Manga language still hardcoded to `en` | product/backend | Some manga return no chapters for users expecting other languages |
+| Release/compliance docs still contain historical Cloud Run evidence | documentation | Needs normalization to Railway before final release sign-off |
 
 ---
 
@@ -246,16 +177,4 @@ source ~/.bashrc
 
 - `README.md`
 - `docs/PROJECT_STATUS.md`
-
----
-
-## 8. Update rules
-
-Update this file when:
-
-1. backend milestone state changes
-2. deploy strategy changes
-3. protected endpoints become live-testable in local/staging environments
-4. frontend/backend contract changes in a way that affects sequencing
-
-Do **not** use this file as the main task tracker. That lives in Obsidian.
+- `docs/DEPLOYMENT.md`
