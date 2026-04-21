@@ -5,7 +5,10 @@ and returns a `FirebaseTokenPayload` on success, or raises an
 `AuthenticationError` for any invalid/expired/missing token.
 """
 
+import base64
+import json
 import logging
+import os
 from dataclasses import dataclass
 
 import firebase_admin
@@ -30,12 +33,35 @@ class AuthenticationError(Exception):
     """Raised when a Firebase token is missing, malformed, or invalid."""
 
 
+def _load_railway_firebase_credentials() -> credentials.Base:
+    """Build Firebase credentials from a base64-encoded service account JSON."""
+    encoded_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64", "").strip()
+    if not encoded_json:
+        raise ValueError("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 is not set.")
+
+    try:
+        decoded_json = base64.b64decode(encoded_json).decode("utf-8")
+    except Exception as exc:
+        raise ValueError("Invalid Firebase service-account base64 payload.") from exc
+
+    try:
+        service_account_info = json.loads(decoded_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "Decoded Firebase service-account payload is not valid JSON."
+        ) from exc
+
+    return credentials.Certificate(service_account_info)
+
+
 def init_firebase_admin() -> None:
     """Initialize the Firebase Admin SDK if not already initialized.
 
-    When ``GOOGLE_APPLICATION_CREDENTIALS`` env var points to a service-account
-    JSON file, ``firebase_admin`` picks it up automatically via
-    ``credentials.ApplicationDefault()``.  For local development without a
+    When ``FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`` is set (recommended for
+    Railway), the SDK is initialized from that secret first. Otherwise, if
+    ``GOOGLE_APPLICATION_CREDENTIALS`` points to a service-account JSON file,
+    ``firebase_admin`` picks it up automatically via
+    ``credentials.ApplicationDefault()``. For local development without a
     service-account file, set ``FIREBASE_PROJECT_ID`` in ``.env`` and launch
     the Firebase Auth emulator; token verification will be skipped by the SDK
     when ``FIREBASE_AUTH_EMULATOR_HOST`` is set.
@@ -57,7 +83,19 @@ def init_firebase_admin() -> None:
         return
 
     try:
-        cred = credentials.ApplicationDefault()
+        cred = _load_railway_firebase_credentials()
+    except ValueError:
+        try:
+            cred = credentials.ApplicationDefault()
+        except Exception as exc:
+            logger.warning(
+                "Firebase Admin SDK initialization failed (%s). "
+                "Protected endpoints will reject all requests.",
+                exc,
+            )
+            return
+
+    try:
         firebase_admin.initialize_app(cred, {"projectId": settings.firebase_project_id})
         logger.info(
             "Firebase Admin SDK initialized (project: %s)", settings.firebase_project_id

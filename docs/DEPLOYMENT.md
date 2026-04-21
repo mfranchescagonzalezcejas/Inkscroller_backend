@@ -1,17 +1,26 @@
 # Deployment — InkScroller Backend
 
-> **Target:** Google Cloud Run (3 environments)  
-> **Last updated:** 2026-04-06
+> **Target:** Railway (3 environments)  
+> **Last updated:** 2026-04-21
 
 ---
 
 ## Live URLs
 
-| Environment | GCP Project | Firebase Project | Cloud Run URL |
-|------------|-------------|------------------|---------------|
-| **dev** | `inkscroller-aed59` | `inkscroller-aed59` | `https://inkscroller-backend-708894048002.us-central1.run.app` |
-| **staging** | `inkscroller-stg` | `inkscroller-stg` | `https://inkscroller-backend-391760656950.us-central1.run.app` |
-| **prod** | `inkscroller-8fa87` | `inkscroller-8fa87` | `https://inkscroller-backend-806863502436.us-central1.run.app` |
+| Environment | Railway Environment | Firebase Project | Backend URL |
+|------------|---------------------|------------------|-------------|
+| **dev** | `dev` | `inkscroller-aed59` | `https://inkscrollerbackend-dev.up.railway.app` |
+| **staging** | `staging` | `inkscroller-stg` | `https://inkscrollerbackend-stg.up.railway.app` |
+| **prod** | `production` | `inkscroller-8fa87` | `https://inkscrollerbackend-pro.up.railway.app` |
+
+---
+
+## Runtime model
+
+- One Railway project hosts the backend service plus one Postgres service per environment.
+- `dev` and `staging` track the `develop` branch.
+- `production` tracks the `main` branch.
+- Firebase remains split by environment (`inkscroller-aed59`, `inkscroller-stg`, `inkscroller-8fa87`).
 
 ---
 
@@ -28,40 +37,40 @@ docker run -p 8080:8080 \
   inkscroller-backend:latest
 ```
 
-> Cloud Run uses port **8080** (not 8000). The Dockerfile already exposes 8080.
+Railway injects `PORT` dynamically; the Dockerfile already respects `${PORT:-8080}`.
 
 ---
 
-## Deploy to Cloud Run
+## Deploy to Railway
 
-```bash
-# 1. Build and push image to GCR (example: dev)
-docker build -t gcr.io/inkscroller-aed59/inkscroller-backend:latest .
-docker push gcr.io/inkscroller-aed59/inkscroller-backend:latest
+Railway deploys automatically from the connected GitHub branch.
 
-# 2. Deploy
-gcloud run deploy inkscroller-backend \
-  --image gcr.io/inkscroller-aed59/inkscroller-backend:latest \
-  --platform managed \
-  --region us-central1 \
-  --project inkscroller-aed59 \
-  --allow-unauthenticated \
-  --set-env-vars FIREBASE_PROJECT_ID=inkscroller-aed59,DB_PATH=/app/data/inkscroller.db
-```
+- `dev` / `staging` use the `develop` branch
+- `production` uses the `main` branch
 
-For staging/prod, replace `inkscroller-aed59` with `inkscroller-stg` or `inkscroller-8fa87`.
+GitHub Actions validates `main`; Railway handles the actual deployment.
+
+### Per-environment Railway setup
+
+For each environment configure:
+
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`
+- `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+- `CORS_ORIGINS`
+- optional runtime flags (`DEBUG`, `CACHE_TTL_SECONDS`, etc.)
 
 ---
 
 ## Multiple Flavor Support
 
-One backend image serves all flavors — just change `FIREBASE_PROJECT_ID` at deploy time:
+One backend image serves all flavors — change environment variables per Railway environment:
 
-| Flavor | GCP Project | `FIREBASE_PROJECT_ID` |
+| Flavor | Railway env | `FIREBASE_PROJECT_ID` |
 |--------|-------------|----------------------|
-| dev | `inkscroller-aed59` | `inkscroller-aed59` |
-| staging | `inkscroller-stg` | `inkscroller-stg` |
-| prod | `inkscroller-8fa87` | `inkscroller-8fa87` |
+| dev | `dev` | `inkscroller-aed59` |
+| staging | `staging` | `inkscroller-stg` |
+| prod | `production` | `inkscroller-8fa87` |
 
 ---
 
@@ -70,24 +79,23 @@ One backend image serves all flavors — just change `FIREBASE_PROJECT_ID` at de
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `FIREBASE_PROJECT_ID` | ✅ | — | Firebase project ID |
-| `GOOGLE_APPLICATION_CREDENTIALS` | ✅ (local) | — | Path to service account JSON (not needed on Cloud Run with Workload Identity) |
-| `DB_PATH` | — | `./inkscroller.db` | SQLite database path |
+| `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | ✅ (Railway) | — | Base64-encoded Firebase service account JSON |
+| `GOOGLE_APPLICATION_CREDENTIALS` | ✅ (local) | — | Path to service account JSON for local runs |
+| `DATABASE_URL` | ✅ (Railway) | — | PostgreSQL connection string from Railway Postgres |
+| `DB_PATH` | — | `./inkscroller.db` | SQLite path for local fallback only |
 | `CORS_ORIGINS` | — | `*` | Comma-separated allowed origins |
 | `CACHE_TTL_SECONDS` | — | `300` | In-memory cache TTL |
 | `MANGADEX_BASE_URL` | — | `https://api.mangadex.org` | MangaDex base URL |
 | `JIKAN_BASE_URL` | — | `https://api.jikan.moe/v4` | Jikan base URL |
 
-### Verificación operacional de env vars en prod (P0-B1)
+### Production verification
 
-Antes de marcar release en **GO** para producción, ejecutar y adjuntar evidencia:
+Before closing a production release, confirm in Railway logs that:
 
-```bash
-./scripts/release/verify_prod_env_cloud_run.sh
-```
-
-- Si no hay acceso real a `gcloud`/proyecto prod, registrar el estado como **MANUAL PENDING**.
-- No marcar P0-B1 como `✅` en `docs/release/checklist-legal.md` sin output real de `gcloud run services describe`.
-- Completar evidencia en: `docs/release/templates/p0-b1-evidence-template.md`.
+- `Firebase Admin SDK initialized (project: inkscroller-8fa87)`
+- `PostgreSQL pool ready via DATABASE_URL`
+- `/ping` responds with `200`
+- authenticated `/users/*` routes return `200` with a production Firebase token
 
 ---
 
@@ -95,10 +103,10 @@ Antes de marcar release en **GO** para producción, ejecutar y adjuntar evidenci
 
 | Issue | Solution |
 |-------|---------|
-| Cloud Run expects port 8080 | Dockerfile already exposes 8080; uvicorn binds to `0.0.0.0:8080` |
-| Cold starts take 10–30 s | Flutter client uses 60 s Dio timeout |
-| `gcr.io` vs Artifact Registry | `gcr.io` (Container Registry legacy) doesn't require billing; Artifact Registry does |
-| Fish shell PATH | `fish_add_path ~/google-cloud-sdk/bin` (not `export PATH=...`) |
+| Railway injects `PORT` | Dockerfile already uses `${PORT:-8080}` |
+| Missing Firebase secret falls back to ADC and breaks auth | Ensure `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` is set per environment |
+| Wrong Firebase project per environment causes 401s | Match `FIREBASE_PROJECT_ID` and service-account JSON to the target environment |
+| SQLite is not the production path anymore | Use Railway Postgres via `DATABASE_URL` |
 
 ---
 
@@ -114,29 +122,3 @@ GOOGLE_APPLICATION_CREDENTIALS=/home/<user>/.ssh/inkscroller-firebase-key.json
 ```
 
 > ⚠️ **Never commit the service account JSON.** It's covered by `.gitignore`.
-
----
-
-## Installing Prerequisites (Ubuntu 24.04)
-
-### Docker
-
-```bash
-sudo apt update && sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER
-```
-
-### Google Cloud CLI
-
-```bash
-curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-496.0.0-linux-x86_64.tar.gz
-tar -xf google-cloud-cli-496.0.0-linux-x86_64.tar.gz
-./google-cloud-sdk/install.sh
-# Fish shell:
-fish_add_path ~/google-cloud-sdk/bin
-```
