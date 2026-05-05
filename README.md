@@ -7,6 +7,8 @@
 
 REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and Jikan (MyAnimeList) data, and provides authenticated user preferences via Firebase Auth.
 
+> **Repository strategy:** GitLab is the primary source for planning/review (Jira + Merge Requests), GitHub is a public mirror for visibility, and Railway is the active deployment target.
+
 ---
 
 ## Features
@@ -160,6 +162,15 @@ InkScroller Backend is a public portfolio project maintained by the author.
 
 External contributions are not actively accepted at this time, but issues,
 feedback, and code review comments are welcome.
+
+## Security Reporting
+
+If you discover a security issue, **do not publish secrets or exploit details in a public issue**.
+
+- Preferred: report privately through the main GitLab workflow (linked from project profile)
+- If only GitHub is available, open a minimal issue without sensitive details and request private follow-up
+
+General security posture and secret-handling guidance: [`SECURITY_PUBLIC_READINESS.md`](SECURITY_PUBLIC_READINESS.md)
 
 ---
 

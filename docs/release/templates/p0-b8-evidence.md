@@ -3,7 +3,7 @@
 > **Estado**: ✅ PASS — 2026-04-08  
 > **Ítem checklist**: 5.1 (smoke tests) + 5.2 (health check `/ping` en prod)  
 > **Rama**: `feature/p0-b8-smoke-prod-evidence`  
-> **Ejecutado por**: shana1499 @ Mercedes-Laptop  
+> **Ejecutado por**: local development runner
 
 ---
 
@@ -35,7 +35,7 @@ python -m pytest tests/test_app.py -v --tb=short
 | Python | 3.12.10 |
 | pytest | 9.0.3 |
 | Fecha | 2026-04-08T21:59:16Z |
-| Runner | shana1499 @ Mercedes-Laptop |
+| Runner | local development runner |
 
 ### Resultado
 
@@ -43,7 +43,7 @@ python -m pytest tests/test_app.py -v --tb=short
 ============================= test session starts ==============================
 platform linux -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0
 cachedir: .pytest_cache
-rootdir: /home/shana1499/Git/InkScroller/Inkscroller_backend
+rootdir: <local-workspace>/Inkscroller_backend
 plugins: anyio-4.12.1
 collecting ... collected 8 items
 
@@ -91,7 +91,7 @@ tests/test_app.py::AppSmokeTests::test_search_route_uses_overridden_manga_servic
 | URL prod | `https://inkscrollerbackend-pro.up.railway.app` |
 | Timeout curl | 15s |
 | Fecha | 2026-04-08T21:59:39Z |
-| Runner | shana1499 @ Mercedes-Laptop |
+| Runner | local development runner |
 
 ### Resultado
 
@@ -99,7 +99,7 @@ tests/test_app.py::AppSmokeTests::test_search_route_uses_overridden_manga_servic
 == P0-B8 Smoke Test — Production ==
 target: https://inkscrollerbackend-pro.up.railway.app
 date:   2026-04-08T21:59:39Z
-runner: shana1499@Mercedes-Laptop
+runner: local-development-runner
 
 == 1. Health Check ==
   GET /ping                                     [PASS]  status=200  time=0.185066s
@@ -170,5 +170,5 @@ El script `scripts/release/smoke_prod.sh` es **reproducible** y soporta:
 - Checklist: `docs/release/checklist-legal.md` → ítems 5.1 y 5.2 marcados ✅
 - Script: `scripts/release/smoke_prod.sh`
 - Tests: `tests/test_app.py` (8 tests de smoke)
-- Control Tower V1.0 (Obsidian) → P0-B8 marcado ✅
-- BTASK-010 / TASK-022 (Obsidian) → actualizados
+- Sprint 3 compliance tracker (in-repo) → P0-B8 marcado ✅
+- Release/status tracking docs (in-repo) → actualizados
