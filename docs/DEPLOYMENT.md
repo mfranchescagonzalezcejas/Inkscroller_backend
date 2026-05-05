@@ -110,6 +110,12 @@ Before closing a production release, confirm in Railway logs that:
 
 ---
 
+## Scope note
+
+This repository uses Railway as the active runtime and deployment path for all releases.
+
+---
+
 ## Local Firebase Setup (for `/users/me` endpoints)
 
 1. Download service account JSON from Firebase Console → Project Settings → Service Accounts

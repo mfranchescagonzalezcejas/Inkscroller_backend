@@ -4,10 +4,10 @@ Local development (no DATABASE_URL / CLOUD_SQL_INSTANCE set):
     Uses aiosqlite with a local SQLite file (default: ./inkscroller.db).
     Pass ``":memory:"`` to get a hermetic in-memory DB for tests.
 
-Cloud Run production (CLOUD_SQL_INSTANCE or DATABASE_URL set):
+Production (CLOUD_SQL_INSTANCE or DATABASE_URL set):
     Uses asyncpg via the Cloud SQL Python Connector.
-    Authentication is handled automatically by Workload Identity on Cloud Run.
-    For local testing against Cloud SQL, set DATABASE_URL directly.
+    Authentication can use ADC when available.
+    For local testing against PostgreSQL, set DATABASE_URL directly.
 """
 
 from __future__ import annotations
@@ -140,11 +140,11 @@ async def _migrate_sqlite_columns(conn: object) -> None:
 
 
 async def _init_postgres() -> DatabaseAdapter:
-    """Connect to Cloud SQL via the Cloud SQL Python Connector or a direct DATABASE_URL."""
+    """Connect via Cloud SQL connector or a direct DATABASE_URL."""
     import asyncpg  # type: ignore[import]
 
     if settings.cloud_sql_instance:
-        # Cloud Run path: Workload Identity, no password needed in env.
+        # ADC path: password may be omitted when IAM auth is configured.
         from google.cloud.sql.connector import Connector  # type: ignore[import]
 
         connector = Connector()

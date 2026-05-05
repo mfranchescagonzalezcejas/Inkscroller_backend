@@ -128,7 +128,7 @@ Inkscroller_backend/
     ├── core/
     │   ├── cache.py               # SimpleCache — TTL-based in-memory cache
     │   ├── config.py              # Settings via env vars
-    │   ├── auth.py                # Firebase ID token verification middleware
+    │   ├── firebase_auth.py       # Firebase ID token verification middleware
     │   └── dependencies.py        # FastAPI DI factories
     │
     ├── models/                    # Pydantic response models

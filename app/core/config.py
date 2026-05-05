@@ -29,10 +29,10 @@ class Settings:
     # SQLite (local dev): set DB_PATH or leave default.
     db_path: str = os.getenv("DB_PATH", "./inkscroller.db")
 
-    # PostgreSQL (Cloud Run): set CLOUD_SQL_INSTANCE *or* DATABASE_URL.
+    # PostgreSQL (Railway/local): set CLOUD_SQL_INSTANCE *or* DATABASE_URL.
     #
     # CLOUD_SQL_INSTANCE  — "project:region:instance" connection name.
-    #                       Uses Cloud SQL Python Connector + Workload Identity.
+    #                       Uses Cloud SQL Python Connector + ADC.
     #                       Example: inkscroller-aed59:us-central1:inkscroller-db
     #
     # DATABASE_URL        — Full asyncpg DSN for direct connections (local Docker,
