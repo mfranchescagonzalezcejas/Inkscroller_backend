@@ -6,13 +6,18 @@ on:
 permissions:
   contents: read
 
+env:
+  # Keep the GitHub mirror validation ahead of the Node.js 20 runner deprecation.
+  # The JavaScript actions below are pinned to major versions that declare Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.10"
           cache: pip
