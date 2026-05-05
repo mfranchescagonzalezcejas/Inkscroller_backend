@@ -10,6 +10,7 @@ env:
   # Keep the GitHub mirror validation ahead of the Node.js 20 runner deprecation.
   # The JavaScript actions below are pinned to major versions that declare Node 24.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  FIREBASE_PROJECT_ID: "ci-test-project"
 
 jobs:
   validate:

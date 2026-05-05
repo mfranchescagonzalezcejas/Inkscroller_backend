@@ -3,6 +3,7 @@ stages:
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  FIREBASE_PROJECT_ID: "ci-test-project"
 
 cache:
   key:

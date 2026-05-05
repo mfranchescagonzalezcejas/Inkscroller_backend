@@ -58,13 +58,13 @@ class UsersEndpointTests(unittest.TestCase):
 
     def setUp(self):
         self.app = create_app()
-        self.db = asyncio.get_event_loop().run_until_complete(_make_test_db())
+        self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
         self.app.dependency_overrides[get_current_user] = self._fake_auth
 
     def tearDown(self):
         self.app.dependency_overrides.clear()
-        asyncio.get_event_loop().run_until_complete(self.db.close())
+        asyncio.run(self.db.close())
 
     @staticmethod
     async def _fake_auth() -> FirebaseTokenPayload:
@@ -98,7 +98,7 @@ class UsersEndpointTests(unittest.TestCase):
     # -- GET /users/me/preferences --------------------------------------------
 
     def test_get_preferences_returns_defaults_on_first_request(self):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
         )
 
@@ -116,7 +116,7 @@ class UsersEndpointTests(unittest.TestCase):
     # -- PUT /users/me/preferences --------------------------------------------
 
     def test_update_preferences_persists_and_returns_updated_values(self):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
         )
 
@@ -133,7 +133,7 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(data["default_language"], "es")
 
     def test_update_preferences_subsequent_get_returns_updated_values(self):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
         )
 
@@ -178,12 +178,12 @@ class LibraryEndpointTests(unittest.TestCase):
 
     def setUp(self):
         self.app = create_app()
-        self.db = asyncio.get_event_loop().run_until_complete(_make_test_db())
+        self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
         self.app.dependency_overrides[get_current_user] = self._fake_auth
 
         # Bootstrap user row required by FK constraint.
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
         )
 
@@ -194,7 +194,7 @@ class LibraryEndpointTests(unittest.TestCase):
 
     def tearDown(self):
         self.app.dependency_overrides.clear()
-        asyncio.get_event_loop().run_until_complete(self.db.close())
+        asyncio.run(self.db.close())
 
     @staticmethod
     async def _fake_auth() -> FirebaseTokenPayload:
