@@ -7,7 +7,7 @@
 #
 # Uso:
 #   ./scripts/release/smoke_prod.sh
-#   PROD_URL=https://mi-url-custom.run.app ./scripts/release/smoke_prod.sh
+#   PROD_URL=https://mi-url-custom.up.railway.app ./scripts/release/smoke_prod.sh
 #
 # Salida:
 #   - PASS / FAIL por endpoint
@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-PROD_URL="${PROD_URL:-https://inkscroller-backend-806863502436.us-central1.run.app}"
+PROD_URL="${PROD_URL:-https://inkscrollerbackend-pro.up.railway.app}"
 TIMEOUT="${TIMEOUT:-15}"
 PASS=true
 
