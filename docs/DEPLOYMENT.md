@@ -110,6 +110,13 @@ Before closing a production release, confirm in Railway logs that:
 
 ---
 
+## Legacy note (Cloud Run)
+
+Cloud Run artifacts under `docs/release/` are retained for audit/compliance history only.
+The active runtime and deployment path for all new releases is Railway.
+
+---
+
 ## Local Firebase Setup (for `/users/me` endpoints)
 
 1. Download service account JSON from Firebase Console → Project Settings → Service Accounts

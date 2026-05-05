@@ -61,7 +61,7 @@
 |---|------|-----------|--------|
 | 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — 8/8 (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 | 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
-| 5.3 | Variables de entorno del entorno destino están configuradas en Cloud Run | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (ver [`env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md) y [`templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
+| 5.3 | Variables de entorno del entorno destino están configuradas en **Railway** (Cloud Run: evidencia histórica) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS histórico en Cloud Run (ver [`legacy/cloud-run/env-vars-cloudrun-prod.md`](./legacy/cloud-run/env-vars-cloudrun-prod.md) y [`legacy/cloud-run/templates/p0-b1-evidence-template.md`](./legacy/cloud-run/templates/p0-b1-evidence-template.md)) |
 | 5.4 | Revisión de logs de las últimas 24 hs — sin errores críticos ni picos de 429 | 🟡 ADVERTENCIA | ☐ |
 
 ---
@@ -111,7 +111,7 @@ Firma: ___________
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
-| **P0-B1** | **Variables de entorno de producción configuradas en Cloud Run** | **5.3** | **✅ 2026-04-08** — PASS — revisión `00005-mj9` prod (guía: [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md), evidencia: [`templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)) |
+| **P0-B1** | **Variables de entorno de producción configuradas en Cloud Run (histórico)** | **5.3** | **✅ 2026-04-08** — PASS histórico — revisión `00005-mj9` prod (guía: [`docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md`](./legacy/cloud-run/env-vars-cloudrun-prod.md), evidencia: [`legacy/cloud-run/templates/p0-b1-evidence-template.md`](./legacy/cloud-run/templates/p0-b1-evidence-template.md)) |
 | **P0-B2** | **`.env` de producción NO en el repositorio** | **3.3** | **✅ 2026-04-08** — PASS — auditoría repo + historial git limpio (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B3** | **Firebase Admin SDK credentials via env var, no hardcodeadas** | **3.4** | **✅ 2026-04-08** — PASS — ApplicationDefault() + os.getenv, sin Certificate(), sin hardcoding (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B4** | **No se cachean binarios de imágenes (solo URLs)** | **1.2** | **✅ 2026-04-09** — PASS — auditoría estática + 14 tests unitarios (evidencia: [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
@@ -169,9 +169,9 @@ P0-B1 **CERRADO** con evidencia real de Cloud Run prod.
   1. Se detectaron gaps: `DEBUG=false` y `CORS_ORIGINS` no configurados explícitamente.
   2. Se ejecutó `gcloud run services update` con `--update-env-vars DEBUG=false,CORS_ORIGINS=https://inkscroller-app.web.app`.
   3. Nueva revisión `inkscroller-backend-00005-mj9` desplegada en `us-central1`.
-  4. Se re-ejecutó `./scripts/release/verify_prod_env_cloud_run.sh` → **PASS 5/5**.
-- **Evidencia completa:** [`docs/release/templates/p0-b1-evidence-template.md`](./templates/p0-b1-evidence-template.md)
-- **Guía de referencia:** [`docs/release/env-vars-cloudrun-prod.md`](./env-vars-cloudrun-prod.md)
+  4. Se re-ejecutó `./scripts/release/legacy/cloud-run/verify_prod_env_cloud_run.sh` → **PASS 5/5**.
+- **Evidencia completa:** [`docs/release/legacy/cloud-run/templates/p0-b1-evidence-template.md`](./legacy/cloud-run/templates/p0-b1-evidence-template.md)
+- **Guía de referencia:** [`docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md`](./legacy/cloud-run/env-vars-cloudrun-prod.md)
 
 ### Evidencias registradas — P0-B1
 
@@ -251,5 +251,5 @@ P0-B8 **CERRADO** con ejecución real de smoke tests y verificación directa con
 ## Referencias
 
 - [`docs/legal/api-compliance.md`](../legal/api-compliance.md) — reglas detalladas de cumplimiento
-- [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) — proceso de deploy a Cloud Run
+- [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) — proceso activo de deploy en Railway
 - [`docs/PROJECT_STATUS.md`](../PROJECT_STATUS.md) — estado actual del proyecto

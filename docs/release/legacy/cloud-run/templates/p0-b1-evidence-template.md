@@ -26,7 +26,7 @@ gcloud run services update inkscroller-backend \
   --update-env-vars DEBUG=false,CORS_ORIGINS=https://inkscroller-app.web.app
 
 # Paso 2 — verificación completa
-./scripts/release/verify_prod_env_cloud_run.sh
+./scripts/release/legacy/cloud-run/verify_prod_env_cloud_run.sh
 
 # Equivalentes manuales
 gcloud run services describe inkscroller-backend \
@@ -99,6 +99,6 @@ PASS — All checks conform for P0-B1.
 ## Trazabilidad
 
 - Checklist relacionado: `docs/release/checklist-legal.md` (Bloque 5, ítem 5.3 / P0-B1)
-- Guía de verificación: `docs/release/env-vars-cloudrun-prod.md`
+- Guía de verificación: `docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md`
 - Rama de cierre: `feature/p0-b1-prod-env-pass-evidence`
 - Fecha de cierre P0-B1: `2026-04-08`
