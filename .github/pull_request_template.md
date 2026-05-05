@@ -4,9 +4,13 @@
 
 ## Task Link
 
-<!-- Link to the GitHub issue (task-first). Required. / Link a la issue correspondiente. Obligatorio. -->
+<!-- Primary flow: Jira + GitLab MR. Use GitHub issue link only when this PR is exceptional/mirror-only. -->
 
-Closes #<!-- issue number -->
+Jira: <!-- INK-XXX -->
+
+GitLab MR / issue: <!-- URL -->
+
+GitHub issue (optional): Closes #<!-- issue number -->
 
 <!-- Or if it's related but doesn't close it: / O si está relacionado pero no la cierra: -->
 <!-- Refs #issue -->
@@ -17,14 +21,14 @@ Closes #<!-- issue number -->
 
 - [ ] Tests passing locally
 - [ ] Linting / type checking clean
-- [ ] Obsidian note / tracking doc updated
+- [ ] Tracking docs in-repo updated
 - [ ] Deploy verified (Railway / staging if applicable)
 
 ## Pre-merge checklist
 
-<!-- All 4 must be checked before requesting review. / Los 4 deben estar marcados antes de pedir review. -->
+<!-- Main workflow is Jira + GitLab MR. This template is for exceptional GitHub PRs (mirror/visibility) when needed. -->
 
-- [ ] Issue is linked above (Closes/Refs #N)
-- [ ] Issue is added to the GitHub Project board
-- [ ] Issue status is correct (In Progress → In Review)
+- [ ] Jira ticket is linked above
+- [ ] GitLab MR/issue is linked above
+- [ ] GitHub metadata (issue/project) is complete if applicable
 - [ ] Evidence section above is up to date

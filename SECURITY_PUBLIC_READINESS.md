@@ -1,6 +1,8 @@
 # Security Public Readiness — InkScroller Backend
 
-> Documento de referencia para evaluar qué está listo para ser público y qué requiere acción antes de publicar el repositorio.
+> Documento de referencia para mantener el repositorio público de forma segura y auditable en el tiempo.
+>
+> **Modelo actual:** GitLab es la fuente de trabajo/MR, GitHub es mirror público y Railway despliega desde el mirror.
 
 ---
 
@@ -20,7 +22,7 @@
 | `.env.example` | Template de env vars sin valores reales ✅ |
 | `.dockerignore` | Excluye correctamente `.env` |
 
-### 🔴 Private-only / Requiere acción antes de publicar
+### 🔴 Private-only / Restringido (no debe versionarse)
 
 | Archivo / Artefacto | Riesgo | Acción requerida |
 |---------------------|--------|------------------|
@@ -28,13 +30,14 @@
 | `serviceAccountKey.json` (o equivalente) | Firebase Admin SDK credentials — acceso completo al proyecto | Nunca commitear — usar secreto de CI/Railway |
 | `inkscroller.db` | Base de datos SQLite con datos de usuarios reales | Nunca commitear — ya en `.gitignore` ✅ |
 | `GOOGLE_APPLICATION_CREDENTIALS` path | Si apunta a archivo local con credenciales | Usar variable en CI, no path local |
-| Logs con tokens de usuario | Firebase ID tokens en logs de debug | Auditar handlers antes de publicar |
+| Logs con tokens de usuario | Firebase ID tokens en logs de debug | Auditar handlers de forma periódica |
+| `.engram/` en historial Git | Memoria interna del agente, rutas locales y resúmenes de trabajo | Ya purgado de branch heads; mantener fuera del árbol y monitorear refs ocultos |
 
 ---
 
-## 2. Política de rotación antes de hacer público
+## 2. Política de rotación y mantenimiento continuo
 
-Antes de cambiar la visibilidad del repo a **público**, ejecutar en este orden:
+Con el repositorio ya público, ejecutar estas acciones de forma periódica y ante incidentes:
 
 1. **Rotar Service Account Key de Firebase**
    - Firebase Console → Project settings → Service accounts → Generate new private key
@@ -51,14 +54,21 @@ Antes de cambiar la visibilidad del repo a **público**, ejecutar en este orden:
    git log --all -S "serviceAccountKey" --oneline
    git log --all -S "firebase" --full-history -- "*.json"
    ```
-   - Si se encuentran: usar `git filter-repo` para purgar ANTES de hacer público
+   - Si se encuentran: usar `git filter-repo`, rotar secretos afectados y documentar el incidente
 
 4. **Verificar que `inkscroller.db` no tiene historial commiteado**:
    ```bash
    git log --all --full-history -- "*.db" --oneline
    ```
 
-5. **Revisar Firebase Security Rules** de Authentication y si hay Firestore/Storage
+5. **Verificar artefactos de agente en historial/refs**:
+   ```bash
+   git filter-repo --path .engram/ --invert-paths
+   ```
+   - Estado actual: branch heads limpios; `.engram` no está presente en árbol y está ignorado.
+   - Riesgo residual aceptado para portfolio: refs ocultos de MR/PR podrían conservar snapshots antiguos.
+
+6. **Revisar Firebase Security Rules** de Authentication y si hay Firestore/Storage
 
 > **Regla de oro**: Si un secret fue commiteado en algún momento del historial, asumirlo como comprometido. Hacer público el repo solo expone lo que ya fue.
 
@@ -125,9 +135,9 @@ env:
 
 ---
 
-## 4. Checklist pre-publicación (portfolio/public release)
+## 4. Checklist de mantenimiento (repo público)
 
-Ejecutar esta checklist antes de cambiar el repo a público:
+Ejecutar esta checklist por release y en auditorías periódicas:
 
 ### Secretos y configuración
 
@@ -136,6 +146,9 @@ Ejecutar esta checklist antes de cambiar el repo a público:
 - [ ] `inkscroller.db` **NO está commiteado** (contiene datos de usuarios)
 - [ ] No hay API keys hardcodeadas en `app/` — verificar con: `grep -r "AIza\|sk-\|Bearer \|firebase_admin.initialize_app" app/`
 - [ ] Historial de git auditado: `git log --all -S "GOOGLE_APPLICATION_CREDENTIALS" --oneline`
+- [ ] `.engram/` no existe en árbol versionado y sigue ignorado
+- [ ] Branch heads siguen limpios de `.engram` y artefactos internos
+- [ ] Riesgo residual de refs ocultos (MR/PR) reevaluado y aceptado/documentado
 
 ### Firebase
 
@@ -167,6 +180,13 @@ Ejecutar esta checklist antes de cambiar el repo a público:
 - [ ] `LICENSE` file presente (README dice MIT pero el archivo podría no existir)
 - [ ] Atribución a MangaDex y Jikan presente ✅
 
+### Repositorios
+
+- [ ] GitLab repo público (fuente principal de trabajo/MR)
+- [ ] GitHub mirror público (visibilidad + autodeploy Railway)
+- [ ] `develop` protegida para evitar borrado accidental en promociones
+- [ ] Railway `/ping` responde tras publicar/mirror
+
 ---
 
 ## 5. Archivos sensibles y su estado actual
@@ -181,6 +201,7 @@ Ejecutar esta checklist antes de cambiar el repo a público:
 | `*credentials*.json` | ✅ (línea 48) | — | ✅ |
 | `venv/` | ✅ | — | ✅ |
 | `__pycache__/` | ✅ | — | ✅ |
+| `.engram/` | ✅ | ❌ en árbol actual / ⚠️ posible en refs ocultos antiguas | Riesgo bajo aceptado; mantener monitoreo |
 
 > **Auditoría P0-B2/B3 completada — 2026-04-08:**
 > - `.env` nunca commiteado — historial git limpio — `.gitignore` cubre `.env` y `.env.*`
@@ -190,4 +211,13 @@ Ejecutar esta checklist antes de cambiar el repo a público:
 
 ---
 
-_Última actualización: 2026-04-08 — P0-B2 y P0-B3 cerrados con evidencia de auditoría_
+## 6. Estado post-publicación (2026-05)
+
+- Repositorios GitLab y GitHub ya están públicos.
+- `.engram/` está ignorado y no existe en el árbol actual.
+- Branch heads fueron purgados de `.engram`.
+- Clones normales ya no incluyen `.engram`.
+- Riesgo residual conocido: refs ocultos de MR/PR pueden conservar historial viejo.
+- Decisión operativa actual (portfolio): riesgo bajo aceptado + auditorías periódicas.
+
+_Última actualización: 2026-05-05 — documento migrado a estado post-publicación/mantenimiento_

@@ -3,7 +3,7 @@
 > **Ítem P0-B2:** `.env` de producción NO en el repositorio — checklist ref `3.3`
 > **Ítem P0-B3:** Firebase Admin SDK credentials via env var, no hardcodeadas — checklist ref `3.4`
 > **Estado:** ✅ CERRADO — 2026-04-08
-> **Ejecutor:** agente local (CLI)
+> **Ejecutor:** runner local (CLI)
 > **Rama:** `feature/p0-b2-b3-secrets-compliance`
 
 ---
@@ -174,15 +174,15 @@ hardcodeado en el código fuente ni en el historial de git.
 
 ## Notas de seguridad adicionales detectadas
 
-### `.env` local contiene path a credencial real (solo local, no commiteado)
+### `.env` local contiene path a credencial fuera del repo (solo local, no commiteado)
 
 El archivo `.env` local (no versionado) contiene:
 ```
-GOOGLE_APPLICATION_CREDENTIALS=/home/shana1499/.ssh/inkscroller-aed59-firebase-adminsdk-fbsvc-c4bc289046.json
+GOOGLE_APPLICATION_CREDENTIALS=<path-outside-repo>/firebase-dev-service-account.json
 ```
 
-**Evaluación:** Este path es local del desarrollador, nunca commiteado. El mecanismo es
-correcto: la variable se lee del entorno en runtime. No genera riesgo en el repo.
+**Evaluación:** El path real vive fuera del repositorio y no se versiona. El mecanismo
+es correcto: la variable se lee del entorno en runtime. No genera riesgo en el repo.
 
 **Recomendación (no bloqueante):** Al hacer público el repo, rotar la service account key
 siguiendo el procedimiento en `SECURITY_PUBLIC_READINESS.md §2`. El Project ID `inkscroller-aed59`
