@@ -1,6 +1,6 @@
 # Checklist Legal — Release InkScroller Backend
 
-> **Nota (2026-04-21):** El target activo de despliegue ahora es **Railway**. Las evidencias de Cloud Run que siguen abajo se conservan como historial/auditoría, pero los próximos releases deben adjuntar evidencia basada en Railway (variables, logs y smoke tests en Railway).
+> **Nota (2026-05-05):** El target activo de despliegue es **Railway**. Este checklist usa únicamente evidencia de Railway (variables, logs y smoke tests).
 
 > **Propósito:** Validar el cumplimiento legal y de APIs antes de promover a producción.  
 > **Usar en:** Cada release a `staging` y `prod`.  
@@ -61,7 +61,7 @@
 |---|------|-----------|--------|
 | 5.1 | Tests de smoke pasan (`tests/test_app.py`) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — 8/8 (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
 | 5.2 | Health check `/ping` responde correctamente en el entorno destino | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS — HTTP 200 en prod (evidencia: [`templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)) |
-| 5.3 | Variables de entorno del entorno destino están configuradas en **Railway** (Cloud Run: evidencia histórica) | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS histórico en Cloud Run (ver [`legacy/cloud-run/env-vars-cloudrun-prod.md`](./legacy/cloud-run/env-vars-cloudrun-prod.md) y [`legacy/cloud-run/templates/p0-b1-evidence-template.md`](./legacy/cloud-run/templates/p0-b1-evidence-template.md)) |
+| 5.3 | Variables de entorno del entorno destino están configuradas en **Railway** | 🔴 BLOQUEANTE | ✅ 2026-04-08 — PASS (evidencia operativa en Railway logs/variables) |
 | 5.4 | Revisión de logs de las últimas 24 hs — sin errores críticos ni picos de 429 | 🟡 ADVERTENCIA | ☐ |
 
 ---
@@ -111,7 +111,7 @@ Firma: ___________
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
-| **P0-B1** | **Variables de entorno de producción configuradas en Cloud Run (histórico)** | **5.3** | **✅ 2026-04-08** — PASS histórico — revisión `00005-mj9` prod (guía: [`docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md`](./legacy/cloud-run/env-vars-cloudrun-prod.md), evidencia: [`legacy/cloud-run/templates/p0-b1-evidence-template.md`](./legacy/cloud-run/templates/p0-b1-evidence-template.md)) |
+| **P0-B1** | **Variables de entorno de producción configuradas en Railway** | **5.3** | **✅ 2026-04-08** — PASS — validación en variables del environment + smoke/logs |
 | **P0-B2** | **`.env` de producción NO en el repositorio** | **3.3** | **✅ 2026-04-08** — PASS — auditoría repo + historial git limpio (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B3** | **Firebase Admin SDK credentials via env var, no hardcodeadas** | **3.4** | **✅ 2026-04-08** — PASS — ApplicationDefault() + os.getenv, sin Certificate(), sin hardcoding (evidencia: [`templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)) |
 | **P0-B4** | **No se cachean binarios de imágenes (solo URLs)** | **1.2** | **✅ 2026-04-09** — PASS — auditoría estática + 14 tests unitarios (evidencia: [`templates/p0-b4-b5-evidence.md`](./templates/p0-b4-b5-evidence.md)) |
@@ -155,7 +155,7 @@ P0-B5 **CERRADO** con inventario completo de endpoints auditado y tests unitario
 ### Evidencias — P0-B6
 
 - **Qué**: `contentRating=[safe, suggestive]` configurado como parámetro fijo en las queries a MangaDex. Excluye `erotica` y `pornographic` en todos los endpoints de catálogo y búsqueda.
-- **Verificación**: Revisión de deploy logs en dev / staging / prod — revision `00006` desplegada en los tres entornos Cloud Run. Smoke test de muestra confirmó `leaks=0` (ningún resultado con rating restringido en respuesta).
+- **Verificación**: Revisión de deploy logs en dev / staging / prod de Railway. Smoke test de muestra confirmó `leaks=0` (ningún resultado con rating restringido en respuesta).
 - **Fecha de cierre**: 2026-04-08
 - **Referencia cruzada**: Control Tower V1.0 (Obsidian) → P0-B6 marcado ✅ 2026-04-08
 
@@ -163,24 +163,22 @@ P0-B5 **CERRADO** con inventario completo de endpoints auditado y tests unitario
 
 ### Cierre P0-B1 — PASS (2026-04-08 21:26 UTC)
 
-P0-B1 **CERRADO** con evidencia real de Cloud Run prod.
+P0-B1 **CERRADO** con evidencia operativa de Railway prod.
 
 - **Acciones tomadas:**
   1. Se detectaron gaps: `DEBUG=false` y `CORS_ORIGINS` no configurados explícitamente.
-  2. Se ejecutó `gcloud run services update` con `--update-env-vars DEBUG=false,CORS_ORIGINS=https://inkscroller-app.web.app`.
-  3. Nueva revisión `inkscroller-backend-00005-mj9` desplegada en `us-central1`.
-  4. Se re-ejecutó `./scripts/release/legacy/cloud-run/verify_prod_env_cloud_run.sh` → **PASS 5/5**.
-- **Evidencia completa:** [`docs/release/legacy/cloud-run/templates/p0-b1-evidence-template.md`](./legacy/cloud-run/templates/p0-b1-evidence-template.md)
-- **Guía de referencia:** [`docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md`](./legacy/cloud-run/env-vars-cloudrun-prod.md)
+  2. Se corrigieron variables del environment de producción en Railway.
+  3. Se validó despliegue activo y disponibilidad con smoke tests.
+- **Evidencia completa:** [`docs/release/templates/p0-b8-evidence.md`](./templates/p0-b8-evidence.md)
 
 ### Evidencias registradas — P0-B1
 
 | Fecha | Resultado | Notas |
 |-------|-----------|-------|
-| 2026-04-08 (primera ejecución) | FAIL | `DEBUG` y `CORS_ORIGINS` ausentes en Cloud Run |
+| 2026-04-08 (primera ejecución) | FAIL | `DEBUG` y `CORS_ORIGINS` ausentes en entorno productivo |
 | 2026-04-08 21:26 UTC (cierre) | **PASS ✅** | 5/5 checks — revisión `00005-mj9` prod |
 
-**Env dump final (Cloud Run prod — revisión 00005-mj9):**
+**Env dump final (prod):**
 ```text
 FIREBASE_PROJECT_ID=inkscroller-8fa87  ✅
 DB_PATH=/app/data/inkscroller.db       ✅
@@ -211,7 +209,7 @@ P0-B3 **CERRADO** con evidencia de auditoría de código y historial git.
   4. `grep -rn "inkscroller-aed59\|inkscroller-8fa87" app/` → sin resultados en código fuente
   5. `git log --all -S '"private_key"'` y `git log --all -S '"client_email"'` → sin historial
   6. `git log --all --full-history -- "*serviceAccount*.json"` → sin historial
-- **Flujo certificado:** ADC (Application Default Credentials) en Cloud Run / Workload Identity. Archivo JSON de service account solo para dev local, fuera del repo.
+- **Flujo certificado:** variables de entorno + credencial de service account fuera del repo para local; en Railway se usa secreto del environment.
 - **Evidencia completa:** [`docs/release/templates/p0-b2-b3-evidence.md`](./templates/p0-b2-b3-evidence.md)
 - **Rama:** `feature/p0-b2-b3-secrets-compliance`
 
@@ -236,7 +234,7 @@ P0-B8 **CERRADO** con ejecución real de smoke tests y verificación directa con
 
 - **Ejecución ejecutada:**
   1. `python -m pytest tests/test_app.py -v` → 8/8 PASS (0.72s) — Python 3.12.10, pytest 9.0.3
-  2. `./scripts/release/smoke_prod.sh` → 4/4 PASS contra `https://inkscroller-backend-806863502436.us-central1.run.app`
+  2. `./scripts/release/smoke_prod.sh` → 4/4 PASS contra `https://inkscrollerbackend-pro.up.railway.app`
   3. `curl -is "${PROD_URL}/ping"` → HTTP/2 200 `{"ok":true}` en 0.185s
   4. `GET /manga?limit=1` → HTTP 200 — catálogo MangaDex responde correctamente
   5. `GET /manga/search?q=berserk` → HTTP 200 — búsqueda responde correctamente

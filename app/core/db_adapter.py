@@ -1,4 +1,4 @@
-"""Database adapter abstraction for SQLite (local dev) and PostgreSQL (Cloud Run).
+"""Database adapter abstraction for SQLite (local dev) and PostgreSQL.
 
 Provides a unified async interface so application code (UserService, etc.)
 is decoupled from the underlying driver.  Parameter placeholders are always
@@ -99,7 +99,7 @@ class SqliteAdapter(DatabaseAdapter):
 
 
 class PostgresAdapter(DatabaseAdapter):
-    """Wraps an ``asyncpg.Pool`` for Cloud Run / Cloud SQL production deployments.
+    """Wraps an ``asyncpg.Pool`` for PostgreSQL production deployments.
 
     Each call acquires a connection from the pool, executes inside an
     implicit transaction, and releases the connection back to the pool.

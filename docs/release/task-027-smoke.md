@@ -8,6 +8,6 @@ Smoke test marker for release-flow validation.
 - Active production target: Railway (`https://inkscrollerbackend-pro.up.railway.app`)
 - Override target when needed with `PROD_URL=... ./scripts/release/smoke_prod.sh`
 
-## Legacy note
+## Nota
 
-Historical Cloud Run evidence remains under `docs/release/legacy/cloud-run/`.
+La validación de smoke para releases se mantiene únicamente en Railway.

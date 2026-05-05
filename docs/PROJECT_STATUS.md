@@ -88,7 +88,7 @@ This file is the **backend-side status mirror** of the product's shared planning
 |------|----------|-------|
 | `BTASK-003` Deploy strategy | High | ✅ Complete — Railway + Postgres + Firebase per environment |
 | `BTASK-010` Sprint 3 compliance pack | High | Active — backend support for release/legal evidence tracking |
-| P0-B1..P0-B8 compliance closure | High | Active — update evidence paths from historical Cloud Run model to Railway runbooks/logs |
+| P0-B1..P0-B8 compliance closure | High | Active — evidence tracked against Railway runbooks/logs |
 | MangaDex language configurable by user preference | Medium | Currently hardcoded to `en` |
 | End-to-end validation with Flutter | Low | Dev/staging/prod Railway URLs validated; continue broader functional smoke coverage |
 
@@ -135,7 +135,6 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 | Platform | Pros | Cons |
 |----------|------|------|
-| **Cloud Run** | Native GCP/Firebase ecosystem | More operational friction for this project |
 | **VPS / self-hosting** | Full control, potentially low cost | Higher ops burden, backups/security on us |
 
 ### Environment Variables Required
@@ -158,7 +157,7 @@ This file is the **backend-side status mirror** of the product's shared planning
 | Topic | Type | Impact |
 |------|------|--------|
 | Manga language still hardcoded to `en` | product/backend | Some manga return no chapters for users expecting other languages |
-| Release/compliance docs still contain historical Cloud Run evidence | documentation | Needs normalization to Railway before final release sign-off |
+| Release/compliance docs still contain mixed deployment wording | documentation | Keep Railway-only narrative before final release sign-off |
 
 ---
 

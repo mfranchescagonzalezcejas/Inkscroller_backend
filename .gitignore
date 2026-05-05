@@ -51,7 +51,7 @@ htmlcov/
 # See SECURITY_PUBLIC_READINESS.md for full details
 # -------------------------------------------------------
 
-# Google Cloud / GCP credentials
+# External provider credentials
 *credentials*.json
 gcloud-*.json
 

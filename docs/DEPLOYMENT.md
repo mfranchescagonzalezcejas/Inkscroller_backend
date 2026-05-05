@@ -110,10 +110,9 @@ Before closing a production release, confirm in Railway logs that:
 
 ---
 
-## Legacy note (Cloud Run)
+## Scope note
 
-Cloud Run artifacts under `docs/release/` are retained for audit/compliance history only.
-The active runtime and deployment path for all new releases is Railway.
+This repository uses Railway as the active runtime and deployment path for all releases.
 
 ---
 

@@ -18,7 +18,7 @@ Closes #<!-- issue number -->
 - [ ] Tests passing locally
 - [ ] Linting / type checking clean
 - [ ] Obsidian note / tracking doc updated
-- [ ] Deploy verified (Cloud Run / staging if applicable)
+- [ ] Deploy verified (Railway / staging if applicable)
 
 ## Pre-merge checklist
 

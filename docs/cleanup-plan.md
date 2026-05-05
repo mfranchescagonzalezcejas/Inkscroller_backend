@@ -13,7 +13,7 @@ Prepare the backend repository for a controlled cleanup/reorganization without m
 
 ### Documentation drift
 - `README.md` structure references must stay aligned with current module names (auth module is `app/core/firebase_auth.py`).
-- Deployment documentation is split between an active Railway story and legacy Cloud Run artifacts.
+- Deployment documentation is split between active Railway docs and mixed historical artifacts.
 
 ### Runtime/config drift
 - `Dockerfile` uses Python 3.11 while the project context points to Python 3.12.
@@ -33,10 +33,8 @@ Prepare the backend repository for a controlled cleanup/reorganization without m
 - Railway is the ACTIVE deployment narrative.
 
 ### Legacy or mixed artifacts
-- `docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md` is historical Cloud Run evidence.
-- `scripts/release/legacy/cloud-run/verify_prod_env_cloud_run.sh` is a Cloud Run-specific validation script.
-- `scripts/release/smoke_prod.sh` is still useful, but its default production URL assumption is legacy.
-- Parts of `docs/release/` still mix active Railway language with Cloud Run-era compliance evidence.
+- `scripts/release/smoke_prod.sh` is still useful, but evidence docs required normalization.
+- Parts of `docs/release/` still mixed active Railway language with historical wording.
 
 ## Retention Policy (Phase 1)
 
@@ -45,14 +43,11 @@ Prepare the backend repository for a controlled cleanup/reorganization without m
 | `README.md` | retain | Main onboarding and current project narrative. |
 | `docs/DEPLOYMENT.md` | retain | Canonical active deployment documentation. |
 | `docs/release/checklist-legal.md` | review-first | Compliance-sensitive and currently mixed between active and legacy wording. |
-| `docs/release/legacy/cloud-run/env-vars-cloudrun-prod.md` | archive | Explicitly legacy Cloud Run operational evidence. |
-| `docs/release/legacy/cloud-run/templates/p0-b1-evidence-template.md` | archive | Historical Cloud Run-specific closure evidence. |
 | `docs/release/templates/p0-b2-b3-evidence.md` | retain | Still relevant as platform-agnostic compliance evidence. |
 | `docs/release/templates/p0-b4-b5-evidence.md` | retain | Behavioral/compliance evidence remains useful beyond platform choice. |
 | `docs/release/templates/p0-b7-evidence.md` | retain | Privacy-flow evidence is platform-agnostic. |
 | `docs/release/templates/p0-b8-evidence.md` | review-first | Useful, but currently tied to legacy production endpoint assumptions. |
 | `docs/release/task-027-smoke.md` | review-first | Needs purpose clarification before cleanup. |
-| `scripts/release/legacy/cloud-run/verify_prod_env_cloud_run.sh` | archive | Hard-coupled to Cloud Run/gcloud flow. |
 | `scripts/release/smoke_prod.sh` | review-first | Likely reusable, but requires Railway/current-prod alignment first. |
 | `Dockerfile` | review-first | Python runtime version is not aligned with the rest of the repo. |
 | `.gga` | remove | Mis-scoped TS/JS review config in a Python backend repo. |
@@ -61,7 +56,7 @@ Prepare the backend repository for a controlled cleanup/reorganization without m
 ## Proposed Execution Order
 
 ### Phase 1 — Policy and scope lock
-- Decide whether legacy Cloud Run files are kept, archived, or removed.
+- Remove legacy deployment-specific files not aligned with Railway.
 - Decide whether tracked tool-state artifacts should be removed from version control.
 - Confirm the active deployment target and supported Python version.
 
