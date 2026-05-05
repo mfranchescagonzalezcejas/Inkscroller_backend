@@ -1,0 +1,28 @@
+stages:
+  - validate
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  key:
+    files:
+      - requirements.txt
+  paths:
+    - .cache/pip
+
+validate:
+  stage: validate
+  image: python:3.12.10
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install "ruff==0.15.9"
+    - pip install -r requirements.txt
+  script:
+    - ruff check app/ main.py
+    - ruff format --check app/ main.py
+    - python -m unittest discover -s tests -v
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
