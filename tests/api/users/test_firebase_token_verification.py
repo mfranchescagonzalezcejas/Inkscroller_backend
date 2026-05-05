@@ -53,12 +53,12 @@ class FirebaseTokenVerificationPathTests(unittest.TestCase):
 
     def setUp(self):
         self.app = create_app()
-        self.db = asyncio.get_event_loop().run_until_complete(_make_test_db())
+        self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
 
     def tearDown(self):
         self.app.dependency_overrides.clear()
-        asyncio.get_event_loop().run_until_complete(self.db.close())
+        asyncio.run(self.db.close())
 
     # ------------------------------------------------------------------
     # Happy path: SDK returns a valid decoded token
