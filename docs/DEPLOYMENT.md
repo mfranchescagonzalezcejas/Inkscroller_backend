@@ -43,12 +43,18 @@ Railway injects `PORT` dynamically; the Dockerfile already respects `${PORT:-808
 
 ## Deploy to Railway
 
-Railway deploys automatically from the connected GitHub branch.
+Railway deploys automatically from the connected GitHub mirror branch.
+
+Canonical flow:
+
+1. Changes are developed/reviewed in **GitLab** (Jira + Merge Requests)
+2. Approved branch state is mirrored to **GitHub**
+3. **Railway** autodeploys from GitHub (`develop` for dev/staging, `main` for production)
 
 - `dev` / `staging` use the `develop` branch
 - `production` uses the `main` branch
 
-GitHub Actions validates `main`; Railway handles the actual deployment.
+GitHub Actions validates mirror state; Railway remains the runtime deployment authority.
 
 ### Per-environment Railway setup
 
@@ -113,6 +119,7 @@ Before closing a production release, confirm in Railway logs that:
 ## Scope note
 
 This repository uses Railway as the active runtime and deployment path for all releases.
+GitHub acts as deployment mirror; GitLab remains the primary collaboration workflow.
 
 ---
 
@@ -124,7 +131,7 @@ This repository uses Railway as the active runtime and deployment path for all r
 
 ```env
 FIREBASE_PROJECT_ID=inkscroller-aed59
-GOOGLE_APPLICATION_CREDENTIALS=/home/<user>/.ssh/inkscroller-firebase-key.json
+GOOGLE_APPLICATION_CREDENTIALS=<path-outside-repo>/firebase-dev-service-account.json
 ```
 
 > ⚠️ **Never commit the service account JSON.** It's covered by `.gitignore`.

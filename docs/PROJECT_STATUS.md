@@ -1,18 +1,18 @@
 # InkScroller Backend — Project Status
 
-> **Cross-repo source of truth:** Obsidian under `1-PROJECTS/InkScroller/`
-> **Repo role:** backend implementation status for the FastAPI service
+> **Source of truth for public readers:** this repository (`README`, `docs/PROJECT_STATUS.md`, `docs/DEPLOYMENT.md`)
+> **Repo role:** backend implementation and operational status for the FastAPI service
 > **Last updated:** 2026-04-21 (Railway migration validated in dev / staging / prod)
 
 ---
 
 ## 1. Purpose of this document
 
-This file is the **backend-side status mirror** of the product's shared planning.
+This file is the public status reference for backend implementation and operations.
 
-- Use **Obsidian** for product planning, sprint tracking, tasks, and cross-repo decisions
-- Use this file for **backend implementation reality**
-- If this file disagrees with Obsidian, update one of them immediately
+- Keep this file aligned with released backend reality
+- Keep links and references constrained to repository-visible artifacts
+- Avoid internal-only tooling references not available to external readers
 
 ---
 
@@ -77,7 +77,7 @@ This file is the **backend-side status mirror** of the product's shared planning
 ### Repo hygiene
 
 - `.env.example` documents Railway/Firebase/Postgres variables
-- Deployment workflow simplified: GitHub Actions validates `main`, Railway deploys by branch/environment
+- Deployment workflow simplified: GitLab is source workflow, GitHub mirror feeds Railway deploys by branch/environment
 - Frontend cloud environments now target Railway dev/staging/prod URLs
 
 ---
@@ -86,13 +86,13 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| `BTASK-003` Deploy strategy | High | ✅ Complete — Railway + Postgres + Firebase per environment |
-| `BTASK-010` Sprint 3 compliance pack | High | Active — backend support for release/legal evidence tracking |
+| Deploy strategy | High | ✅ Complete — Railway + Postgres + Firebase per environment |
+| Sprint 3 compliance pack | High | Active — backend support for release/legal evidence tracking |
 | P0-B1..P0-B8 compliance closure | High | Active — evidence tracked against Railway runbooks/logs |
 | MangaDex language configurable by user preference | Medium | Currently hardcoded to `en` |
 | End-to-end validation with Flutter | Low | Dev/staging/prod Railway URLs validated; continue broader functional smoke coverage |
 
-### Sprint 3 — Compliance evidence focus (Control Tower alignment)
+### Sprint 3 — Compliance evidence focus
 
 - Sprint 3 is currently active for backend-side compliance/release readiness support.
 - Prioridad operativa: `BTASK-010` + cierre de ítems `P0-B1..P0-B8` con evidencia verificable.
@@ -161,16 +161,7 @@ This file is the **backend-side status mirror** of the product's shared planning
 
 ---
 
-## 8. Source-of-truth links
-
-### Obsidian
-
-- `InkScroller/Gestión/Gestión del proyecto.md`
-- `InkScroller/Gestión/Matriz de dependencias cross-repo.md`
-- `InkScroller/Gestión/Protocolo de sincronización cross-repo.md`
-- `InkScroller/Sprints/Sprint 2.md`
-- `InkScroller/Tareas/_Índice de tareas.md`
-- `InkScroller/QA/_Índice de QA.md`
+## 8. Public references
 
 ### Repo docs
 

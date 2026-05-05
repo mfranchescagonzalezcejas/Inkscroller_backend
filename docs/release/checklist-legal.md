@@ -104,10 +104,9 @@ Firma: ___________
 
 ---
 
-## Tracking P0 — Estado de compliance por ítem (Control Tower V1.0)
+## Tracking P0 — Estado de compliance por ítem
 
-> Espejo del tracking de Control Tower V1.0 en Obsidian. La fuente de verdad es Obsidian.
-> Mantener sincronizado cuando cambia el estado de un ítem P0 en la fuente.
+> Registro público de cierre de los ítems P0. Mantener sincronizado con Jira y con las evidencias versionadas en este repositorio.
 
 | Ítem | Descripción | Checklist ref | Estado |
 |------|------------|---------------|--------|
@@ -157,7 +156,7 @@ P0-B5 **CERRADO** con inventario completo de endpoints auditado y tests unitario
 - **Qué**: `contentRating=[safe, suggestive]` configurado como parámetro fijo en las queries a MangaDex. Excluye `erotica` y `pornographic` en todos los endpoints de catálogo y búsqueda.
 - **Verificación**: Revisión de deploy logs en dev / staging / prod de Railway. Smoke test de muestra confirmó `leaks=0` (ningún resultado con rating restringido en respuesta).
 - **Fecha de cierre**: 2026-04-08
-- **Referencia cruzada**: Control Tower V1.0 (Obsidian) → P0-B6 marcado ✅ 2026-04-08
+- **Referencia cruzada**: tracking de release P0 → P0-B6 marcado ✅ 2026-04-08
 
 > ⚠️ **Nota de alcance**: La evidencia registrada corresponde a revisión indicada en tracking y deploy logs. La verificación formal end-to-end con QA automatizado queda pendiente como parte de P0-B8.
 
