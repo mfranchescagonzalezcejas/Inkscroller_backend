@@ -25,7 +25,7 @@
 | Archivo / Artefacto | Riesgo | Acción requerida |
 |---------------------|--------|------------------|
 | `.env` | Contiene `FIREBASE_PROJECT_ID`, path al service account | **Nunca commitear** — ya en `.gitignore` ✅ |
-| `serviceAccountKey.json` (o equivalente) | Firebase Admin SDK credentials — acceso completo al proyecto | Nunca commitear — usar secreto de CI o Workload Identity |
+| `serviceAccountKey.json` (o equivalente) | Firebase Admin SDK credentials — acceso completo al proyecto | Nunca commitear — usar secreto de CI/Railway |
 | `inkscroller.db` | Base de datos SQLite con datos de usuarios reales | Nunca commitear — ya en `.gitignore` ✅ |
 | `GOOGLE_APPLICATION_CREDENTIALS` path | Si apunta a archivo local con credenciales | Usar variable en CI, no path local |
 | Logs con tokens de usuario | Firebase ID tokens en logs de debug | Auditar handlers antes de publicar |
@@ -38,9 +38,9 @@ Antes de cambiar la visibilidad del repo a **público**, ejecutar en este orden:
 
 1. **Rotar Service Account Key de Firebase**
    - Firebase Console → Project settings → Service accounts → Generate new private key
-   - Revocar la key anterior en Google Cloud Console → IAM → Service Accounts
+   - Revocar la key anterior en la consola de proveedores/IAM correspondiente
    - Actualizar `FIREBASE_SERVICE_ACCOUNT_BASE64` en GitHub Secrets
-   - Si se usa Application Default Credentials (ADC) en Cloud Run: no hay key que rotar — ADC usa Workload Identity
+   - Si se usa secret por environment en Railway, rotar el valor base64 y redeployar
 
 2. **Rotar `FIREBASE_PROJECT_ID`** si hay dudas sobre exposición
    - Técnicamente el Project ID es semi-público (aparece en URLs de Firebase), pero si fue expuesto junto a la service account key, crear un proyecto nuevo
@@ -104,18 +104,9 @@ base64 -w 0 serviceAccountKey.json | xclip  # Linux
     FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
 ```
 
-#### Opción B — Workload Identity Federation (recomendado para Cloud Run)
+#### Opción B — Secret por environment en Railway (recomendado)
 
-En Google Cloud Run, se puede asignar una **Service Account** al servicio directamente. Esto elimina la necesidad de gestionar archivos de credenciales:
-
-```bash
-# Asignar service account al Cloud Run service
-gcloud run services update inkscroller-backend \
-  --service-account=inkscroller-backend@PROJECT_ID.iam.gserviceaccount.com \
-  --region=us-central1
-```
-
-Con ADC (Application Default Credentials), el SDK de Firebase lo detecta automáticamente. `GOOGLE_APPLICATION_CREDENTIALS` no es necesario en este caso.
+En Railway, configurar `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` por environment y decodificar en runtime solo si el proceso lo requiere. Así evitás archivos de credenciales en el repo o en la imagen.
 
 ### Variables de entorno completas para CI
 

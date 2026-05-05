@@ -36,6 +36,11 @@ htmlcov/
 .idea/
 *.swp
 
+# Agent tooling
+.atl/
+.engram/
+.gga
+
 # Local SQLite runtime artifacts
 *.db
 *.db-shm
@@ -46,7 +51,7 @@ htmlcov/
 # See SECURITY_PUBLIC_READINESS.md for full details
 # -------------------------------------------------------
 
-# Google Cloud / GCP credentials
+# External provider credentials
 *credentials*.json
 gcloud-*.json
 

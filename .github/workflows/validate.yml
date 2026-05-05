@@ -1,0 +1,39 @@
+name: Reusable Validation
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  # Keep the GitHub mirror validation ahead of the Node.js 20 runner deprecation.
+  # The JavaScript actions below are pinned to major versions that declare Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.10"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff==0.15.9"
+          pip install -r requirements.txt
+
+      - name: Ruff lint
+        run: ruff check app/ main.py
+
+      - name: Ruff format check
+        run: ruff format --check app/ main.py
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v

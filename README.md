@@ -128,7 +128,7 @@ Inkscroller_backend/
     ├── core/
     │   ├── cache.py               # SimpleCache — TTL-based in-memory cache
     │   ├── config.py              # Settings via env vars
-    │   ├── auth.py                # Firebase ID token verification middleware
+    │   ├── firebase_auth.py       # Firebase ID token verification middleware
     │   └── dependencies.py        # FastAPI DI factories
     │
     ├── models/                    # Pydantic response models
@@ -147,17 +147,19 @@ Inkscroller_backend/
         └── jikan_client.py
 
 tests/
-└── test_app.py                    # Smoke tests with DI overrides
+├── api/                           # Route and authenticated endpoint tests
+├── services/                      # Service/mapper unit tests
+└── compliance/                    # API/legal compliance audit tests
 ```
 
 ---
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
-4. Open a Pull Request
+InkScroller Backend is a public portfolio project maintained by the author.
+
+External contributions are not actively accepted at this time, but issues,
+feedback, and code review comments are welcome.
 
 ---
 

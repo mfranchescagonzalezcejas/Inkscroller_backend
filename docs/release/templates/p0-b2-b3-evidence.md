@@ -139,11 +139,10 @@ Local dev:
   → credentials.ApplicationDefault() detecta la variable automáticamente
   → firebase_admin.initialize_app(cred, {"projectId": os.getenv("FIREBASE_PROJECT_ID")})
 
-Cloud Run (prod/staging/dev):
-  → Workload Identity Federation activa (service account asignada al servicio)
-  → GOOGLE_APPLICATION_CREDENTIALS no se configura en Cloud Run
-  → Application Default Credentials (ADC) detecta el service account del entorno GCP
-  → No se necesita archivo JSON — cero credenciales en el repo o en el contenedor
+Railway (prod/staging/dev):
+  → FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 se inyecta como secret por environment
+  → GOOGLE_APPLICATION_CREDENTIALS no se usa en runtime de Railway
+  → No se necesita archivo JSON en el repo ni en la imagen del contenedor
 
 CI/CD (GitHub Actions):
   → FIREBASE_SERVICE_ACCOUNT_BASE64 en GitHub Secrets → base64 decode en /tmp/
@@ -163,7 +162,7 @@ CI/CD (GitHub Actions):
 | Historial git limpio — sin `private_key`, `client_email`, `Certificate()` | ✅ PASS |
 | Ningún archivo `.json` de service account commiteado en historia | ✅ PASS |
 | `.gitignore` cubre todos los patrones de nombre de service account | ✅ PASS |
-| Flujo Cloud Run usa ADC/Workload Identity — sin archivos de key | ✅ PASS |
+| Flujo Railway usa secret base64 por environment — sin archivos de key | ✅ PASS |
 
 ### Decisión P0-B3
 
@@ -194,8 +193,8 @@ siguiendo el procedimiento en `SECURITY_PUBLIC_READINESS.md §2`. El Project ID 
 Los Project IDs `inkscroller-aed59` (dev), `inkscroller-stg` (staging), `inkscroller-8fa87` (prod)
 aparecen en `docs/DEPLOYMENT.md` como referencia operacional.
 
-**Evaluación:** Los Firebase/GCP Project IDs son semi-públicos por diseño (aparecen en URLs de
-Firebase y Cloud Run). No constituyen un secret. La seguridad real depende del IAM y las
+**Evaluación:** Los Firebase Project IDs son semi-públicos por diseño (aparecen en URLs de
+Firebase). No constituyen un secret. La seguridad real depende del IAM y las
 Firebase Security Rules — no de la confidencialidad del Project ID.
 
 ---

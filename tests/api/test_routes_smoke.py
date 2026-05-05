@@ -1,5 +1,9 @@
 import unittest
 from datetime import datetime, timezone
+from importlib.util import find_spec
+
+if find_spec("fastapi") is None:
+    raise unittest.SkipTest("fastapi is not installed")
 
 from fastapi.testclient import TestClient
 

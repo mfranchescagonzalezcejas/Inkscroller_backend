@@ -12,7 +12,7 @@
 Se ejecutaron smoke tests automatizados en dos dimensiones:
 
 1. **Tests unitarios** (`tests/test_app.py`) — cobertura de endpoints clave con servicios fake, sin dependencias externas
-2. **Smoke contra prod** (`scripts/release/smoke_prod.sh`) — verificación real de endpoints en `https://inkscroller-backend-806863502436.us-central1.run.app`
+2. **Smoke contra prod** (`scripts/release/smoke_prod.sh`) — verificación real de endpoints en `https://inkscrollerbackend-pro.up.railway.app`
 
 Ambas dimensiones pasaron con resultado **100% PASS**.
 
@@ -88,7 +88,7 @@ tests/test_app.py::AppSmokeTests::test_search_route_uses_overridden_manga_servic
 
 | Variable | Valor |
 |----------|-------|
-| URL prod | `https://inkscroller-backend-806863502436.us-central1.run.app` |
+| URL prod | `https://inkscrollerbackend-pro.up.railway.app` |
 | Timeout curl | 15s |
 | Fecha | 2026-04-08T21:59:39Z |
 | Runner | shana1499 @ Mercedes-Laptop |
@@ -97,7 +97,7 @@ tests/test_app.py::AppSmokeTests::test_search_route_uses_overridden_manga_servic
 
 ```
 == P0-B8 Smoke Test — Production ==
-target: https://inkscroller-backend-806863502436.us-central1.run.app
+target: https://inkscrollerbackend-pro.up.railway.app
 date:   2026-04-08T21:59:39Z
 runner: shana1499@Mercedes-Laptop
 
@@ -131,9 +131,8 @@ runner: shana1499@Mercedes-Laptop
 ```
 HTTP/2 200
 content-type: application/json
-x-cloud-trace-context: 300763443e6edb2f87df82e416d0931d;o=1
 date: Wed, 08 Apr 2026 21:59:10 GMT
-server: Google Frontend
+server: railway-edge
 content-length: 11
 alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
 

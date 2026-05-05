@@ -21,6 +21,6 @@ aiosqlite==0.20.0
 firebase-admin==6.8.0
 python-dotenv==1.0.1
 
-# Cloud SQL / PostgreSQL (Cloud Run production)
+# Cloud SQL / PostgreSQL support
 asyncpg==0.30.0
 cloud-sql-python-connector[asyncpg]==1.13.0
