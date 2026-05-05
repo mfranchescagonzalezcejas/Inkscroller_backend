@@ -14,7 +14,11 @@ An in-memory SQLite DB is still used via ``get_db`` so tests stay hermetic.
 
 import asyncio
 import unittest
+from importlib.util import find_spec
 from unittest.mock import MagicMock, patch
+
+if find_spec("fastapi") is None or find_spec("dotenv") is None:
+    raise unittest.SkipTest("fastapi/python-dotenv not installed")
 
 from fastapi.testclient import TestClient
 
