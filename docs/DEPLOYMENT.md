@@ -1,26 +1,34 @@
 # Deployment — InkScroller Backend
 
 > **Target:** Railway (3 environments)  
-> **Last updated:** 2026-04-21
+> **Last updated:** 2026-06-27
 
 ---
 
 ## Live URLs
 
-| Environment | Railway Environment | Firebase Project | Backend URL |
-|------------|---------------------|------------------|-------------|
-| **dev** | `dev` | `inkscroller-aed59` | `https://inkscrollerbackend-dev.up.railway.app` |
-| **staging** | `staging` | `inkscroller-stg` | `https://inkscrollerbackend-stg.up.railway.app` |
-| **prod** | `production` | `inkscroller-8fa87` | `https://inkscrollerbackend-pro.up.railway.app` |
+Use the custom API domains for clients and smoke checks:
+
+| Environment | Railway Environment | Firebase Project | API base URL | Health check |
+|------------|---------------------|------------------|--------------|--------------|
+| **dev** | `dev` | `inkscroller-aed59` | `https://api.dev.inkscroller.devdigi.dev` | `https://api.dev.inkscroller.devdigi.dev/ping` |
+| **staging** | `staging` | `inkscroller-stg` | `https://api.stg.inkscroller.devdigi.dev` | `https://api.stg.inkscroller.devdigi.dev/ping` |
+| **prod** | `production` | `inkscroller-8fa87` | `https://api.inkscroller.devdigi.dev` | `https://api.inkscroller.devdigi.dev/ping` |
+
+Production and development `/ping` have been verified online and return `200 {"ok": true}`. The staging custom domain is reserved/configured for the staging environment and should be verified after that environment is deployed/routed.
+
+The existing portfolio stays on `https://devdigi.dev` and `https://www.devdigi.dev`; those hostnames are not routed to Railway.
 
 ---
 
 ## Runtime model
 
 - One Railway project hosts the backend service plus one Postgres service per environment.
+- Railway serves each backend environment on port `8080`.
 - `dev` and `staging` track the `develop` branch.
 - `production` tracks the `main` branch.
 - Firebase remains split by environment (`inkscroller-aed59`, `inkscroller-stg`, `inkscroller-8fa87`).
+- Cloudflare DNS hosts the CNAME and TXT verification records for the Railway custom domains.
 
 ---
 
@@ -66,6 +74,30 @@ For each environment configure:
 - `CORS_ORIGINS`
 - optional runtime flags (`DEBUG`, `CACHE_TTL_SECONDS`, etc.)
 
+### Custom domains and DNS
+
+Each Railway environment has its own custom API hostname:
+
+| Environment | Custom domain | DNS owner | Railway port |
+|-------------|---------------|-----------|--------------|
+| dev | `api.dev.inkscroller.devdigi.dev` | Cloudflare | `8080` |
+| staging | `api.stg.inkscroller.devdigi.dev` | Cloudflare | `8080` |
+| prod | `api.inkscroller.devdigi.dev` | Cloudflare | `8080` |
+
+Cloudflare contains the Railway-provided CNAME records plus TXT verification records. Keep the portfolio records for `devdigi.dev` and `www.devdigi.dev` separate from the API records; the portfolio remains outside Railway.
+
+Client applications should use the custom API base URL for their target environment. `CORS_ORIGINS` should list the frontend origins allowed to call the API; it should not be set to the API hostname just because the API hostname changed.
+
+Current online verification: production and development return `200 {"ok": true}` on `/ping`; staging is not yet verified online and must be checked after staging deploy/routing.
+
+Quick checks:
+
+```bash
+curl -fsS https://api.inkscroller.devdigi.dev/ping
+curl -fsS https://api.dev.inkscroller.devdigi.dev/ping
+curl -fsS https://api.stg.inkscroller.devdigi.dev/ping  # verify after staging deploy/routing
+```
+
 ---
 
 ## Multiple Flavor Support
@@ -94,13 +126,13 @@ One backend image serves all flavors — change environment variables per Railwa
 | `MANGADEX_BASE_URL` | — | `https://api.mangadex.org` | MangaDex base URL |
 | `JIKAN_BASE_URL` | — | `https://api.jikan.moe/v4` | Jikan base URL |
 
-### Production verification
+### Environment verification
 
-Before closing a production release, confirm in Railway logs that:
+Before closing a release, confirm in Railway logs and via the custom domain that:
 
 - `Firebase Admin SDK initialized (project: inkscroller-8fa87)`
 - `PostgreSQL pool ready via DATABASE_URL`
-- `/ping` responds with `200`
+- `/ping` responds with `200 {"ok": true}` on the target custom API domain
 - authenticated `/users/*` routes return `200` with a production Firebase token
 
 ---
