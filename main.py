@@ -26,26 +26,34 @@ def build_lifespan(
 ) -> Callable[[FastAPI], AsyncContextManager[None]]:
     @asynccontextmanager
     async def app_lifespan(app: FastAPI):
-        # ── Database (SQLite local / PostgreSQL) ─────────────────────
-        init_firebase_admin()
-        app.state.db = await init_db(db_path)
+        db = None
+        mangadex_http = None
+        jikan_http = None
 
-        # ── Upstream HTTP clients ────────────────────────────────────
-        app.state.mangadex_http = httpx.AsyncClient(
-            base_url=settings.mangadex_base_url,
-            timeout=httpx.Timeout(10.0),
-        )
-        app.state.jikan_http = httpx.AsyncClient(
-            base_url=settings.jikan_base_url,
-            timeout=httpx.Timeout(10.0),
-        )
-        app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
+        try:
+            # ── Database (SQLite local / PostgreSQL) ─────────────────────
+            init_firebase_admin()
+            db = app.state.db = await init_db(db_path)
 
-        yield
+            # ── Upstream HTTP clients ────────────────────────────────────
+            mangadex_http = app.state.mangadex_http = httpx.AsyncClient(
+                base_url=settings.mangadex_base_url,
+                timeout=httpx.Timeout(10.0),
+            )
+            jikan_http = app.state.jikan_http = httpx.AsyncClient(
+                base_url=settings.jikan_base_url,
+                timeout=httpx.Timeout(10.0),
+            )
+            app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
 
-        await app.state.mangadex_http.aclose()
-        await app.state.jikan_http.aclose()
-        await app.state.db.close()
+            yield
+        finally:
+            if mangadex_http is not None:
+                await mangadex_http.aclose()
+            if jikan_http is not None:
+                await jikan_http.aclose()
+            if db is not None:
+                await db.close()
 
     return app_lifespan
 

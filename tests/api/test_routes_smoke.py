@@ -8,6 +8,7 @@ if find_spec("fastapi") is None:
 
 from fastapi.testclient import TestClient
 
+from app.core import database
 from app.core.cache import SimpleCache
 from app.core.config import settings
 from app.core.dependencies import (
@@ -110,10 +111,15 @@ class AppSmokeTests(unittest.TestCase):
                 new_callable=AsyncMock,
                 side_effect=AssertionError("test lifespan used configured database"),
             ) as init_postgres:
-                with TestClient(self.app) as client:
-                    response = client.get("/ping")
+                with patch(
+                    "app.core.database._init_sqlite",
+                    new=AsyncMock(wraps=database._init_sqlite),
+                ) as init_sqlite:
+                    with TestClient(self.app) as client:
+                        response = client.get("/ping")
 
             self.assertEqual(response.status_code, 200)
+            init_sqlite.assert_awaited_once_with(":memory:")
             init_postgres.assert_not_awaited()
         finally:
             settings.database_url = original_database_url
