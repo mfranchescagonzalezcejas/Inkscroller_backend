@@ -25,7 +25,7 @@ from fastapi.testclient import TestClient
 from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_db
-from main import create_app
+from tests.api.helpers import create_hermetic_test_app
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -52,7 +52,7 @@ class FirebaseTokenVerificationPathTests(unittest.TestCase):
     """Exercises ``get_current_user`` through the real verification path."""
 
     def setUp(self):
-        self.app = create_app()
+        self.app = create_hermetic_test_app()
         self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
 

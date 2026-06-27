@@ -28,7 +28,7 @@ from app.core.dependencies import get_current_user, get_db, get_manga_service
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import Manga
 from app.services.user_service import UserService
-from main import create_app
+from tests.api.helpers import create_hermetic_test_app
 
 # ---------------------------------------------------------------------------
 # Shared test fixtures
@@ -57,7 +57,7 @@ class UsersEndpointTests(unittest.TestCase):
     """Authenticated /users/me and /users/me/preferences endpoint tests."""
 
     def setUp(self):
-        self.app = create_app()
+        self.app = create_hermetic_test_app()
         self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
         self.app.dependency_overrides[get_current_user] = self._fake_auth
@@ -177,7 +177,7 @@ class LibraryEndpointTests(unittest.TestCase):
     """Authenticated /users/me/library endpoint tests."""
 
     def setUp(self):
-        self.app = create_app()
+        self.app = create_hermetic_test_app()
         self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
         self.app.dependency_overrides[get_current_user] = self._fake_auth
