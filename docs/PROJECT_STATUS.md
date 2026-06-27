@@ -2,7 +2,7 @@
 
 > **Source of truth for public readers:** this repository (`README`, `docs/PROJECT_STATUS.md`, `docs/DEPLOYMENT.md`)
 > **Repo role:** backend implementation and operational status for the FastAPI service
-> **Last updated:** 2026-04-21 (Railway migration validated in dev / staging / prod)
+> **Last updated:** 2026-06-27 (Railway custom API domains verified in dev/prod; staging reserved)
 
 ---
 
@@ -31,11 +31,13 @@ This file is the public status reference for backend implementation and operatio
 
 ### Railway Deployments (Multi-environment)
 
-| Environment | Railway Environment | Firebase Project | Backend URL |
-|------------|---------------------|------------------|-------------|
-| **dev** | `dev` | `inkscroller-aed59` | `https://inkscrollerbackend-dev.up.railway.app` |
-| **staging** | `staging` | `inkscroller-stg` | `https://inkscrollerbackend-stg.up.railway.app` |
-| **prod** | `production` | `inkscroller-8fa87` | `https://inkscrollerbackend-pro.up.railway.app` |
+| Environment | Railway Environment | Firebase Project | API base URL | Health check |
+|------------|---------------------|------------------|--------------|--------------|
+| **dev** | `dev` | `inkscroller-aed59` | `https://api.dev.inkscroller.devdigi.dev` | `https://api.dev.inkscroller.devdigi.dev/ping` |
+| **staging** | `staging` | `inkscroller-stg` | `https://api.stg.inkscroller.devdigi.dev` | `https://api.stg.inkscroller.devdigi.dev/ping` |
+| **prod** | `production` | `inkscroller-8fa87` | `https://api.inkscroller.devdigi.dev` | `https://api.inkscroller.devdigi.dev/ping` |
+
+Production and development custom-domain `/ping` checks return `200 {"ok": true}`. The staging custom domain is reserved/configured for the staging environment and should be verified after that environment is deployed/routed. Cloudflare hosts the Railway CNAME/TXT verification records for the API domains. The portfolio remains on `https://devdigi.dev` / `https://www.devdigi.dev` and is not routed to Railway.
 
 ---
 
@@ -78,7 +80,7 @@ This file is the public status reference for backend implementation and operatio
 
 - `.env.example` documents Railway/Firebase/Postgres variables
 - Deployment workflow simplified: GitLab is source workflow, GitHub mirror feeds Railway deploys by branch/environment
-- Frontend cloud environments now target Railway dev/staging/prod URLs
+- Frontend cloud environments should target the custom Railway API domains for dev/staging/prod
 
 ---
 
@@ -130,6 +132,8 @@ This file is the public status reference for backend implementation and operatio
 - easy environment-scoped variables and deploys
 - Railway Postgres provides the production persistence path
 - still compatible with Firebase Auth via Admin SDK
+
+Railway serves each backend environment on port `8080`; clients should use the custom API domains rather than Railway-generated hostnames.
 
 ### Alternatives considered
 

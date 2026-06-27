@@ -5,10 +5,6 @@
 ![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and Jikan (MyAnimeList) data, and provides authenticated user preferences via Firebase Auth.
-
-> **Repository strategy:** GitLab is the primary source for planning/review (Jira + Merge Requests), GitHub is a public mirror for visibility, and Railway is the active deployment target.
-
 ---
 
 ## Features
@@ -102,11 +98,15 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 Deployed to **Railway** across 3 environments:
 
-| Environment | Railway URL |
-|------------|-------------|
-| dev | `https://inkscrollerbackend-dev.up.railway.app` |
-| staging | `https://inkscrollerbackend-stg.up.railway.app` |
-| prod | `https://inkscrollerbackend-pro.up.railway.app` |
+| Environment | API base URL | Health check |
+|------------|--------------|--------------|
+| dev | `https://api.dev.inkscroller.devdigi.dev` | `https://api.dev.inkscroller.devdigi.dev/ping` |
+| staging | `https://api.stg.inkscroller.devdigi.dev` | `https://api.stg.inkscroller.devdigi.dev/ping` |
+| prod | `https://api.inkscroller.devdigi.dev` | `https://api.inkscroller.devdigi.dev/ping` |
+
+Production and development `/ping` have been verified online. The staging custom domain is reserved for the staging environment and should be verified after that environment is deployed/routed.
+
+Railway serves the backend on port `8080` in each environment. Cloudflare hosts the CNAME and TXT verification records for these custom API domains. The existing portfolio remains on `https://devdigi.dev` / `https://www.devdigi.dev` and is not routed to Railway.
 
 > Full deployment guide (Railway environments, Firebase secrets, Postgres): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
