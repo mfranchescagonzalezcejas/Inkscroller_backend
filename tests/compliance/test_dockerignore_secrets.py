@@ -22,6 +22,8 @@ REQUIRED_DOCKERIGNORE_PATTERNS = (
     "*.db",
     "*.db-shm",
     "*.db-wal",
+    "*.sqlite",
+    "*.sqlite3",
 )
 
 REQUIRED_ENV_PATTERN_SEQUENCE = (
