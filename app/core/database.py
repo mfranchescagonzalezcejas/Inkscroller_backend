@@ -187,12 +187,15 @@ async def _init_postgres() -> DatabaseAdapter:
 async def init_db(db_path: str | None = None) -> DatabaseAdapter:
     """Return the appropriate DatabaseAdapter for the current environment.
 
-    - ``db_path`` overrides ``settings.db_path`` and is only used for SQLite.
+    - ``db_path`` forces SQLite and overrides all configured database settings.
       Pass ``":memory:"`` in tests for a hermetic in-memory database.
-    - When ``CLOUD_SQL_INSTANCE`` or ``DATABASE_URL`` is set, the PostgreSQL
-      adapter is returned and ``db_path`` is ignored.
+    - Without ``db_path``, ``CLOUD_SQL_INSTANCE`` or ``DATABASE_URL`` select the
+      PostgreSQL adapter.
     """
+    if db_path is not None:
+        return await _init_sqlite(db_path)
+
     if settings.cloud_sql_instance or settings.database_url:
         return await _init_postgres()
 
-    return await _init_sqlite(db_path or settings.db_path)
+    return await _init_sqlite(settings.db_path)

@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 from importlib.util import find_spec
+from unittest.mock import AsyncMock, patch
 
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
@@ -8,12 +9,13 @@ if find_spec("fastapi") is None:
 from fastapi.testclient import TestClient
 
 from app.core.cache import SimpleCache
+from app.core.config import settings
 from app.core.dependencies import (
     get_chapter_pages_service,
     get_chapter_service,
     get_manga_service,
 )
-from main import create_app
+from tests.api.helpers import create_hermetic_test_app
 
 
 class FakeMangaService:
@@ -72,7 +74,7 @@ class FakeChapterPagesService:
 
 class AppSmokeTests(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
+        self.app = create_hermetic_test_app()
 
     def tearDown(self):
         self.app.dependency_overrides.clear()
@@ -95,6 +97,27 @@ class AppSmokeTests(unittest.TestCase):
                 str(client.app.state.jikan_http.base_url),
                 "https://api.jikan.moe/v4/",
             )
+
+    def test_test_lifespan_ignores_configured_database_settings(self):
+        original_database_url = settings.database_url
+        original_cloud_sql_instance = settings.cloud_sql_instance
+        settings.database_url = "postgresql://prod.example/inkscroller"
+        settings.cloud_sql_instance = "prod-project:region:instance"
+
+        try:
+            with patch(
+                "app.core.database._init_postgres",
+                new_callable=AsyncMock,
+                side_effect=AssertionError("test lifespan used configured database"),
+            ) as init_postgres:
+                with TestClient(self.app) as client:
+                    response = client.get("/ping")
+
+            self.assertEqual(response.status_code, 200)
+            init_postgres.assert_not_awaited()
+        finally:
+            settings.database_url = original_database_url
+            settings.cloud_sql_instance = original_cloud_sql_instance
 
     def test_manga_route_trims_id_before_calling_service(self):
         fake_service = FakeMangaService()

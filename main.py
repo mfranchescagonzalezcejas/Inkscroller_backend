@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import AsyncContextManager, Callable
 
 import httpx
 from fastapi import FastAPI
@@ -20,36 +21,46 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # ── Database (SQLite local / PostgreSQL) ─────────────────────
-    init_firebase_admin()
-    app.state.db = await init_db()
+def build_lifespan(
+    db_path: str | None = None,
+) -> Callable[[FastAPI], AsyncContextManager[None]]:
+    @asynccontextmanager
+    async def app_lifespan(app: FastAPI):
+        # ── Database (SQLite local / PostgreSQL) ─────────────────────
+        init_firebase_admin()
+        app.state.db = await init_db(db_path)
 
-    # ── Upstream HTTP clients ────────────────────────────────────
-    app.state.mangadex_http = httpx.AsyncClient(
-        base_url=settings.mangadex_base_url,
-        timeout=httpx.Timeout(10.0),
-    )
-    app.state.jikan_http = httpx.AsyncClient(
-        base_url=settings.jikan_base_url,
-        timeout=httpx.Timeout(10.0),
-    )
-    app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
+        # ── Upstream HTTP clients ────────────────────────────────────
+        app.state.mangadex_http = httpx.AsyncClient(
+            base_url=settings.mangadex_base_url,
+            timeout=httpx.Timeout(10.0),
+        )
+        app.state.jikan_http = httpx.AsyncClient(
+            base_url=settings.jikan_base_url,
+            timeout=httpx.Timeout(10.0),
+        )
+        app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
 
-    yield
+        yield
 
-    await app.state.mangadex_http.aclose()
-    await app.state.jikan_http.aclose()
-    await app.state.db.close()
+        await app.state.mangadex_http.aclose()
+        await app.state.jikan_http.aclose()
+        await app.state.db.close()
+
+    return app_lifespan
 
 
-def create_app() -> FastAPI:
+lifespan = build_lifespan()
+
+
+def create_app(
+    lifespan_context: Callable[[FastAPI], AsyncContextManager[None]] = lifespan,
+) -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.version,
         debug=settings.debug,
-        lifespan=lifespan,
+        lifespan=lifespan_context,
     )
 
     logger.info(
