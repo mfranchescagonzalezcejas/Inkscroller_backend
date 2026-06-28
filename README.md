@@ -78,7 +78,8 @@ python -m pip install -r requirements.txt
 # 3. Configure environment
 cp .env.example .env
 # Edit .env — set FIREBASE_PROJECT_ID and either
-# GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway)
+# GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway).
+# Keep production/staging CORS origins explicit; use CORS_ORIGINS=* only for local development.
 
 # 4. Start server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
