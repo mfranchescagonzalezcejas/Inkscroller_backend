@@ -45,6 +45,13 @@ def _serialize_birth_date_for_db(
     return value
 
 
+def _model_field_was_provided(model: UpdateUserProfileRequest, field_name: str) -> bool:
+    fields_set = getattr(model, "model_fields_set", None)
+    if fields_set is None:
+        fields_set = getattr(model, "__fields_set__", set())
+    return field_name in fields_set
+
+
 class UserService:
     """Handles local user bootstrap and preferences persistence."""
 
@@ -94,14 +101,27 @@ class UserService:
         birth_date: object | None = None,
     ) -> UserProfile:
         """Update authenticated profile metadata and return the current profile."""
-        profile_update = req or UpdateUserProfileRequest(
-            username=username,
-            birth_date=birth_date,
-        )
+        if req is None:
+            update_data = {}
+            if username is not None:
+                update_data["username"] = username
+            if birth_date is not None:
+                update_data["birth_date"] = birth_date
+            profile_update = UpdateUserProfileRequest(**update_data)
+        else:
+            profile_update = req
         current = await self._get_user(firebase_uid)
 
-        new_username = profile_update.username or current.username
-        new_birth_date = profile_update.birth_date or current.birth_date
+        new_username = (
+            profile_update.username
+            if _model_field_was_provided(profile_update, "username")
+            else current.username
+        )
+        new_birth_date = (
+            profile_update.birth_date
+            if _model_field_was_provided(profile_update, "birth_date")
+            else current.birth_date
+        )
 
         if new_username is not None:
             username_owner = await self._db.fetchone(

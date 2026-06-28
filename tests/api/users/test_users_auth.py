@@ -135,6 +135,60 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(data["username"], "reader-two")
         self.assertEqual(data["birth_date"], "2001-01-20")
 
+    def test_patch_me_empty_payload_preserves_profile_metadata(self):
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "reader-three", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me",
+                json={},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["username"], "reader-three")
+        self.assertEqual(data["birth_date"], "2001-01-20")
+
+    def test_patch_me_null_username_clears_only_username(self):
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "reader-four", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me",
+                json={"username": None},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsNone(data["username"])
+        self.assertEqual(data["birth_date"], "2001-01-20")
+
+    def test_patch_me_null_birth_date_clears_only_birth_date(self):
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "reader-five", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me",
+                json={"birth_date": None},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["username"], "reader-five")
+        self.assertIsNone(data["birth_date"])
+
     def test_patch_me_rejects_invalid_username(self):
         with TestClient(self.app) as client:
             response = client.patch(
