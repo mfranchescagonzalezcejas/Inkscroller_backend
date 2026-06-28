@@ -2,12 +2,18 @@
 
 import json
 import logging
-from datetime import datetime, timezone
+import sqlite3
+from datetime import date, datetime, timezone
 
-from app.core.db_adapter import DatabaseAdapter
-from app.core.exceptions import PreferencesValidationError
+from app.core.db_adapter import DatabaseAdapter, SqliteAdapter
+from app.core.exceptions import PreferencesValidationError, ProfileConflictError
 from app.core.firebase_auth import FirebaseTokenPayload
-from app.models.user import ReadingPreferences, UpdatePreferencesRequest, UserProfile
+from app.models.user import (
+    ReadingPreferences,
+    UpdatePreferencesRequest,
+    UpdateUserProfileRequest,
+    UserProfile,
+)
 
 _VALID_READER_MODES = frozenset({"vertical", "paged"})
 _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it", "ja", "ko", "zh"})
@@ -20,6 +26,25 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _is_unique_constraint_violation(exc: Exception) -> bool:
+    if isinstance(exc, sqlite3.IntegrityError):
+        return "unique" in str(exc).lower()
+
+    sqlstate = getattr(exc, "sqlstate", None) or getattr(exc, "pgcode", None)
+    if sqlstate == "23505":
+        return True
+
+    return exc.__class__.__name__ == "UniqueViolationError"
+
+
+def _serialize_birth_date_for_db(
+    value: object | None, db: DatabaseAdapter
+) -> object | None:
+    if isinstance(value, date) and isinstance(db, SqliteAdapter):
+        return value.isoformat()
+    return value
+
+
 class UserService:
     """Handles local user bootstrap and preferences persistence."""
 
@@ -29,7 +54,7 @@ class UserService:
     async def get_or_create_user(self, payload: FirebaseTokenPayload) -> UserProfile:
         """Return the local user row, creating it on first call for a given UID."""
         row = await self._db.fetchone(
-            "SELECT firebase_uid, email, display_name, created_at FROM users WHERE firebase_uid = ?",
+            "SELECT firebase_uid, email, display_name, username, birth_date, created_at FROM users WHERE firebase_uid = ?",
             payload.uid,
         )
 
@@ -55,6 +80,70 @@ class UserService:
             firebase_uid=row["firebase_uid"],
             email=row["email"],
             display_name=row["display_name"],
+            username=row["username"],
+            birth_date=row["birth_date"],
+            created_at=row["created_at"],
+        )
+
+    async def update_profile_metadata(
+        self,
+        firebase_uid: str,
+        req: UpdateUserProfileRequest | None = None,
+        *,
+        username: str | None = None,
+        birth_date: object | None = None,
+    ) -> UserProfile:
+        """Update authenticated profile metadata and return the current profile."""
+        profile_update = req or UpdateUserProfileRequest(
+            username=username,
+            birth_date=birth_date,
+        )
+        current = await self._get_user(firebase_uid)
+
+        new_username = profile_update.username or current.username
+        new_birth_date = profile_update.birth_date or current.birth_date
+
+        if new_username is not None:
+            username_owner = await self._db.fetchone(
+                "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
+                new_username,
+                firebase_uid,
+            )
+            if username_owner is not None:
+                raise ProfileConflictError("Username is already in use.")
+
+        birth_date_value = _serialize_birth_date_for_db(new_birth_date, self._db)
+
+        try:
+            await self._db.execute(
+                "UPDATE users SET username = ?, birth_date = ? WHERE firebase_uid = ?",
+                new_username,
+                birth_date_value,
+                firebase_uid,
+            )
+            await self._db.commit()
+        except Exception as exc:
+            if _is_unique_constraint_violation(exc):
+                raise ProfileConflictError("Username is already in use.") from exc
+            raise
+
+        return await self._get_user(firebase_uid)
+
+    async def _get_user(self, firebase_uid: str) -> UserProfile:
+        row = await self._db.fetchone(
+            "SELECT firebase_uid, email, display_name, username, birth_date, created_at "
+            "FROM users WHERE firebase_uid = ?",
+            firebase_uid,
+        )
+        if row is None:
+            raise ProfileConflictError("User profile does not exist.")
+
+        return UserProfile(
+            firebase_uid=row["firebase_uid"],
+            email=row["email"],
+            display_name=row["display_name"],
+            username=row["username"],
+            birth_date=row["birth_date"],
             created_at=row["created_at"],
         )
 

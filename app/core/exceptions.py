@@ -87,6 +87,14 @@ class PreferencesValidationError(Exception):
         super().__init__(detail)
 
 
+class ProfileConflictError(Exception):
+    """Raised when profile metadata conflicts with another account."""
+
+    def __init__(self, detail: str = "Profile metadata conflict."):
+        self.detail = detail
+        super().__init__(detail)
+
+
 async def handle_auth_error(request: Request, exc: AuthError) -> JSONResponse:
     logger.warning(
         "Auth error on %s %s: %s", request.method, request.url.path, exc.detail
@@ -101,6 +109,13 @@ async def handle_preferences_validation_error(
     return _error_response(422, "validation_error", exc.detail)
 
 
+async def handle_profile_conflict_error(
+    request: Request, exc: ProfileConflictError
+) -> JSONResponse:
+    logger.warning("Profile conflict: %s", exc.detail)
+    return _error_response(409, "profile_conflict", exc.detail)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach all exception handlers to the FastAPI app."""
     app.add_exception_handler(HTTPStatusError, handle_http_status_error)
@@ -111,4 +126,5 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         PreferencesValidationError, handle_preferences_validation_error
     )
+    app.add_exception_handler(ProfileConflictError, handle_profile_conflict_error)
     app.add_exception_handler(Exception, handle_unhandled)

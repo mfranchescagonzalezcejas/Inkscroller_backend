@@ -13,7 +13,11 @@ Strategy:
 """
 
 import asyncio
+import os
+import sqlite3
+import tempfile
 import unittest
+from datetime import date
 from importlib.util import find_spec
 from unittest.mock import AsyncMock
 
@@ -25,6 +29,7 @@ from fastapi.testclient import TestClient
 from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_current_user, get_db, get_manga_service
+from app.core.exceptions import ProfileConflictError
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import Manga
 from app.services.user_service import UserService
@@ -83,6 +88,8 @@ class UsersEndpointTests(unittest.TestCase):
         data = response.json()
         self.assertEqual(data["firebase_uid"], _FAKE_PAYLOAD.uid)
         self.assertEqual(data["email"], _FAKE_PAYLOAD.email)
+        self.assertIsNone(data["username"])
+        self.assertIsNone(data["birth_date"])
 
     def test_get_me_returns_same_user_on_second_request(self):
         with TestClient(self.app) as client:
@@ -95,12 +102,272 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["firebase_uid"], _FAKE_PAYLOAD.uid)
 
+    # -- PATCH /users/me ------------------------------------------------------
+
+    def test_patch_me_updates_username_and_birth_date(self):
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me",
+                json={"username": "Reader_16", "birth_date": "2008-06-15"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["username"], "reader_16")
+        self.assertEqual(data["birth_date"], "2008-06-15")
+        self.assertEqual(data["firebase_uid"], _FAKE_PAYLOAD.uid)
+
+    def test_patch_me_subsequent_get_returns_profile_metadata(self):
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "reader-two", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.get(
+                "/users/me",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["username"], "reader-two")
+        self.assertEqual(data["birth_date"], "2001-01-20")
+
+    def test_patch_me_rejects_invalid_username(self):
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me",
+                json={"username": "no spaces", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_patch_me_rejects_future_birth_date(self):
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me",
+                json={"username": "reader_future", "birth_date": "2999-01-01"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_patch_me_rejects_duplicate_username(self):
+        other_payload = FirebaseTokenPayload(
+            uid="test-uid-002",
+            email="other@example.com",
+            display_name="Other User",
+        )
+        asyncio.run(UserService(self.db).get_or_create_user(other_payload))
+
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "taken-name", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.app.dependency_overrides[get_current_user] = lambda: other_payload
+
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me",
+                json={"username": "taken-name", "birth_date": "2002-02-21"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 409)
+
+    def test_existing_sqlite_users_schema_migrates_profile_metadata(self):
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                """CREATE TABLE users (
+                    firebase_uid TEXT PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    display_name TEXT,
+                    created_at TEXT NOT NULL
+                )"""
+            )
+            conn.execute(
+                """CREATE TABLE reading_preferences (
+                    firebase_uid TEXT PRIMARY KEY REFERENCES users(firebase_uid),
+                    default_reader_mode TEXT NOT NULL DEFAULT 'vertical',
+                    default_language TEXT NOT NULL DEFAULT 'en',
+                    updated_at TEXT NOT NULL
+                )"""
+            )
+            conn.execute(
+                """CREATE TABLE user_library (
+                    firebase_uid TEXT NOT NULL REFERENCES users(firebase_uid),
+                    manga_id TEXT NOT NULL,
+                    added_at TEXT NOT NULL,
+                    PRIMARY KEY (firebase_uid, manga_id)
+                )"""
+            )
+            conn.commit()
+            conn.close()
+
+            migrated_db = asyncio.run(init_db(db_path))
+            try:
+                profile = asyncio.run(
+                    UserService(migrated_db).get_or_create_user(_FAKE_PAYLOAD)
+                )
+                asyncio.run(
+                    UserService(migrated_db).update_profile_metadata(
+                        profile.firebase_uid,
+                        username="migrated_reader",
+                        birth_date="2000-01-01",
+                    )
+                )
+                index_row = asyncio.run(
+                    migrated_db.fetchone(
+                        "SELECT name FROM sqlite_master WHERE type = ? AND name = ?",
+                        "index",
+                        "idx_users_username_unique",
+                    )
+                )
+            finally:
+                asyncio.run(migrated_db.close())
+
+            self.assertEqual(profile.firebase_uid, _FAKE_PAYLOAD.uid)
+            self.assertIsNotNone(index_row)
+        finally:
+            os.remove(db_path)
+
+    def test_profile_update_maps_db_unique_constraint_to_conflict(self):
+        class RaceConflictDb(DatabaseAdapter):
+            async def execute(self, query, *args):
+                if query.startswith("UPDATE users SET username"):
+                    raise sqlite3.IntegrityError(
+                        "UNIQUE constraint failed: users.username"
+                    )
+                return 1
+
+            async def fetchone(self, query, *args):
+                if "WHERE firebase_uid = ?" in query:
+                    return {
+                        "firebase_uid": _FAKE_PAYLOAD.uid,
+                        "email": _FAKE_PAYLOAD.email,
+                        "display_name": _FAKE_PAYLOAD.display_name,
+                        "username": None,
+                        "birth_date": None,
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                    }
+                return None
+
+            async def fetchall(self, query, *args):
+                return []
+
+            async def commit(self):
+                return None
+
+            async def close(self):
+                return None
+
+        with self.assertRaises(ProfileConflictError):
+            asyncio.run(
+                UserService(RaceConflictDb()).update_profile_metadata(
+                    _FAKE_PAYLOAD.uid,
+                    username="raced_reader",
+                    birth_date="2000-01-01",
+                )
+            )
+
+    def test_profile_update_maps_postgres_unique_constraint_to_conflict(self):
+        class UniqueViolationError(Exception):
+            sqlstate = "23505"
+
+        class PostgresRaceConflictDb(DatabaseAdapter):
+            async def execute(self, query, *args):
+                if query.startswith("UPDATE users SET username"):
+                    raise UniqueViolationError(
+                        "duplicate key value violates unique constraint"
+                    )
+                return 1
+
+            async def fetchone(self, query, *args):
+                if "WHERE firebase_uid = ?" in query:
+                    return {
+                        "firebase_uid": _FAKE_PAYLOAD.uid,
+                        "email": _FAKE_PAYLOAD.email,
+                        "display_name": _FAKE_PAYLOAD.display_name,
+                        "username": None,
+                        "birth_date": None,
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                    }
+                return None
+
+            async def fetchall(self, query, *args):
+                return []
+
+            async def commit(self):
+                return None
+
+            async def close(self):
+                return None
+
+        with self.assertRaises(ProfileConflictError):
+            asyncio.run(
+                UserService(PostgresRaceConflictDb()).update_profile_metadata(
+                    _FAKE_PAYLOAD.uid,
+                    username="raced_reader",
+                    birth_date=date(2000, 1, 1),
+                )
+            )
+
+    def test_profile_update_keeps_birth_date_as_date_for_postgres_adapters(self):
+        class CapturingPostgresDb(DatabaseAdapter):
+            def __init__(self):
+                self.birth_date_value = None
+
+            async def execute(self, query, *args):
+                if query.startswith("UPDATE users SET username"):
+                    self.birth_date_value = args[1]
+                return 1
+
+            async def fetchone(self, query, *args):
+                if "WHERE firebase_uid = ?" in query:
+                    return {
+                        "firebase_uid": _FAKE_PAYLOAD.uid,
+                        "email": _FAKE_PAYLOAD.email,
+                        "display_name": _FAKE_PAYLOAD.display_name,
+                        "username": None,
+                        "birth_date": None,
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                    }
+                return None
+
+            async def fetchall(self, query, *args):
+                return []
+
+            async def commit(self):
+                return None
+
+            async def close(self):
+                return None
+
+        db = CapturingPostgresDb()
+
+        asyncio.run(
+            UserService(db).update_profile_metadata(
+                _FAKE_PAYLOAD.uid,
+                username="postgres_reader",
+                birth_date=date(2000, 1, 1),
+            )
+        )
+
+        self.assertEqual(db.birth_date_value, date(2000, 1, 1))
+
     # -- GET /users/me/preferences --------------------------------------------
 
     def test_get_preferences_returns_defaults_on_first_request(self):
-        asyncio.run(
-            UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
-        )
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
 
         with TestClient(self.app) as client:
             response = client.get(
@@ -116,9 +383,7 @@ class UsersEndpointTests(unittest.TestCase):
     # -- PUT /users/me/preferences --------------------------------------------
 
     def test_update_preferences_persists_and_returns_updated_values(self):
-        asyncio.run(
-            UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
-        )
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
 
         with TestClient(self.app) as client:
             response = client.put(
@@ -133,9 +398,7 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(data["default_language"], "es")
 
     def test_update_preferences_subsequent_get_returns_updated_values(self):
-        asyncio.run(
-            UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
-        )
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
 
         with TestClient(self.app) as client:
             client.put(
@@ -183,9 +446,7 @@ class LibraryEndpointTests(unittest.TestCase):
         self.app.dependency_overrides[get_current_user] = self._fake_auth
 
         # Bootstrap user row required by FK constraint.
-        asyncio.run(
-            UserService(self.db).get_or_create_user(_FAKE_PAYLOAD)
-        )
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
 
         # Fake MangaService that returns _FAKE_MANGA for any ID.
         fake_manga_service = AsyncMock()
@@ -213,6 +474,14 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(response.json(), [])
 
     def test_get_library_returns_manga_after_add(self):
+        asyncio.run(
+            UserService(self.db).update_profile_metadata(
+                _FAKE_PAYLOAD.uid,
+                username="private_reader",
+                birth_date="2000-05-10",
+            )
+        )
+
         with TestClient(self.app) as client:
             client.post(
                 "/users/me/library/manga-abc-123",
@@ -228,6 +497,8 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["id"], _FAKE_MANGA.id)
         self.assertIn("library", data[0])
+        self.assertNotIn("username", data[0])
+        self.assertNotIn("birth_date", data[0])
         self.assertEqual(data[0]["library"]["library_status"], "reading")
         self.assertIn("added_at", data[0]["library"])
         self.assertIn("updated_at", data[0]["library"])
@@ -371,6 +642,24 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertIn("post", path_item)
         self.assertIn("patch", path_item)
         self.assertIn("delete", path_item)
+
+    def test_openapi_me_route_includes_patch_contract(self):
+        with TestClient(self.app) as client:
+            response = client.get("/openapi.json")
+
+        self.assertEqual(response.status_code, 200)
+        openapi = response.json()
+        path_item = openapi["paths"]["/users/me"]
+        self.assertIn("get", path_item)
+        self.assertIn("patch", path_item)
+        request_schema = openapi["components"]["schemas"]["UpdateUserProfileRequest"][
+            "properties"
+        ]
+        response_schema = openapi["components"]["schemas"]["UserProfile"]["properties"]
+        self.assertIn("username", request_schema)
+        self.assertIn("birth_date", request_schema)
+        self.assertIn("username", response_schema)
+        self.assertIn("birth_date", response_schema)
 
 
 if __name__ == "__main__":
