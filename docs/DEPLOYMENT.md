@@ -68,6 +68,7 @@ GitHub Actions validates mirror state; Railway remains the runtime deployment au
 
 For each environment configure:
 
+- `ENVIRONMENT` (`development`, `staging`, `stage`, `production`, or `prod`)
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`
 - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
@@ -87,6 +88,15 @@ Each Railway environment has its own custom API hostname:
 Cloudflare contains the Railway-provided CNAME records plus TXT verification records. Keep the portfolio records for `devdigi.dev` and `www.devdigi.dev` separate from the API records; the portfolio remains outside Railway.
 
 Client applications should use the custom API base URL for their target environment. `CORS_ORIGINS` should list the frontend origins allowed to call the API; it should not be set to the API hostname just because the API hostname changed.
+
+Production-like environments reject blank `CORS_ORIGINS` and reject `CORS_ORIGINS=*` because the API enables credentialed CORS for authenticated routes. The production-like safety check is enabled when any runtime environment variable (`ENVIRONMENT`, `RAILWAY_ENVIRONMENT_NAME`, or `RAILWAY_ENVIRONMENT`) is set to `production`, `prod`, `staging`, or `stage`, so a stale local `ENVIRONMENT=development` cannot override Railway production/staging. Use explicit trusted frontend origins instead, for example:
+
+```env
+ENVIRONMENT=production
+CORS_ORIGINS=https://inkscroller-app.web.app,https://devdigi.dev,https://www.devdigi.dev
+```
+
+For local development only, wildcard CORS can still be requested explicitly with `ENVIRONMENT=development` and `CORS_ORIGINS=*`.
 
 Current online verification: production and development return `200 {"ok": true}` on `/ping`; staging is not yet verified online and must be checked after staging deploy/routing.
 
@@ -116,12 +126,13 @@ One backend image serves all flavors — change environment variables per Railwa
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
+| `ENVIRONMENT` | — | `development` | Runtime environment; production-like values reject unsafe CORS together with Railway runtime env vars |
 | `FIREBASE_PROJECT_ID` | ✅ | — | Firebase project ID |
 | `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | ✅ (Railway) | — | Base64-encoded Firebase service account JSON |
 | `GOOGLE_APPLICATION_CREDENTIALS` | ✅ (local) | — | Path to service account JSON for local runs |
 | `DATABASE_URL` | ✅ (Railway) | — | PostgreSQL connection string from Railway Postgres |
 | `DB_PATH` | — | `./inkscroller.db` | SQLite path for local fallback only |
-| `CORS_ORIGINS` | — | `*` | Comma-separated allowed origins |
+| `CORS_ORIGINS` | — | explicit frontend origins | Comma-separated allowed frontend origins; `*` is local-development only |
 | `CACHE_TTL_SECONDS` | — | `300` | In-memory cache TTL |
 | `MANGADEX_BASE_URL` | — | `https://api.mangadex.org` | MangaDex base URL |
 | `JIKAN_BASE_URL` | — | `https://api.jikan.moe/v4` | Jikan base URL |

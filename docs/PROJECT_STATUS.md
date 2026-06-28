@@ -145,11 +145,12 @@ Railway serves each backend environment on port `8080`; clients should use the c
 
 | Variable | Required | Notes |
 |----------|----------|-------|
+| `ENVIRONMENT` | No | Default: `development`; production-like values reject wildcard CORS with credentials |
 | `FIREBASE_PROJECT_ID` | Yes | Per-environment Firebase project |
 | `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | Yes (Railway) | Service account per environment |
 | `DATABASE_URL` | Yes (Railway) | Injected from Railway Postgres |
 | `DB_PATH` | No | Local fallback only |
-| `CORS_ORIGINS` | No | Comma-separated, default: `*` |
+| `CORS_ORIGINS` | No | Comma-separated frontend origins; `*` is local-development only |
 | `CACHE_TTL_SECONDS` | No | Default: `300` |
 | `MANGADEX_BASE_URL` | No | Default: `https://api.mangadex.org` |
 | `JIKAN_BASE_URL` | No | Default: `https://api.jikan.moe/v4` |
