@@ -68,7 +68,7 @@ GitHub Actions validates mirror state; Railway remains the runtime deployment au
 
 For each environment configure:
 
-- `ENVIRONMENT` (`development`, `staging`, or `production`)
+- `ENVIRONMENT` (`development`, `staging`, `stage`, `production`, or `prod`)
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`
 - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
