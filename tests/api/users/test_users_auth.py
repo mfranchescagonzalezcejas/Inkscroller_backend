@@ -515,6 +515,15 @@ class LibraryEndpointTests(unittest.TestCase):
     async def _fake_auth() -> FirebaseTokenPayload:
         return _FAKE_PAYLOAD
 
+    def assert_response_key_absent(self, value: object, forbidden_key: str) -> None:
+        if isinstance(value, dict):
+            self.assertNotIn(forbidden_key, value)
+            for nested in value.values():
+                self.assert_response_key_absent(nested, forbidden_key)
+        elif isinstance(value, list):
+            for nested in value:
+                self.assert_response_key_absent(nested, forbidden_key)
+
     # -- GET /users/me/library ------------------------------------------------
 
     def test_get_library_empty_on_new_user(self):
@@ -551,8 +560,8 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["id"], _FAKE_MANGA.id)
         self.assertIn("library", data[0])
-        self.assertNotIn("username", data[0])
-        self.assertNotIn("birth_date", data[0])
+        self.assert_response_key_absent(data[0], "username")
+        self.assert_response_key_absent(data[0], "birth_date")
         self.assertEqual(data[0]["library"]["library_status"], "reading")
         self.assertIn("added_at", data[0]["library"])
         self.assertIn("updated_at", data[0]["library"])
@@ -706,6 +715,19 @@ class LibraryEndpointTests(unittest.TestCase):
         path_item = openapi["paths"]["/users/me"]
         self.assertIn("get", path_item)
         self.assertIn("patch", path_item)
+        patch_operation = path_item["patch"]
+        self.assertEqual(
+            patch_operation["requestBody"]["content"]["application/json"]["schema"][
+                "$ref"
+            ],
+            "#/components/schemas/UpdateUserProfileRequest",
+        )
+        self.assertEqual(
+            patch_operation["responses"]["200"]["content"]["application/json"][
+                "schema"
+            ]["$ref"],
+            "#/components/schemas/UserProfile",
+        )
         request_schema = openapi["components"]["schemas"]["UpdateUserProfileRequest"][
             "properties"
         ]
