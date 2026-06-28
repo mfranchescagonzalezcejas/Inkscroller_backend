@@ -48,7 +48,9 @@ class Settings:
         self.mangadex_base_url: str = os.getenv(
             "MANGADEX_BASE_URL", "https://api.mangadex.org"
         )
-        self.jikan_base_url: str = os.getenv("JIKAN_BASE_URL", "https://api.jikan.moe/v4")
+        self.jikan_base_url: str = os.getenv(
+            "JIKAN_BASE_URL", "https://api.jikan.moe/v4"
+        )
 
         # Feature flags
         self.enable_jikan_enrichment: bool = _parse_bool(
