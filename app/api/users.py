@@ -12,6 +12,7 @@ from app.models.user import (
     ReadingPreferences,
     UpdateLibraryStatusRequest,
     UpdatePreferencesRequest,
+    UpdateUserProfileRequest,
     UserProfile,
 )
 from app.services.user_service import UserService
@@ -30,6 +31,17 @@ async def get_me(
     # `get_current_user` already bootstraps the user row; here we only need
     # to fetch and return the full profile.
     return await user_service.get_or_create_user(current_user)
+
+
+@router.patch("/me", response_model=UserProfile)
+async def update_me(
+    body: UpdateUserProfileRequest,
+    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service),
+) -> UserProfile:
+    """Update username and birth date for the authenticated account profile."""
+    await user_service.get_or_create_user(current_user)
+    return await user_service.update_profile_metadata(current_user.uid, body)
 
 
 @router.get("/me/preferences", response_model=ReadingPreferences)

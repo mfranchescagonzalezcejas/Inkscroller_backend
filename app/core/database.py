@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS users (
     firebase_uid  TEXT    PRIMARY KEY,
     email         TEXT    NOT NULL,
     display_name  TEXT,
+    username      TEXT,
+    birth_date    TEXT,
     created_at    TEXT    NOT NULL
 );
 
@@ -56,8 +58,16 @@ CREATE TABLE IF NOT EXISTS users (
     firebase_uid  TEXT    PRIMARY KEY,
     email         TEXT    NOT NULL,
     display_name  TEXT,
+    username      TEXT,
+    birth_date    DATE,
     created_at    TEXT    NOT NULL
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique
+ON users(username)
+WHERE username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
     firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
@@ -106,6 +116,23 @@ async def _migrate_sqlite_columns(conn: object) -> None:
     import aiosqlite
 
     assert isinstance(conn, aiosqlite.Connection)
+
+    async with conn.execute("PRAGMA table_info(users)") as cursor:
+        rows = await cursor.fetchall()
+    user_columns = {row["name"] for row in rows}
+
+    user_migrations = [
+        ("username", "ALTER TABLE users ADD COLUMN username TEXT"),
+        ("birth_date", "ALTER TABLE users ADD COLUMN birth_date TEXT"),
+    ]
+    for col, ddl in user_migrations:
+        if col not in user_columns:
+            await conn.execute(ddl)
+
+    await conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique "
+        "ON users(username) WHERE username IS NOT NULL"
+    )
 
     async with conn.execute("PRAGMA table_info(user_library)") as cursor:
         rows = await cursor.fetchall()
