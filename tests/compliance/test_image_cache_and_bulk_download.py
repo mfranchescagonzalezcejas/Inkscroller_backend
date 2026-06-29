@@ -456,14 +456,23 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
         pages_service.get_pages.return_value = payload
 
         fake_chapter_service = AsyncMock()
-        fake_chapter_service.get_manga_id_for_chapter = AsyncMock(return_value=None)
+        fake_chapter_service.get_manga_id_for_chapter = AsyncMock(return_value="safe-manga")
+
+        manga_service = AsyncMock()
+        manga_service.get_by_id = AsyncMock(
+            side_effect=lambda manga_id, user_age=None, skip_age_filter=False: {
+                "id": "safe-manga",
+                "title": "Safe Manga",
+                "contentRating": "safe",
+            }
+        )
 
         result = asyncio.run(
             chapters_router_module.get_chapter_pages(
                 "  chapter-id  ",
                 pages_service,
                 fake_chapter_service,
-                AsyncMock(),
+                manga_service,
                 None,
             )
         )

@@ -357,15 +357,21 @@ class TestMangaListAgeRestriction(unittest.TestCase):
 
     def test_user_age_passed_to_service_list_manga(self):
         """user_age should be forwarded to service.list_manga()."""
-        self._override(user_age=16)
+        service = FakeMangaServiceWithAge(self.MANGA_DB)
+        self.app.dependency_overrides[get_manga_service] = lambda: service
+        self.app.dependency_overrides[get_user_age] = lambda: 16
 
         with TestClient(self.app) as client:
-            client.get("/manga")
+            response = client.get("/manga")
 
-        # The fake service records calls — verify user_age was passed
-        # (We can't easily inspect calls through the override, but the
-        #  FakeMangaServiceWithAge records them internally)
-        # This test primarily verifies the route doesn't crash with user_age.
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any(
+                call["method"] == "list_manga" and call.get("user_age") == 16
+                for call in service.calls
+            ),
+            "user_age=16 was not forwarded to list_manga",
+        )
 
 
 class TestMangaRouteEdgeCases(unittest.TestCase):

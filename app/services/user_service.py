@@ -205,13 +205,11 @@ class UserService:
                 asyncio.to_thread(firebase_auth_sdk.delete_user, firebase_uid),
                 timeout=10.0,
             )
-            logger.info("Deleted Firebase Auth user %s", firebase_uid)
+            logger.info("Deleted Firebase Auth user.")
         except firebase_auth_sdk.UserNotFoundError:
-            logger.info("Firebase user %s already deleted.", firebase_uid)
+            logger.info("Firebase user already deleted.")
         except Exception as exc:
-            logger.error(
-                "Failed to delete Firebase Auth user %s: %s", firebase_uid, exc
-            )
+            logger.error("Failed to delete Firebase Auth user: %s", exc)
             raise UpstreamServiceError(
                 "Firebase Auth", "Firebase Auth deletion failed."
             ) from exc

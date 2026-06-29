@@ -126,50 +126,57 @@ class MangaService:
     ):
         cache_key = f"manga:{manga_id}"
         cached = self._cache.get(cache_key)
+
         if cached is not None:
-            return cached
+            # Cache always stores raw (unfiltered) data; re-evaluate access
+            # per request so that a prior ``skip_age_filter=True`` call cannot
+            # poison the shared cache for age-restricted readers.
+            if skip_age_filter or can_access_content(
+                cached.get("contentRating"), user_age
+            ):
+                return cached
+            return None
 
         payload = await self._client.get_manga(manga_id)
         item = payload.get("data")
         if not item:
             return None
 
-        # Base MangaDex
+        # Base MangaDex — always cache raw data
         result = map_mangadex_manga(item)
 
-        # Age restriction check (skipped when caller needs raw data for 403 logic)
+        # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
+        if settings.enable_jikan_enrichment:
+            try:
+                jikan_payload = await self._jikan.search_manga(result["title"])
+                search_data = jikan_payload.get("data", [])
+                jikan_data = (
+                    map_jikan_detail({"data": search_data[0]}) if search_data else None
+                )
+
+                if jikan_data is not None:
+                    for key, value in jikan_data.items():
+                        # Solo rellenamos si MangaDex no tenía el dato
+                        if result.get(key) in (None, [], "") and value not in (
+                            None,
+                            [],
+                            "",
+                        ):
+                            result[key] = value
+            except Exception:
+                logger.warning(
+                    "Jikan enrichment failed for manga %s, continuing without it",
+                    manga_id,
+                    exc_info=True,
+                )
+
+        self._cache.set(cache_key, result)
+
+        # Age restriction — applied AFTER cache write so the shared cache
+        # always holds raw data and access is re-evaluated per request.
         if not skip_age_filter and not can_access_content(
             result.get("contentRating"), user_age
         ):
             return None
 
-        # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
-        if not settings.enable_jikan_enrichment:
-            self._cache.set(cache_key, result)
-            return result
-
-        try:
-            jikan_payload = await self._jikan.search_manga(result["title"])
-            search_data = jikan_payload.get("data", [])
-            jikan_data = (
-                map_jikan_detail({"data": search_data[0]}) if search_data else None
-            )
-
-            if jikan_data is not None:
-                for key, value in jikan_data.items():
-                    # Solo rellenamos si MangaDex no tenía el dato
-                    if result.get(key) in (None, [], "") and value not in (
-                        None,
-                        [],
-                        "",
-                    ):
-                        result[key] = value
-        except Exception:
-            logger.warning(
-                "Jikan enrichment failed for manga %s, continuing without it",
-                manga_id,
-                exc_info=True,
-            )
-
-        self._cache.set(cache_key, result)
         return result

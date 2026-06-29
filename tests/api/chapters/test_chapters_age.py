@@ -21,12 +21,30 @@ from app.core.dependencies import (
     get_manga_service,
     get_user_age,
 )
+from app.core.dependencies import get_chapter_pages_service
 from tests.api.helpers import create_hermetic_test_app
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+class FakeChapterPagesService:
+    """Fake pages service that returns a minimal page response."""
+
+    def __init__(self):
+        self.received_id = None
+
+    async def get_pages(self, chapter_id: str) -> dict:
+        self.received_id = chapter_id
+        return {
+            "hash": "abc123",
+            "data": ["page-1.jpg"],
+            "readable": True,
+            "external": False,
+            "externalUrl": None,
+        }
 
 
 def _make_manga(
@@ -253,9 +271,11 @@ class TestChapterPagesAgeRestriction(unittest.TestCase):
         manga_svc = FakeMangaServiceWithAge(self.MANGA_DB)
         chapter_svc = FakeChapterService()
         chapter_svc.set_chapter_manga_map(self.CHAPTER_MANGA_MAP)
+        pages_svc = FakeChapterPagesService()
 
         self.app.dependency_overrides[get_manga_service] = lambda: manga_svc
         self.app.dependency_overrides[get_chapter_service] = lambda: chapter_svc
+        self.app.dependency_overrides[get_chapter_pages_service] = lambda: pages_svc
         self.app.dependency_overrides[get_user_age] = lambda: user_age
 
     def test_guest_get_safe_chapter_pages_returns_200(self):
@@ -265,8 +285,8 @@ class TestChapterPagesAgeRestriction(unittest.TestCase):
         with TestClient(self.app) as client:
             response = client.get("/chapters/ch-safe/pages")
 
-        # Should reach the pages service (even if no real MangaDex data)
-        self.assertIn(response.status_code, (200, 422))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["readable"], True)
 
     def test_guest_get_suggestive_chapter_pages_returns_403(self):
         """Guest should get 403 for pages of suggestive manga chapters."""
@@ -294,7 +314,8 @@ class TestChapterPagesAgeRestriction(unittest.TestCase):
         with TestClient(self.app) as client:
             response = client.get("/chapters/ch-suggestive/pages")
 
-        self.assertIn(response.status_code, (200, 422))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["readable"], True)
 
     def test_user_12_get_suggestive_chapter_pages_returns_403(self):
         """Users under 16 should get 403 for suggestive manga chapter pages."""
@@ -305,15 +326,14 @@ class TestChapterPagesAgeRestriction(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_pages_unknown_manga_chapter_passes_through(self):
-        """If manga lookup fails, allow pages through (defense in depth)."""
+    def test_pages_unknown_manga_chapter_returns_404(self):
+        """If manga lookup fails, fail closed with 404."""
         self._override(user_age=None)
 
         with TestClient(self.app) as client:
             response = client.get("/chapters/ch-unknown/pages")
 
-        # Falls through to pages service since no manga found
-        self.assertIn(response.status_code, (200, 422))
+        self.assertEqual(response.status_code, 404)
 
     def test_pages_403_detail_includes_min_age(self):
         """403 detail should mention the required age."""

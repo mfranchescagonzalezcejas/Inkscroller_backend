@@ -223,7 +223,8 @@ class AppSmokeTests(unittest.TestCase):
         fake_pages = FakeChapterPagesService()
         fake_manga = FakeMangaService()
         fake_chapter = FakeChapterService()
-        # Chapter is not in our map → falls through to pages without age check
+        # Chapter maps to a known manga so age-gate passes
+        fake_chapter._chapter_manga_map["chapter-9"] = "safe-1"
         self.app.dependency_overrides[get_chapter_pages_service] = lambda: fake_pages
         self.app.dependency_overrides[get_manga_service] = lambda: fake_manga
         self.app.dependency_overrides[get_chapter_service] = lambda: fake_chapter
