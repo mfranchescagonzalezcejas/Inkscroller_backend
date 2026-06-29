@@ -5,7 +5,12 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.age import can_access_content
-from app.core.dependencies import get_current_user, get_manga_service, get_user_age, get_user_service
+from app.core.dependencies import (
+    get_current_user,
+    get_manga_service,
+    get_user_age,
+    get_user_service,
+)
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import LibraryMetadata, Manga
 from app.models.user import (
