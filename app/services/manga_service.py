@@ -9,6 +9,7 @@ from app.services.manga_mapper import map_mangadex_manga, apply_statistics
 from app.services.jikan_mapper import map_jikan_detail
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.core.config import settings
+from app.core.age import can_access_content
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,17 @@ class MangaService:
         self._jikan = jikan
         self._cache = cache
 
-    async def search(self, query: str, limit: int = 5):
+    def _filter_by_age(self, manga_list: list[dict], user_age: int | None) -> list[dict]:
+        """Filter out manga that the user cannot access due to age restrictions."""
+        if user_age is None:
+            # Guest or missing birth_date: only safe content
+            return [m for m in manga_list if m.get("contentRating") in (None, "safe")]
+        return [
+            m for m in manga_list
+            if can_access_content(m.get("contentRating"), user_age)
+        ]
+
+    async def search(self, query: str, limit: int = 5, user_age: int | None = None):
         cache_key = f"search:{query}:{limit}"
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -33,6 +44,7 @@ class MangaService:
         payload = await self._client.search_manga(query=query, limit=limit)
         items = payload.get("data", []) if isinstance(payload, dict) else []
         result = [map_mangadex_manga(item) for item in items]
+        result = self._filter_by_age(result, user_age)
 
         self._cache.set(cache_key, result)
         return result
@@ -46,6 +58,7 @@ class MangaService:
         status: str | None = None,
         order: str | None = None,
         genre: str | None = None,
+        user_age: int | None = None,
     ):
         cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}"
         cached = self._cache.get(cache_key)
@@ -91,17 +104,24 @@ class MangaService:
                     exc_info=True,
                 )
 
+        result = self._filter_by_age(result, user_age)
+
         response = {
             "data": result,
             "limit": limit,
             "offset": offset,
-            "total": total,
+            "total": len(result),
         }
 
         self._cache.set(cache_key, response)
         return response
 
-    async def get_by_id(self, manga_id: str):
+    async def get_by_id(
+        self,
+        manga_id: str,
+        user_age: int | None = None,
+        skip_age_filter: bool = False,
+    ):
         cache_key = f"manga:{manga_id}"
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -114,6 +134,12 @@ class MangaService:
 
         # Base MangaDex
         result = map_mangadex_manga(item)
+
+        # Age restriction check (skipped when caller needs raw data for 403 logic)
+        if not skip_age_filter and not can_access_content(
+            result.get("contentRating"), user_age
+        ):
+            return None
 
         # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
         if not settings.enable_jikan_enrichment:

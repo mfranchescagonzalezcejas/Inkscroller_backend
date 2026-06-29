@@ -286,7 +286,7 @@ class UserService:
     async def get_library_entries(self, firebase_uid: str) -> list[dict]:
         """Return user-library rows with cached manga metadata, newest first."""
         rows = await self._db.fetchall(
-            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors "
+            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors, content_rating "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -299,6 +299,7 @@ class UserService:
                 "title": row["title"] or "",
                 "cover_url": row["cover_url"],
                 "authors": json.loads(row["authors"] or "[]"),
+                "content_rating": row.get("content_rating"),
             }
             for row in rows
         ]
@@ -315,6 +316,7 @@ class UserService:
         title: str | None = None,
         cover_url: str | None = None,
         authors: list[str] | None = None,
+        content_rating: str | None = None,
     ) -> None:
         """Save a manga to the user's library, caching its metadata.
 
@@ -325,12 +327,13 @@ class UserService:
         authors_json = json.dumps(authors or [])
         await self._db.execute(
             "INSERT INTO user_library "
-            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors) "
-            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?) "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors, content_rating) "
+            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
             "title = COALESCE(excluded.title, user_library.title), "
             "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
-            "authors = COALESCE(excluded.authors, user_library.authors)",
+            "authors = COALESCE(excluded.authors, user_library.authors), "
+            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating)",
             firebase_uid,
             manga_id,
             now,
@@ -338,6 +341,7 @@ class UserService:
             title,
             cover_url,
             authors_json,
+            content_rating,
         )
         await self._db.commit()
 
