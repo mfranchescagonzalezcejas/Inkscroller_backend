@@ -35,6 +35,11 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _mask_uid(uid: str) -> str:
+    """Return a truncated UID safe for production logs (first 8 chars)."""
+    return f"{uid[:8]}..."
+
+
 def _is_unique_constraint_violation(exc: Exception) -> bool:
     if isinstance(exc, sqlite3.IntegrityError):
         return "unique" in str(exc).lower()
@@ -84,7 +89,10 @@ class UserService:
                 now,
             )
             await self._db.commit()
-            logger.info("Bootstrapped new local user for Firebase UID %s", payload.uid)
+            logger.info(
+                "Bootstrapped new local user for Firebase UID %s",
+                _mask_uid(payload.uid),
+            )
             return UserProfile(
                 firebase_uid=payload.uid,
                 email=payload.email,
@@ -229,7 +237,7 @@ class UserService:
             # we timed out locally — flag so reconciliation can check later.
             logger.warning(
                 "Firebase delete_user timed out for %s — marking as pending.",
-                firebase_uid,
+                _mask_uid(firebase_uid),
             )
             await self._save_pending_deletion(firebase_uid, "timeout")
         except Exception as exc:
@@ -287,7 +295,7 @@ class UserService:
         if not firebase_admin._apps:
             logger.info(
                 "Firebase Admin not initialized — keeping pending deletion for %s.",
-                firebase_uid,
+                _mask_uid(firebase_uid),
             )
             return
 
@@ -302,17 +310,19 @@ class UserService:
                 timeout=10.0,
             )
             logger.info(
-                "Reconciled pending deletion: deleted Firebase user %s.", firebase_uid
+                "Reconciled pending deletion: deleted Firebase user %s.",
+                _mask_uid(firebase_uid),
             )
         except firebase_auth_sdk.UserNotFoundError:
             logger.info(
-                "Reconciled pending deletion: user %s already gone.", firebase_uid
+                "Reconciled pending deletion: user %s already gone.",
+                _mask_uid(firebase_uid),
             )
         except (AsyncTimeoutError, Exception):
             # Retry failed — keep the pending flag for next time.
             logger.warning(
                 "Reconciliation retry failed for %s — will retry on next call.",
-                firebase_uid,
+                _mask_uid(firebase_uid),
             )
             return
 
