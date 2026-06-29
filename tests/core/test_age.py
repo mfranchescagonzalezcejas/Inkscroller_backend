@@ -16,12 +16,10 @@ class TestComputeAge(unittest.TestCase):
 
     def test_compute_age_day_before_birthday(self):
         today = date.today()
-        birth = date(today.year - 20, today.month, today.day)
-        yesterday = birth + timedelta(days=1)
-        # This person turns 20 tomorrow but is 19 today
+        # Born 20 years ago tomorrow → still 19 today
+        birth = date(today.year - 20, today.month, today.day) + timedelta(days=1)
         age = compute_age(birth)
-        expected = 20  # it IS their birthday today
-        self.assertEqual(age, expected)
+        self.assertEqual(age, 19)
 
     def test_compute_age_none(self):
         self.assertIsNone(compute_age(None))
@@ -68,8 +66,9 @@ class TestCanAccessContent(unittest.TestCase):
         self.assertTrue(can_access_content(None, None))
 
     def test_unknown_rating(self):
-        self.assertTrue(can_access_content("unknown_rating", 0))
-        self.assertTrue(can_access_content("unknown_rating", None))
+        self.assertFalse(can_access_content("unknown_rating", 0))
+        self.assertFalse(can_access_content("unknown_rating", None))
+        self.assertFalse(can_access_content("unknown_rating", 18))
 
     def test_erotica_18_plus(self):
         self.assertTrue(can_access_content("erotica", 18))

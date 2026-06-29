@@ -6,7 +6,7 @@ from app.core.resilience import with_retry
 
 
 class MangaDexClient:
-    _ALLOWED_CONTENT_RATINGS = ["safe", "suggestive"]
+    _ALLOWED_CONTENT_RATINGS = ["safe", "suggestive", "erotica", "pornographic"]
 
     def __init__(self, client: httpx.AsyncClient):
         self.client = client

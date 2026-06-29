@@ -56,6 +56,19 @@ class MangaMapperContentRatingTests(unittest.TestCase):
         result = map_mangadex_manga(item)
         self.assertEqual(result["contentRating"], "erotica")
 
+    def test_map_mangadex_content_rating_pornographic(self):
+        item = {
+            "id": "manga-005",
+            "attributes": {
+                "title": {"en": "Pornographic Manga"},
+                "contentRating": "pornographic",
+                "tags": [],
+            },
+            "relationships": [],
+        }
+        result = map_mangadex_manga(item)
+        self.assertEqual(result["contentRating"], "pornographic")
+
 
 if __name__ == "__main__":
     unittest.main()
