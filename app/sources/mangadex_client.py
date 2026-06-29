@@ -51,7 +51,10 @@ class MangaDexClient:
                 "includes[]": ["scanlation_group"],
                 "order[chapter]": "asc",
                 "limit": limit,
-                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
+                # Include all content ratings — age-gating is handled by the
+                # API route's service layer, which checks user age separately.
+                # MangaDex default is safe+suggestive only.
+                "contentRating[]": ["safe", "suggestive", "erotica", "pornographic"],
             },
         )
         response.raise_for_status()
@@ -84,9 +87,17 @@ class MangaDexClient:
                 "ids[]": manga_ids,
                 "includes[]": ["cover_art"],
                 "limit": min(len(manga_ids), 100),
-                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
+                # Include all content ratings — see get_chapters comment.
+                "contentRating[]": ["safe", "suggestive", "erotica", "pornographic"],
             },
         )
+        response.raise_for_status()
+        return response.json()
+
+    @with_retry()
+    async def get_chapter(self, chapter_id: str) -> dict:
+        """Fetch chapter metadata including manga relationship."""
+        response = await self.client.get(f"/chapter/{chapter_id}")
         response.raise_for_status()
         return response.json()
 
