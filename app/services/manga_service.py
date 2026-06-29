@@ -83,7 +83,6 @@ class MangaService:
         )
 
         items = payload.get("data", [])
-        total = payload.get("total", 0)
 
         result = [map_mangadex_manga(item) for item in items]
 
