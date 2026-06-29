@@ -54,6 +54,8 @@
 | `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`) |
 | `GET` | `/manga/search?q=` | Title search — max 5 results |
 | `GET` | `/manga/{id}` | Manga detail with Jikan enrichment |
+| `GET` | `/manga/tags` | MangaDex filter tags |
+| `GET` | `/chapters/latest` | Latest chapters for the home feed |
 | `GET` | `/chapters/manga/{id}` | Chapter list (filtered by `lang`, default `en`) |
 | `GET` | `/chapters/{id}/pages` | Page image URLs via MangaDex@Home |
 
