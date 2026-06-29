@@ -131,6 +131,18 @@ class UserService:
             else current.birth_date
         )
 
+        # Birth date immutability: once set, it cannot be changed.
+        # Without this guard, a user could bypass age-gating by editing
+        # their birth_date to claim a different age.
+        if (
+            _model_field_was_provided(profile_update, "birth_date")
+            and current.birth_date is not None
+            and new_birth_date != current.birth_date
+        ):
+            raise ProfileConflictError(
+                "Birth date is immutable once set and cannot be changed."
+            )
+
         if new_username is not None:
             username_owner = await self._db.fetchone(
                 "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
