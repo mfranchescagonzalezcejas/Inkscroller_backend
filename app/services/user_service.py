@@ -256,9 +256,7 @@ class UserService:
 
     # ── Pending-deletion reconciliation ──────────────────────────────────────
 
-    async def _save_pending_deletion(
-        self, firebase_uid: str, error: str
-    ) -> None:
+    async def _save_pending_deletion(self, firebase_uid: str, error: str) -> None:
         """Record a pending deletion for later reconciliation."""
         now = _utc_now()
         await self._db.execute(
@@ -280,8 +278,7 @@ class UserService:
         flag is removed so subsequent calls are clean.
         """
         row = await self._db.fetchone(
-            "SELECT firebase_uid FROM user_pending_deletions "
-            "WHERE firebase_uid = ?",
+            "SELECT firebase_uid FROM user_pending_deletions WHERE firebase_uid = ?",
             firebase_uid,
         )
         if row is None:
