@@ -87,6 +87,9 @@ class MangaService:
 
         items = payload.get("data", [])
 
+        # Capture upstream total BEFORE filtering so pagination metadata
+        # reflects the actual dataset size, not just the current page.
+        total_count = payload.get("total", len(items))
         result = [map_mangadex_manga(item) for item in items]
 
         # Always fetch statistics to get rating for all manga lists
@@ -112,7 +115,7 @@ class MangaService:
             "data": result,
             "limit": limit,
             "offset": offset,
-            "total": len(result),
+            "total": total_count,
         }
 
         self._cache.set(cache_key, response)
@@ -131,9 +134,11 @@ class MangaService:
             # Cache always stores raw (unfiltered) data; re-evaluate access
             # per request so that a prior ``skip_age_filter=True`` call cannot
             # poison the shared cache for age-restricted readers.
-            if skip_age_filter or can_access_content(
-                cached.get("contentRating"), user_age
-            ):
+            if skip_age_filter:
+                return cached
+            if user_age is None and cached.get("contentRating") != "safe":
+                return None  # guest: only safe content
+            if can_access_content(cached.get("contentRating"), user_age):
                 return cached
             return None
 
@@ -174,9 +179,11 @@ class MangaService:
 
         # Age restriction — applied AFTER cache write so the shared cache
         # always holds raw data and access is re-evaluated per request.
-        if not skip_age_filter and not can_access_content(
-            result.get("contentRating"), user_age
-        ):
+        if skip_age_filter:
+            return result
+        if user_age is None and result.get("contentRating") != "safe":
+            return None  # guest: only safe content
+        if not can_access_content(result.get("contentRating"), user_age):
             return None
 
         return result

@@ -13,6 +13,9 @@ CONTENT_AGE_LIMITS: dict[str, int] = {
     "pornographic": 18,
 }
 
+# Label used when a content rating string is not recognised.
+UNKNOWN_RATING_LABEL = "unknown"
+
 
 def compute_age(birth_date: date | None) -> int | None:
     """Compute age from birth_date. Returns None if invalid."""

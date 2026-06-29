@@ -191,7 +191,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.list_manga()
         self.assertEqual(len(result["data"]), 1)
         self.assertEqual(result["data"][0]["id"], "1")
-        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["total"], 2)
 
     async def test_list_manga_filters_by_age_12(self):
         raw_items = [
@@ -206,8 +206,8 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.list_manga(user_age=12)
         self.assertEqual(len(result["data"]), 1)
         self.assertEqual(result["data"][0]["id"], "1")
-        # total should reflect filtered count
-        self.assertEqual(result["total"], 1)
+        # total reflects the upstream dataset size, not the filtered page
+        self.assertEqual(result["total"], 2)
 
     async def test_list_manga_filters_by_age_16(self):
         raw_items = [
@@ -235,7 +235,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
 
         result = await self.service.list_manga(user_age=None)
         self.assertEqual(len(result["data"]), 1)
-        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["total"], 3)
 
 
 class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
@@ -299,6 +299,27 @@ class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
 
         result = await self.service.get_by_id("1", user_age=None)
         self.assertIsNone(result)
+
+    @patch("app.services.manga_service.settings")
+    async def test_get_by_id_guest_blocks_unrated(self, mock_settings):
+        """Guest (user_age=None) cannot access unrated manga (contentRating=None)."""
+        mock_settings.enable_jikan_enrichment = False
+        raw_item = _raw_mangadex_item("1", None)
+        self.client.get_manga.return_value = {"data": raw_item}
+
+        result = await self.service.get_by_id("1", user_age=None)
+        self.assertIsNone(result)
+
+    @patch("app.services.manga_service.settings")
+    async def test_get_by_id_guest_allows_safe(self, mock_settings):
+        """Guest (user_age=None) can access safe manga."""
+        mock_settings.enable_jikan_enrichment = False
+        raw_item = _raw_mangadex_item("1", "safe")
+        self.client.get_manga.return_value = {"data": raw_item}
+
+        result = await self.service.get_by_id("1", user_age=None)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["id"], "1")
 
 
 if __name__ == "__main__":

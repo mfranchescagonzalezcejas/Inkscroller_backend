@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import sqlite3
+from asyncio import TimeoutError as AsyncTimeoutError
 from datetime import date, datetime, timezone
 
 import firebase_admin
@@ -190,12 +191,27 @@ class UserService:
     # ── Account deletion ───────────────────────────────────────────────────
 
     async def delete_account(self, firebase_uid: str) -> None:
-        """Delete the Firebase Auth user and all local data. Idempotent."""
+        """Delete the user's local data and Firebase Auth account.
+
+        Timeouts during Firebase deletion are treated as best-effort: local
+        cleanup runs regardless and a pending-deletion record is saved so a
+        later reconciliation pass can retry.
+        """
+        # Reconcile any prior pending deletion for this UID first.
+        await self._reconcile_pending_deletion(firebase_uid)
         await self._delete_firebase_user(firebase_uid)
+        # Always clean up local data — if Firebase timed out but succeeded
+        # remotely, we'd orphan local rows if we skipped cleanup.
         await self._cleanup_local_data(firebase_uid)
 
     async def _delete_firebase_user(self, firebase_uid: str) -> None:
-        """Delete the Firebase Auth user. Skips if SDK not initialized."""
+        """Delete the Firebase Auth user. Skips if SDK not initialized.
+
+        Timeout is treated as a pending/retryable state — the request may have
+        succeeded remotely even if the local coroutine timed out. The caller
+        must still run local cleanup and flag the pending entry for later
+        reconciliation.
+        """
         if not firebase_admin._apps:
             logger.info("Firebase Admin not initialized — skipping Auth user deletion.")
             return
@@ -208,6 +224,14 @@ class UserService:
             logger.info("Deleted Firebase Auth user.")
         except firebase_auth_sdk.UserNotFoundError:
             logger.info("Firebase user already deleted.")
+        except AsyncTimeoutError:
+            # The request may have succeeded on Firebase's side even though
+            # we timed out locally — flag so reconciliation can check later.
+            logger.warning(
+                "Firebase delete_user timed out for %s — marking as pending.",
+                firebase_uid,
+            )
+            await self._save_pending_deletion(firebase_uid, "timeout")
         except Exception as exc:
             logger.error("Failed to delete Firebase Auth user: %s", exc)
             raise UpstreamServiceError(
@@ -223,7 +247,96 @@ class UserService:
             "DELETE FROM reading_preferences WHERE firebase_uid = ?", firebase_uid
         )
         await self._db.execute("DELETE FROM users WHERE firebase_uid = ?", firebase_uid)
+        # Remove any pending-deletion record — if we got here, local cleanup
+        # is done (Firebase may have succeeded before or during a timeout).
+        await self._db.execute(
+            "DELETE FROM user_pending_deletions WHERE firebase_uid = ?", firebase_uid
+        )
         await self._db.commit()
+
+    # ── Pending-deletion reconciliation ──────────────────────────────────────
+
+    async def _save_pending_deletion(
+        self, firebase_uid: str, error: str
+    ) -> None:
+        """Record a pending deletion for later reconciliation."""
+        now = _utc_now()
+        await self._db.execute(
+            "INSERT OR REPLACE INTO user_pending_deletions "
+            "(firebase_uid, created_at, retries, last_error) "
+            "VALUES (?, ?, COALESCE((SELECT retries FROM user_pending_deletions "
+            "WHERE firebase_uid = ?), 0) + 1, ?)",
+            firebase_uid,
+            now,
+            firebase_uid,
+            error,
+        )
+        await self._db.commit()
+
+    async def _reconcile_pending_deletion(self, firebase_uid: str) -> None:
+        """Retry Firebase deletion for a UID that timed out previously.
+
+        If the retry succeeds (or the user was already deleted), the pending
+        flag is removed so subsequent calls are clean.
+        """
+        row = await self._db.fetchone(
+            "SELECT firebase_uid FROM user_pending_deletions "
+            "WHERE firebase_uid = ?",
+            firebase_uid,
+        )
+        if row is None:
+            return  # nothing to reconcile
+
+        if not firebase_admin._apps:
+            logger.info(
+                "Firebase Admin not initialized — keeping pending deletion for %s.",
+                firebase_uid,
+            )
+            return
+
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(firebase_auth_sdk.get_user, firebase_uid),
+                timeout=10.0,
+            )
+            # User still exists — retry the deletion.
+            await asyncio.wait_for(
+                asyncio.to_thread(firebase_auth_sdk.delete_user, firebase_uid),
+                timeout=10.0,
+            )
+            logger.info(
+                "Reconciled pending deletion: deleted Firebase user %s.", firebase_uid
+            )
+        except firebase_auth_sdk.UserNotFoundError:
+            logger.info(
+                "Reconciled pending deletion: user %s already gone.", firebase_uid
+            )
+        except (AsyncTimeoutError, Exception):
+            # Retry failed — keep the pending flag for next time.
+            logger.warning(
+                "Reconciliation retry failed for %s — will retry on next call.",
+                firebase_uid,
+            )
+            return
+
+        # Reconciliation succeeded — clear the pending flag.
+        await self._db.execute(
+            "DELETE FROM user_pending_deletions WHERE firebase_uid = ?",
+            firebase_uid,
+        )
+        await self._db.commit()
+
+    async def process_all_pending_deletions(self) -> None:
+        """Retry Firebase deletion for every pending entry.
+
+        Call this at application startup so unresolved timeouts from a previous
+        run are reconciled.
+        """
+        rows = await self._db.fetchall(
+            "SELECT firebase_uid FROM user_pending_deletions"
+        )
+        for row in rows:
+            await self._reconcile_pending_deletion(row["firebase_uid"])
 
     async def get_preferences(self, firebase_uid: str) -> ReadingPreferences:
         """Return reading preferences, creating defaults on first call."""

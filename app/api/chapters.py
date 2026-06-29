@@ -41,10 +41,15 @@ async def get_manga_chapters(
         if full_manga and not can_access_content(
             full_manga.get("contentRating"), user_age
         ):
-            min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
+            rating = full_manga.get("contentRating")
+            min_age = CONTENT_AGE_LIMITS.get(rating)
             raise HTTPException(
                 status_code=403,
-                detail=f"This content is age-restricted (requires {min_age}+)",
+                detail=(
+                    f"This content is age-restricted (requires {min_age}+)"
+                    if min_age is not None
+                    else "This content has an unrecognized rating and cannot be accessed"
+                ),
             )
         raise HTTPException(status_code=404, detail="Manga not found")
 
@@ -80,10 +85,15 @@ async def get_chapter_pages(
         if full_manga and not can_access_content(
             full_manga.get("contentRating"), user_age
         ):
-            min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
+            rating = full_manga.get("contentRating")
+            min_age = CONTENT_AGE_LIMITS.get(rating)
             raise HTTPException(
                 status_code=403,
-                detail=f"This content is age-restricted (requires {min_age}+)",
+                detail=(
+                    f"This content is age-restricted (requires {min_age}+)"
+                    if min_age is not None
+                    else "This content has an unrecognized rating and cannot be accessed"
+                ),
             )
         raise HTTPException(status_code=404, detail="Manga not found")
 

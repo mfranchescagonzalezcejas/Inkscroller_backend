@@ -16,6 +16,7 @@ from app.core.database import init_db
 from app.core.exceptions import register_exception_handlers
 from app.core.firebase_auth import init_firebase_admin
 from app.core.logging import setup_logging
+from app.services.user_service import UserService
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ def build_lifespan(
             # ── Database (SQLite local / PostgreSQL) ─────────────────────
             init_firebase_admin()
             db = app.state.db = await init_db(db_path)
+
+            # ── Reconcile pending Firebase deletions ─────────────────────
+            user_svc = UserService(db)
+            await user_svc.process_all_pending_deletions()
 
             # ── Upstream HTTP clients ────────────────────────────────────
             mangadex_http = app.state.mangadex_http = httpx.AsyncClient(

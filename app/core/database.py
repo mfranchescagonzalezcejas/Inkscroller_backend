@@ -51,6 +51,13 @@ CREATE TABLE IF NOT EXISTS user_library (
     authors        TEXT  NOT NULL DEFAULT '[]',
     PRIMARY KEY (firebase_uid, manga_id)
 );
+
+CREATE TABLE IF NOT EXISTS user_pending_deletions (
+    firebase_uid  TEXT PRIMARY KEY,
+    created_at    TEXT NOT NULL,
+    retries       INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT
+);
 """
 
 _POSTGRES_DDL = """
@@ -87,6 +94,13 @@ CREATE TABLE IF NOT EXISTS user_library (
     authors        TEXT  NOT NULL DEFAULT '[]',
     content_rating TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_pending_deletions (
+    firebase_uid  TEXT PRIMARY KEY,
+    created_at    TEXT NOT NULL,
+    retries       INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT
 );
 """
 
