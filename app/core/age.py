@@ -1,3 +1,9 @@
+"""Age computation and content restriction rules.
+
+Maps MangaDex content ratings to minimum age thresholds
+and provides helpers to evaluate access.
+"""
+
 from datetime import date
 
 CONTENT_AGE_LIMITS: dict[str, int] = {

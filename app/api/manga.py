@@ -103,6 +103,7 @@ async def search_manga(
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
+    """Search manga by title, filtering results by the caller's age."""
     return await service.search(q, user_age=user_age)
 
 
@@ -112,6 +113,7 @@ async def get_manga(
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
+    """Return manga detail, blocking if the caller is too young."""
     manga_id = manga_id.strip()
     manga = await service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
@@ -145,6 +147,10 @@ async def list_manga(
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
+    """Return a paginated manga list, filtering results by the caller's age.
+
+    Supports ordering, genre and demographic filters.
+    """
     resolved_order = order
     if resolved_order is None:
         if order_followed_count == "desc":

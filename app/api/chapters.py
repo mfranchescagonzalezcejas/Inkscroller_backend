@@ -21,6 +21,7 @@ async def get_latest_home_chapters(
     lang: str = "en",
     chapter_service: ChapterService = Depends(get_chapter_service),
 ):
+    """Return the latest chapters across all manga for the home feed."""
     return await chapter_service.get_latest_home_chapters(language=lang, limit=limit)
 
 
@@ -32,6 +33,7 @@ async def get_manga_chapters(
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
+    """Return the chapter list for a manga, gated by the caller's age."""
     # Check age restriction
     manga = await manga_service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
@@ -58,6 +60,11 @@ async def get_chapter_pages(
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
+    """Return MangaDex@Home page image URLs for a chapter, gated by age.
+
+    Resolves the manga from the chapter to check age restrictions
+    before returning page URLs.
+    """
     chapter_id = chapter_id.strip()
 
     # Check age restriction by resolving the manga for this chapter
