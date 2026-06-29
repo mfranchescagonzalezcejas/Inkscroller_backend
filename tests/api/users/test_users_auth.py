@@ -19,7 +19,7 @@ import tempfile
 import unittest
 from datetime import date
 from importlib.util import find_spec
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 if find_spec("fastapi") is None or find_spec("dotenv") is None:
     raise unittest.SkipTest("fastapi/python-dotenv not installed")
@@ -31,6 +31,7 @@ from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_current_user, get_db, get_manga_service
 from app.core.exceptions import ProfileConflictError
 from app.core.firebase_auth import FirebaseTokenPayload
+from firebase_admin import auth as firebase_auth_sdk
 from app.models.manga import Manga
 from app.services.user_service import UserService
 from tests.api.helpers import create_hermetic_test_app
@@ -736,6 +737,200 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertIn("birth_date", request_schema)
         self.assertIn("username", response_schema)
         self.assertIn("birth_date", response_schema)
+
+
+class UserAccountDeletionTests(unittest.TestCase):
+    """Tests for DELETE /users/me account deletion."""
+
+    def setUp(self):
+        self.app = create_hermetic_test_app()
+        self.db = asyncio.run(_make_test_db())
+        self.app.dependency_overrides[get_db] = lambda: self.db
+        self.app.dependency_overrides[get_current_user] = self._fake_auth
+
+        # Bootstrap user + library entry + preferences.
+        svc = UserService(self.db)
+        asyncio.run(svc.get_or_create_user(_FAKE_PAYLOAD))
+        asyncio.run(svc.add_to_library(_FAKE_PAYLOAD.uid, "manga-1"))
+        asyncio.run(svc.get_preferences(_FAKE_PAYLOAD.uid))
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        asyncio.run(self.db.close())
+
+    @staticmethod
+    async def _fake_auth() -> FirebaseTokenPayload:
+        return _FAKE_PAYLOAD
+
+    # -- Happy path ----------------------------------------------------------
+
+    def test_delete_me_removes_user_and_data(self):
+        with (
+            patch("app.services.user_service.firebase_admin._apps", [True]),
+            patch(
+                "app.services.user_service.firebase_admin.auth.delete_user"
+            ) as mock_delete_user,
+        ):
+            mock_delete_user.return_value = None
+            with TestClient(self.app) as client:
+                response = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+
+        self.assertEqual(response.status_code, 204)
+        mock_delete_user.assert_called_once_with(_FAKE_PAYLOAD.uid)
+
+        # Verify local data is gone.
+        user = asyncio.run(
+            self.db.fetchone(
+                "SELECT firebase_uid FROM users WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertIsNone(user)
+
+    def test_delete_me_cleans_library_and_preferences(self):
+        with (
+            patch("app.services.user_service.firebase_admin._apps", [True]),
+            patch("app.services.user_service.firebase_admin.auth.delete_user"),
+        ):
+            with TestClient(self.app) as client:
+                client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+
+        library = asyncio.run(
+            self.db.fetchall(
+                "SELECT * FROM user_library WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        prefs = asyncio.run(
+            self.db.fetchone(
+                "SELECT * FROM reading_preferences WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        user = asyncio.run(
+            self.db.fetchone(
+                "SELECT * FROM users WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertEqual(len(library), 0)
+        self.assertIsNone(prefs)
+        self.assertIsNone(user)
+
+    # -- Idempotency ---------------------------------------------------------
+
+    def test_delete_me_idempotent_repeat(self):
+        with (
+            patch("app.services.user_service.firebase_admin._apps", [True]),
+            patch(
+                "app.services.user_service.firebase_admin.auth.delete_user",
+                side_effect=firebase_auth_sdk.UserNotFoundError("not found"),
+            ),
+        ):
+            with TestClient(self.app) as client:
+                # First call.
+                response1 = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+                self.assertEqual(response1.status_code, 204)
+
+                # Second call — same behavior, user already gone.
+                response2 = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+
+        self.assertEqual(response2.status_code, 204)
+
+        # Verify data was still cleaned up.
+        user = asyncio.run(
+            self.db.fetchone(
+                "SELECT firebase_uid FROM users WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertIsNone(user)
+
+    # -- Firebase failure ----------------------------------------------------
+
+    def test_delete_me_firebase_failure_aborts(self):
+        with (
+            patch("app.services.user_service.firebase_admin._apps", [True]),
+            patch(
+                "app.services.user_service.firebase_admin.auth.delete_user",
+                side_effect=RuntimeError("Firebase timeout"),
+            ),
+        ):
+            with TestClient(self.app) as client:
+                response = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+
+        self.assertEqual(response.status_code, 502)
+
+        # Verify ALL local data is preserved (no partial cleanup).
+        user = asyncio.run(
+            self.db.fetchone(
+                "SELECT firebase_uid FROM users WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertIsNotNone(user)
+
+        library = asyncio.run(
+            self.db.fetchall(
+                "SELECT * FROM user_library WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertEqual(len(library), 1)
+
+        prefs = asyncio.run(
+            self.db.fetchone(
+                "SELECT * FROM reading_preferences WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertIsNotNone(prefs)
+
+    # -- CI/test mode (Firebase not initialized) -----------------------------
+
+    def test_delete_me_skips_firebase_when_not_initialized(self):
+        with patch("app.services.user_service.firebase_admin._apps", []):
+            with TestClient(self.app) as client:
+                response = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+
+        self.assertEqual(response.status_code, 204)
+
+        # Verify local data is gone despite no Firebase init.
+        user = asyncio.run(
+            self.db.fetchone(
+                "SELECT firebase_uid FROM users WHERE firebase_uid = ?",
+                _FAKE_PAYLOAD.uid,
+            )
+        )
+        self.assertIsNone(user)
+
+    # -- Unauthenticated -----------------------------------------------------
+
+    def test_delete_me_unauthenticated(self):
+        # Temporarily remove the auth override so real auth is enforced.
+        self.app.dependency_overrides.pop(get_current_user, None)
+        with TestClient(self.app) as client:
+            response = client.delete("/users/me")
+
+        self.assertEqual(response.status_code, 401)
 
 
 if __name__ == "__main__":

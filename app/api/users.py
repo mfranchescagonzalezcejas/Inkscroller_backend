@@ -44,6 +44,15 @@ async def update_me(
     return await user_service.update_profile_metadata(current_user.uid, body)
 
 
+@router.delete("/me", status_code=204)
+async def delete_me(
+    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service),
+) -> None:
+    """Delete the authenticated account and all associated data."""
+    await user_service.delete_account(current_user.uid)
+
+
 @router.get("/me/preferences", response_model=ReadingPreferences)
 async def get_preferences(
     current_user: FirebaseTokenPayload = Depends(get_current_user),
