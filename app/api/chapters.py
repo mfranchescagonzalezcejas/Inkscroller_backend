@@ -1,7 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.dependencies import get_chapter_pages_service, get_chapter_service
+from app.core.age import CONTENT_AGE_LIMITS, can_access_content
+from app.core.dependencies import (
+    get_chapter_pages_service,
+    get_chapter_service,
+    get_manga_service,
+    get_user_age,
+)
 from app.services.chapter_service import ChapterService
 from app.services.chapter_pages_service import ChapterPagesService
+from app.services.manga_service import MangaService
 from app.models.chapter import Chapter
 from app.models.home_chapter import HomeChapter
 
@@ -22,7 +29,21 @@ async def get_manga_chapters(
     manga_id: str,
     lang: str = "en",
     chapter_service: ChapterService = Depends(get_chapter_service),
+    manga_service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
 ):
+    # Check age restriction
+    manga = await manga_service.get_by_id(manga_id, user_age=user_age)
+    if manga is None:
+        full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
+        if full_manga and not can_access_content(full_manga.get("contentRating"), user_age):
+            min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
+            raise HTTPException(
+                status_code=403,
+                detail=f"This content is age-restricted (requires {min_age}+)",
+            )
+        raise HTTPException(status_code=404, detail="Manga not found")
+
     chapters = await chapter_service.get_chapters(manga_id, language=lang)
     if not chapters:
         raise HTTPException(status_code=404, detail="No chapters found")
@@ -33,6 +54,25 @@ async def get_manga_chapters(
 async def get_chapter_pages(
     chapter_id: str,
     pages_service: ChapterPagesService = Depends(get_chapter_pages_service),
+    chapter_service: ChapterService = Depends(get_chapter_service),
+    manga_service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
 ):
     chapter_id = chapter_id.strip()
+
+    # Check age restriction by resolving the manga for this chapter
+    manga_id = await chapter_service.get_manga_id_for_chapter(chapter_id)
+    if manga_id:
+        manga = await manga_service.get_by_id(manga_id, user_age=user_age)
+        if manga is None:
+            full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
+            if full_manga and not can_access_content(
+                full_manga.get("contentRating"), user_age
+            ):
+                min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"This content is age-restricted (requires {min_age}+)",
+                )
+
     return await pages_service.get_pages(chapter_id)
