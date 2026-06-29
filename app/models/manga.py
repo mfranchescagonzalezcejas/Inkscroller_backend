@@ -36,5 +36,8 @@ class Manga(BaseModel):
     startYear: Optional[int] = None
     endYear: Optional[int] = None
 
+    # Content rating (MangaDex)
+    contentRating: Optional[str] = None
+
     # User-library metadata (only present on authenticated library responses)
     library: Optional[LibraryMetadata] = None
