@@ -1,12 +1,20 @@
 """User service: get-or-create bootstrap by Firebase UID, preferences CRUD."""
 
+import asyncio
 import json
 import logging
 import sqlite3
 from datetime import date, datetime, timezone
 
+import firebase_admin
+from firebase_admin import auth as firebase_auth_sdk
+
 from app.core.db_adapter import DatabaseAdapter, SqliteAdapter
-from app.core.exceptions import PreferencesValidationError, ProfileConflictError
+from app.core.exceptions import (
+    PreferencesValidationError,
+    ProfileConflictError,
+    UpstreamServiceError,
+)
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.user import (
     ReadingPreferences,
@@ -166,6 +174,46 @@ class UserService:
             birth_date=row["birth_date"],
             created_at=row["created_at"],
         )
+
+    # ── Account deletion ───────────────────────────────────────────────────
+
+    async def delete_account(self, firebase_uid: str) -> None:
+        """Delete the Firebase Auth user and all local data. Idempotent."""
+        await self._delete_firebase_user(firebase_uid)
+        await self._cleanup_local_data(firebase_uid)
+
+    async def _delete_firebase_user(self, firebase_uid: str) -> None:
+        """Delete the Firebase Auth user. Skips if SDK not initialized."""
+        if not firebase_admin._apps:
+            logger.info("Firebase Admin not initialized — skipping Auth user deletion.")
+            return
+
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(firebase_auth_sdk.delete_user, firebase_uid),
+                timeout=10.0,
+            )
+            logger.info("Deleted Firebase Auth user %s", firebase_uid)
+        except firebase_auth_sdk.UserNotFoundError:
+            logger.info("Firebase user %s already deleted.", firebase_uid)
+        except Exception as exc:
+            logger.error(
+                "Failed to delete Firebase Auth user %s: %s", firebase_uid, exc
+            )
+            raise UpstreamServiceError(
+                "Firebase Auth", "Firebase Auth deletion failed."
+            ) from exc
+
+    async def _cleanup_local_data(self, firebase_uid: str) -> None:
+        """Delete local DB rows for the given UID in FK-safe order."""
+        await self._db.execute(
+            "DELETE FROM user_library WHERE firebase_uid = ?", firebase_uid
+        )
+        await self._db.execute(
+            "DELETE FROM reading_preferences WHERE firebase_uid = ?", firebase_uid
+        )
+        await self._db.execute("DELETE FROM users WHERE firebase_uid = ?", firebase_uid)
+        await self._db.commit()
 
     async def get_preferences(self, firebase_uid: str) -> ReadingPreferences:
         """Return reading preferences, creating defaults on first call."""
