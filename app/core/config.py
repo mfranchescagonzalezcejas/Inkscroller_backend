@@ -58,9 +58,7 @@ class Settings:
         )
 
         self.cache_ttl_seconds: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
-        self.readyz_timeout_seconds: int = max(
-            1, int(os.getenv("READYZ_TIMEOUT", "5"))
-        )
+        self.readyz_timeout_seconds: int = max(1, int(os.getenv("READYZ_TIMEOUT", "5")))
 
         self.cors_allow_credentials: bool = True
         self.cors_origins: list[str] = _parse_csv(
