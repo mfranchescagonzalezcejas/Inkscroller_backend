@@ -4,7 +4,13 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.dependencies import get_current_user, get_user_service
+from app.core.age import can_access_content
+from app.core.dependencies import (
+    get_current_user,
+    get_manga_service,
+    get_user_age,
+    get_user_service,
+)
 from app.core.firebase_auth import FirebaseTokenPayload
 from app.models.manga import LibraryMetadata, Manga
 from app.models.user import (
@@ -15,6 +21,7 @@ from app.models.user import (
     UpdateUserProfileRequest,
     UserProfile,
 )
+from app.services.manga_service import MangaService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -79,9 +86,16 @@ async def update_preferences(
 async def get_library(
     current_user: FirebaseTokenPayload = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service),
+    user_age: int | None = Depends(get_user_age),
 ) -> list[Manga]:
     """Return the user's library from cached SQLite data — no Jikan dependency."""
     entries = await user_service.get_library_entries(current_user.uid)
+    # Filter by age
+    filtered = []
+    for entry in entries:
+        rating = entry.get("content_rating")
+        if can_access_content(rating, user_age):
+            filtered.append(entry)
     return [
         Manga(
             id=entry["manga_id"],
@@ -94,7 +108,7 @@ async def get_library(
                 updated_at=entry["updated_at"],
             ),
         )
-        for entry in entries
+        for entry in filtered
     ]
 
 
@@ -104,14 +118,20 @@ async def add_to_library(
     body: AddToLibraryRequest = AddToLibraryRequest(),
     current_user: FirebaseTokenPayload = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service),
+    manga_service: MangaService = Depends(get_manga_service),
 ) -> None:
     """Save a manga to the authenticated user's library, caching its metadata."""
+    # Fetch manga data to get content_rating
+    manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
+    content_rating = manga.get("contentRating") if manga else None
+
     await user_service.add_to_library(
         current_user.uid,
         manga_id,
         title=body.title,
         cover_url=body.cover_url,
         authors=body.authors,
+        content_rating=content_rating,
     )
 
 

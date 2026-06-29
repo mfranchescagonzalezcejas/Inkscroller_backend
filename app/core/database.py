@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS user_library (
     title          TEXT,
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
+    content_rating TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 """
@@ -150,6 +151,7 @@ async def _migrate_sqlite_columns(conn: object) -> None:
             "authors",
             "ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'",
         ),
+        ("content_rating", "ALTER TABLE user_library ADD COLUMN content_rating TEXT"),
     ]
     for col, ddl in migrations:
         if col not in columns:

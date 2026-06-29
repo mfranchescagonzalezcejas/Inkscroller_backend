@@ -43,6 +43,8 @@ from app.core.cache import SimpleCache
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
 from app.services.manga_service import MangaService
+from unittest.mock import AsyncMock
+
 from app.api import chapters as chapters_router_module
 from app.api import manga as manga_router_module
 from app.api import users as users_router_module
@@ -146,6 +148,7 @@ class TestNoBinaryCaching(unittest.TestCase):
                     "attributes": {
                         "title": {"en": "Test Manga"},
                         "description": {"en": "desc"},
+                        "contentRating": "safe",
                         "tags": [],
                     },
                     "relationships": [
@@ -453,7 +456,27 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
         pages_service = AsyncMock()
         pages_service.get_pages.return_value = payload
 
-        result = asyncio.run(chapters_router_module.get_chapter_pages("  chapter-id  ", pages_service))
+        fake_chapter_service = AsyncMock()
+        fake_chapter_service.get_manga_id_for_chapter = AsyncMock(return_value="safe-manga")
+
+        manga_service = AsyncMock()
+        manga_service.get_by_id = AsyncMock(
+            side_effect=lambda manga_id, user_age=None, skip_age_filter=False: {
+                "id": "safe-manga",
+                "title": "Safe Manga",
+                "contentRating": "safe",
+            }
+        )
+
+        result = asyncio.run(
+            chapters_router_module.get_chapter_pages(
+                "  chapter-id  ",
+                pages_service,
+                fake_chapter_service,
+                manga_service,
+                None,
+            )
+        )
 
         pages_service.get_pages.assert_awaited_once_with("chapter-id")
         self.assertEqual(result, payload)

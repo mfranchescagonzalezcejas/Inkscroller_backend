@@ -28,11 +28,10 @@ from fastapi.testclient import TestClient
 
 from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
-from app.core.dependencies import get_current_user, get_db, get_manga_service
+from app.core.dependencies import get_current_user, get_db, get_manga_service, get_user_age
 from app.core.exceptions import ProfileConflictError
 from app.core.firebase_auth import FirebaseTokenPayload
 from firebase_admin import auth as firebase_auth_sdk
-from app.models.manga import Manga
 from app.services.user_service import UserService
 from tests.api.helpers import create_hermetic_test_app
 
@@ -46,12 +45,29 @@ _FAKE_PAYLOAD = FirebaseTokenPayload(
     display_name="Test User",
 )
 
-_FAKE_MANGA = Manga(
-    id="manga-abc-123",
-    title="Test Manga",
-    description="A test manga",
-    coverUrl=None,
-)
+_FAKE_MANGA = {
+    "id": "manga-abc-123",
+    "title": "Test Manga",
+    "description": "A test manga",
+    "coverUrl": None,
+    "contentRating": None,
+}
+
+_FAKE_MANGA_EROTICA = {
+    "id": "manga-erotica-001",
+    "title": "Erotica Manga",
+    "description": "Age-restricted manga",
+    "coverUrl": None,
+    "contentRating": "erotica",
+}
+
+_FAKE_MANGA_SUGGESTIVE = {
+    "id": "manga-suggestive-001",
+    "title": "Suggestive Manga",
+    "description": "Suggestive manga",
+    "coverUrl": None,
+    "contentRating": "suggestive",
+}
 
 
 async def _make_test_db() -> DatabaseAdapter:
@@ -172,7 +188,8 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertIsNone(data["username"])
         self.assertEqual(data["birth_date"], "2001-01-20")
 
-    def test_patch_me_null_birth_date_clears_only_birth_date(self):
+    def test_patch_me_rejects_birth_date_change_after_initial_set(self):
+        """Birth date is immutable once set — changing it should return 409."""
         with TestClient(self.app) as client:
             client.patch(
                 "/users/me",
@@ -181,14 +198,49 @@ class UsersEndpointTests(unittest.TestCase):
             )
             response = client.patch(
                 "/users/me",
+                json={"birth_date": "1990-06-15"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        data = response.json()
+        self.assertEqual(data["error"], "profile_conflict")
+
+    def test_patch_me_rejects_birth_date_clear_after_initial_set(self):
+        """Clearing birth_date to None after it was set should return 409."""
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "reader-six", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me",
                 json={"birth_date": None},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        data = response.json()
+        self.assertEqual(data["error"], "profile_conflict")
+
+    def test_patch_me_same_birth_date_is_idempotent(self):
+        """Setting the same birth_date value again should still work."""
+        with TestClient(self.app) as client:
+            client.patch(
+                "/users/me",
+                json={"username": "reader-seven", "birth_date": "2001-01-20"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.patch(
+                "/users/me",
+                json={"birth_date": "2001-01-20"},
                 headers={"Authorization": "Bearer fake-token"},
             )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["username"], "reader-five")
-        self.assertIsNone(data["birth_date"])
+        self.assertEqual(data["birth_date"], "2001-01-20")
 
     def test_patch_me_rejects_invalid_username(self):
         with TestClient(self.app) as client:
@@ -559,7 +611,7 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["id"], _FAKE_MANGA.id)
+        self.assertEqual(data[0]["id"], _FAKE_MANGA["id"])
         self.assertIn("library", data[0])
         self.assert_response_key_absent(data[0], "username")
         self.assert_response_key_absent(data[0], "birth_date")
@@ -696,6 +748,171 @@ class LibraryEndpointTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 404)
+
+    # -- Library content_rating storage ---------------------------------------
+
+    def test_add_to_library_stores_content_rating(self):
+        """add_to_library should fetch and store content_rating from MangaService."""
+        fake_manga_service = AsyncMock()
+        fake_manga_service.get_by_id = AsyncMock(return_value=_FAKE_MANGA_EROTICA)
+        self.app.dependency_overrides[get_manga_service] = lambda: fake_manga_service
+
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-erotica-001",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        # Verify content_rating is stored in DB
+        row = asyncio.run(
+            self.db.fetchone(
+                "SELECT content_rating FROM user_library WHERE manga_id = ?",
+                "manga-erotica-001",
+            )
+        )
+        self.assertIsNotNone(row)
+        self.assertEqual(row["content_rating"], "erotica")
+
+    def test_add_to_library_passes_content_rating_to_service(self):
+        """add_to_library route should pass content_rating to UserService."""
+        fake_manga_service = AsyncMock()
+        fake_manga_service.get_by_id = AsyncMock(return_value=_FAKE_MANGA_SUGGESTIVE)
+        self.app.dependency_overrides[get_manga_service] = lambda: fake_manga_service
+
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-suggestive-001",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        row = asyncio.run(
+            self.db.fetchone(
+                "SELECT content_rating FROM user_library WHERE manga_id = ?",
+                "manga-suggestive-001",
+            )
+        )
+        self.assertEqual(row["content_rating"], "suggestive")
+
+    # -- Library age filtering ------------------------------------------------
+
+    def test_get_library_filters_by_age(self):
+        """Library should filter out age-restricted manga for underage users."""
+        # Set user birth_date so age = 15 (under 16)
+        asyncio.run(
+            UserService(self.db).update_profile_metadata(
+                _FAKE_PAYLOAD.uid,
+                username="young_reader",
+                birth_date="2011-06-15",
+            )
+        )
+
+        # Add a safe manga and an erotica manga
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-safe-001",
+                title="Safe Manga",
+                content_rating="safe",
+            )
+        )
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-erotica-001",
+                title="Erotica Manga",
+                content_rating="erotica",
+            )
+        )
+
+        self.app.dependency_overrides[get_user_age] = lambda: 15
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["id"], "manga-safe-001")
+
+    def test_get_library_allows_age_appropriate_content(self):
+        """Library should show age-appropriate manga for users of sufficient age."""
+        # Set user birth_date so age = 20 (over 18)
+        asyncio.run(
+            UserService(self.db).update_profile_metadata(
+                _FAKE_PAYLOAD.uid,
+                username="adult_reader",
+                birth_date="2006-06-15",
+            )
+        )
+
+        # Add safe and erotica manga
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-safe-001",
+                title="Safe Manga",
+                content_rating="safe",
+            )
+        )
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-erotica-001",
+                title="Erotica Manga",
+                content_rating="erotica",
+            )
+        )
+
+        self.app.dependency_overrides[get_user_age] = lambda: 20
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 2)
+        ids = {m["id"] for m in data}
+        self.assertIn("manga-safe-001", ids)
+        self.assertIn("manga-erotica-001", ids)
+
+    def test_get_library_guest_sees_only_safe(self):
+        """Guest users (no birth_date) should only see safe manga in library."""
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-safe-001",
+                title="Safe Manga",
+                content_rating="safe",
+            )
+        )
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-erotica-001",
+                title="Erotica Manga",
+                content_rating="erotica",
+            )
+        )
+
+        # get_user_age returns None for guest
+        self.app.dependency_overrides[get_user_age] = lambda: None
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["id"], "manga-safe-001")
 
     def test_openapi_library_item_route_includes_patch(self):
         with TestClient(self.app) as client:

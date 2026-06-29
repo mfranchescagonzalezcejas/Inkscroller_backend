@@ -131,6 +131,18 @@ class UserService:
             else current.birth_date
         )
 
+        # Birth date immutability: once set, it cannot be changed.
+        # Without this guard, a user could bypass age-gating by editing
+        # their birth_date to claim a different age.
+        if (
+            _model_field_was_provided(profile_update, "birth_date")
+            and current.birth_date is not None
+            and new_birth_date != current.birth_date
+        ):
+            raise ProfileConflictError(
+                "Birth date is immutable once set and cannot be changed."
+            )
+
         if new_username is not None:
             username_owner = await self._db.fetchone(
                 "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
@@ -193,13 +205,11 @@ class UserService:
                 asyncio.to_thread(firebase_auth_sdk.delete_user, firebase_uid),
                 timeout=10.0,
             )
-            logger.info("Deleted Firebase Auth user %s", firebase_uid)
+            logger.info("Deleted Firebase Auth user.")
         except firebase_auth_sdk.UserNotFoundError:
-            logger.info("Firebase user %s already deleted.", firebase_uid)
+            logger.info("Firebase user already deleted.")
         except Exception as exc:
-            logger.error(
-                "Failed to delete Firebase Auth user %s: %s", firebase_uid, exc
-            )
+            logger.error("Failed to delete Firebase Auth user: %s", exc)
             raise UpstreamServiceError(
                 "Firebase Auth", "Firebase Auth deletion failed."
             ) from exc
@@ -286,7 +296,7 @@ class UserService:
     async def get_library_entries(self, firebase_uid: str) -> list[dict]:
         """Return user-library rows with cached manga metadata, newest first."""
         rows = await self._db.fetchall(
-            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors "
+            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors, content_rating "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -299,6 +309,7 @@ class UserService:
                 "title": row["title"] or "",
                 "cover_url": row["cover_url"],
                 "authors": json.loads(row["authors"] or "[]"),
+                "content_rating": row.get("content_rating"),
             }
             for row in rows
         ]
@@ -315,6 +326,7 @@ class UserService:
         title: str | None = None,
         cover_url: str | None = None,
         authors: list[str] | None = None,
+        content_rating: str | None = None,
     ) -> None:
         """Save a manga to the user's library, caching its metadata.
 
@@ -325,12 +337,13 @@ class UserService:
         authors_json = json.dumps(authors or [])
         await self._db.execute(
             "INSERT INTO user_library "
-            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors) "
-            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?) "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors, content_rating) "
+            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
             "title = COALESCE(excluded.title, user_library.title), "
             "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
-            "authors = COALESCE(excluded.authors, user_library.authors)",
+            "authors = COALESCE(excluded.authors, user_library.authors), "
+            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating)",
             firebase_uid,
             manga_id,
             now,
@@ -338,6 +351,7 @@ class UserService:
             title,
             cover_url,
             authors_json,
+            content_rating,
         )
         await self._db.commit()
 
