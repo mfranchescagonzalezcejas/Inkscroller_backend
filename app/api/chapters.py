@@ -38,7 +38,9 @@ async def get_manga_chapters(
     manga = await manga_service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
         full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
-        if full_manga and not can_access_content(full_manga.get("contentRating"), user_age):
+        if full_manga and not can_access_content(
+            full_manga.get("contentRating"), user_age
+        ):
             min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
             raise HTTPException(
                 status_code=403,

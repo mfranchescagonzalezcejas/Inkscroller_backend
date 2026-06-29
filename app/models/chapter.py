@@ -10,6 +10,7 @@ class Chapter(BaseModel):
     MangaDex; ``external`` with ``externalUrl`` means the chapter
     redirects to an official source (e.g. MangaPlus).
     """
+
     id: str
     number: Optional[str]
     title: Optional[str]

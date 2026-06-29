@@ -21,8 +21,10 @@ def compute_age(birth_date: date | None) -> int | None:
     today = date.today()
     if birth_date > today:
         return None
-    return today.year - birth_date.year - (
-        (today.month, today.day) < (birth_date.month, birth_date.day)
+    return (
+        today.year
+        - birth_date.year
+        - ((today.month, today.day) < (birth_date.month, birth_date.day))
     )
 
 

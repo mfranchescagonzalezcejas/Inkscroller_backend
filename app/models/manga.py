@@ -16,6 +16,7 @@ class Manga(BaseModel):
     The ``contentRating`` field drives age-gated access control.
     The ``library`` field is only present on authenticated library responses.
     """
+
     id: str
     title: str
     description: Optional[str] = None
