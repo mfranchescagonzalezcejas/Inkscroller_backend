@@ -148,6 +148,7 @@ class TestNoBinaryCaching(unittest.TestCase):
                     "attributes": {
                         "title": {"en": "Test Manga"},
                         "description": {"en": "desc"},
+                        "contentRating": "safe",
                         "tags": [],
                     },
                     "relationships": [

@@ -31,7 +31,7 @@ class MangaService:
         """Filter out manga that the user cannot access due to age restrictions."""
         if user_age is None:
             # Guest or missing birth_date: only safe content
-            return [m for m in manga_list if m.get("contentRating") in (None, "safe")]
+            return [m for m in manga_list if m.get("contentRating") == "safe"]
         return [
             m
             for m in manga_list

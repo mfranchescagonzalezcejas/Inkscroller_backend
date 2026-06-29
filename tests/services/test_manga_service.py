@@ -59,9 +59,8 @@ class TestFilterByAge(unittest.TestCase):
             {"id": "3", "contentRating": None},
         ]
         result = self.service._filter_by_age(manga_list, None)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["id"], "1")
-        self.assertEqual(result[1]["id"], "3")
 
     def test_filter_by_age_16(self):
         manga_list = [
@@ -235,8 +234,8 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         }
 
         result = await self.service.list_manga(user_age=None)
-        self.assertEqual(len(result["data"]), 2)
-        self.assertEqual(result["total"], 2)
+        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(result["total"], 1)
 
 
 class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
