@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from datetime import datetime, timezone
 from importlib.util import find_spec
@@ -98,6 +99,30 @@ class AppSmokeTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ready": True, "database": "ok"})
+
+    def test_ready_returns_503_on_db_timeout(self):
+        """Simulate a DB timeout to verify the 503 path returns a stable response."""
+        from unittest.mock import patch
+
+        with TestClient(self.app) as client:
+            db = client.app.state.db
+            with patch.object(db, "fetchone", side_effect=asyncio.TimeoutError()):
+                response = client.get("/ready")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"ready": False, "database": "timeout"})
+
+    def test_ready_returns_503_on_db_error(self):
+        """Simulate a DB error to verify the 503 path does not leak exception details."""
+        from unittest.mock import patch
+
+        with TestClient(self.app) as client:
+            db = client.app.state.db
+            with patch.object(db, "fetchone", side_effect=Exception("internal db error")):
+                response = client.get("/ready")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"ready": False, "database": "error"})
 
     def test_lifespan_initializes_shared_resources(self):
         with TestClient(self.app) as client:
