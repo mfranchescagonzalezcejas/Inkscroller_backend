@@ -92,6 +92,13 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
 
+    def test_ready_returns_ok_when_db_is_healthy(self):
+        with TestClient(self.app) as client:
+            response = client.get("/ready")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ready": True, "database": "ok"})
+
     def test_lifespan_initializes_shared_resources(self):
         with TestClient(self.app) as client:
             self.assertIsInstance(client.app.state.cache, SimpleCache)

@@ -201,7 +201,13 @@ async def _init_postgres() -> DatabaseAdapter:
                 db=settings.db_name,
             )
 
-        pool = await asyncpg.create_pool(connect=_getconn, min_size=1, max_size=10)
+        pool = await asyncpg.create_pool(
+            connect=_getconn,
+            min_size=1,
+            max_size=10,
+            command_timeout=30.0,
+            max_inactive_connection_lifetime=60.0,
+        )
         logger.info(
             "PostgreSQL pool ready via Cloud SQL connector (%s)",
             settings.cloud_sql_instance,
@@ -209,7 +215,11 @@ async def _init_postgres() -> DatabaseAdapter:
     else:
         # Direct DATABASE_URL — useful for local Docker Compose or CI.
         pool = await asyncpg.create_pool(
-            dsn=settings.database_url, min_size=1, max_size=10
+            dsn=settings.database_url,
+            min_size=1,
+            max_size=10,
+            command_timeout=30.0,
+            max_inactive_connection_lifetime=60.0,
         )
         logger.info("PostgreSQL pool ready via DATABASE_URL")
 
