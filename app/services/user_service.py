@@ -1,13 +1,28 @@
 """User service: get-or-create bootstrap by Firebase UID, preferences CRUD."""
 
+import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+import sqlite3
+from asyncio import TimeoutError as AsyncTimeoutError
+from datetime import date, datetime, timezone
 
-from app.core.db_adapter import DatabaseAdapter
-from app.core.exceptions import PreferencesValidationError
+import firebase_admin
+from firebase_admin import auth as firebase_auth_sdk
+
+from app.core.db_adapter import DatabaseAdapter, SqliteAdapter
+from app.core.exceptions import (
+    PreferencesValidationError,
+    ProfileConflictError,
+    UpstreamServiceError,
+)
 from app.core.firebase_auth import FirebaseTokenPayload
-from app.models.user import ReadingPreferences, UpdatePreferencesRequest, UserProfile
+from app.models.user import (
+    ReadingPreferences,
+    UpdatePreferencesRequest,
+    UpdateUserProfileRequest,
+    UserProfile,
+)
 
 _VALID_READER_MODES = frozenset({"vertical", "paged"})
 _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it", "ja", "ko", "zh"})
@@ -20,6 +35,37 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _mask_uid(uid: str) -> str:
+    """Return a truncated UID safe for production logs (first 8 chars)."""
+    return f"{uid[:8]}..."
+
+
+def _is_unique_constraint_violation(exc: Exception) -> bool:
+    if isinstance(exc, sqlite3.IntegrityError):
+        return "unique" in str(exc).lower()
+
+    sqlstate = getattr(exc, "sqlstate", None) or getattr(exc, "pgcode", None)
+    if sqlstate == "23505":
+        return True
+
+    return exc.__class__.__name__ == "UniqueViolationError"
+
+
+def _serialize_birth_date_for_db(
+    value: object | None, db: DatabaseAdapter
+) -> object | None:
+    if isinstance(value, date) and isinstance(db, SqliteAdapter):
+        return value.isoformat()
+    return value
+
+
+def _model_field_was_provided(model: UpdateUserProfileRequest, field_name: str) -> bool:
+    fields_set = getattr(model, "model_fields_set", None)
+    if fields_set is None:
+        fields_set = getattr(model, "__fields_set__", set())
+    return field_name in fields_set
+
+
 class UserService:
     """Handles local user bootstrap and preferences persistence."""
 
@@ -29,7 +75,7 @@ class UserService:
     async def get_or_create_user(self, payload: FirebaseTokenPayload) -> UserProfile:
         """Return the local user row, creating it on first call for a given UID."""
         row = await self._db.fetchone(
-            "SELECT firebase_uid, email, display_name, created_at FROM users WHERE firebase_uid = ?",
+            "SELECT firebase_uid, email, display_name, username, birth_date, created_at FROM users WHERE firebase_uid = ?",
             payload.uid,
         )
 
@@ -43,7 +89,10 @@ class UserService:
                 now,
             )
             await self._db.commit()
-            logger.info("Bootstrapped new local user for Firebase UID %s", payload.uid)
+            logger.info(
+                "Bootstrapped new local user for Firebase UID %s",
+                _mask_uid(payload.uid),
+            )
             return UserProfile(
                 firebase_uid=payload.uid,
                 email=payload.email,
@@ -55,8 +104,246 @@ class UserService:
             firebase_uid=row["firebase_uid"],
             email=row["email"],
             display_name=row["display_name"],
+            username=row["username"],
+            birth_date=row["birth_date"],
             created_at=row["created_at"],
         )
+
+    async def update_profile_metadata(
+        self,
+        firebase_uid: str,
+        req: UpdateUserProfileRequest | None = None,
+        *,
+        username: str | None = None,
+        birth_date: object | None = None,
+    ) -> UserProfile:
+        """Update authenticated profile metadata and return the current profile."""
+        if req is None:
+            update_data = {}
+            if username is not None:
+                update_data["username"] = username
+            if birth_date is not None:
+                update_data["birth_date"] = birth_date
+            profile_update = UpdateUserProfileRequest(**update_data)
+        else:
+            profile_update = req
+        current = await self._get_user(firebase_uid)
+
+        new_username = (
+            profile_update.username
+            if _model_field_was_provided(profile_update, "username")
+            else current.username
+        )
+        new_birth_date = (
+            profile_update.birth_date
+            if _model_field_was_provided(profile_update, "birth_date")
+            else current.birth_date
+        )
+
+        # Birth date immutability: once set, it cannot be changed.
+        # Without this guard, a user could bypass age-gating by editing
+        # their birth_date to claim a different age.
+        if (
+            _model_field_was_provided(profile_update, "birth_date")
+            and current.birth_date is not None
+            and new_birth_date != current.birth_date
+        ):
+            raise ProfileConflictError(
+                "Birth date is immutable once set and cannot be changed."
+            )
+
+        if new_username is not None:
+            username_owner = await self._db.fetchone(
+                "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
+                new_username,
+                firebase_uid,
+            )
+            if username_owner is not None:
+                raise ProfileConflictError("Username is already in use.")
+
+        birth_date_value = _serialize_birth_date_for_db(new_birth_date, self._db)
+
+        try:
+            await self._db.execute(
+                "UPDATE users SET username = ?, birth_date = ? WHERE firebase_uid = ?",
+                new_username,
+                birth_date_value,
+                firebase_uid,
+            )
+            await self._db.commit()
+        except Exception as exc:
+            if _is_unique_constraint_violation(exc):
+                raise ProfileConflictError("Username is already in use.") from exc
+            raise
+
+        return await self._get_user(firebase_uid)
+
+    async def _get_user(self, firebase_uid: str) -> UserProfile:
+        row = await self._db.fetchone(
+            "SELECT firebase_uid, email, display_name, username, birth_date, created_at "
+            "FROM users WHERE firebase_uid = ?",
+            firebase_uid,
+        )
+        if row is None:
+            raise ProfileConflictError("User profile does not exist.")
+
+        return UserProfile(
+            firebase_uid=row["firebase_uid"],
+            email=row["email"],
+            display_name=row["display_name"],
+            username=row["username"],
+            birth_date=row["birth_date"],
+            created_at=row["created_at"],
+        )
+
+    # ── Account deletion ───────────────────────────────────────────────────
+
+    async def delete_account(self, firebase_uid: str) -> None:
+        """Delete the user's local data and Firebase Auth account.
+
+        Timeouts during Firebase deletion are treated as best-effort: local
+        cleanup runs regardless and a pending-deletion record is saved so a
+        later reconciliation pass can retry.
+        """
+        # Reconcile any prior pending deletion for this UID first.
+        await self._reconcile_pending_deletion(firebase_uid)
+        await self._delete_firebase_user(firebase_uid)
+        # Always clean up local data — if Firebase timed out but succeeded
+        # remotely, we'd orphan local rows if we skipped cleanup.
+        await self._cleanup_local_data(firebase_uid)
+
+    async def _delete_firebase_user(self, firebase_uid: str) -> None:
+        """Delete the Firebase Auth user. Skips if SDK not initialized.
+
+        Timeout is treated as a pending/retryable state — the request may have
+        succeeded remotely even if the local coroutine timed out. The caller
+        must still run local cleanup and flag the pending entry for later
+        reconciliation.
+        """
+        if not firebase_admin._apps:
+            logger.info("Firebase Admin not initialized — skipping Auth user deletion.")
+            return
+
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(firebase_auth_sdk.delete_user, firebase_uid),
+                timeout=10.0,
+            )
+            logger.info("Deleted Firebase Auth user.")
+        except firebase_auth_sdk.UserNotFoundError:
+            logger.info("Firebase user already deleted.")
+        except AsyncTimeoutError:
+            # The request may have succeeded on Firebase's side even though
+            # we timed out locally — flag so reconciliation can check later.
+            logger.warning(
+                "Firebase delete_user timed out for %s — marking as pending.",
+                _mask_uid(firebase_uid),
+            )
+            await self._save_pending_deletion(firebase_uid, "timeout")
+        except Exception as exc:
+            logger.error("Failed to delete Firebase Auth user: %s", exc)
+            raise UpstreamServiceError(
+                "Firebase Auth", "Firebase Auth deletion failed."
+            ) from exc
+
+    async def _cleanup_local_data(self, firebase_uid: str) -> None:
+        """Delete local DB rows for the given UID in FK-safe order."""
+        await self._db.execute(
+            "DELETE FROM user_library WHERE firebase_uid = ?", firebase_uid
+        )
+        await self._db.execute(
+            "DELETE FROM reading_preferences WHERE firebase_uid = ?", firebase_uid
+        )
+        await self._db.execute("DELETE FROM users WHERE firebase_uid = ?", firebase_uid)
+        # Remove any pending-deletion record — if we got here, local cleanup
+        # is done (Firebase may have succeeded before or during a timeout).
+        await self._db.execute(
+            "DELETE FROM user_pending_deletions WHERE firebase_uid = ?", firebase_uid
+        )
+        await self._db.commit()
+
+    # ── Pending-deletion reconciliation ──────────────────────────────────────
+
+    async def _save_pending_deletion(self, firebase_uid: str, error: str) -> None:
+        """Record a pending deletion for later reconciliation."""
+        now = _utc_now()
+        await self._db.execute(
+            "INSERT OR REPLACE INTO user_pending_deletions "
+            "(firebase_uid, created_at, retries, last_error) "
+            "VALUES (?, ?, COALESCE((SELECT retries FROM user_pending_deletions "
+            "WHERE firebase_uid = ?), 0) + 1, ?)",
+            firebase_uid,
+            now,
+            firebase_uid,
+            error,
+        )
+        await self._db.commit()
+
+    async def _reconcile_pending_deletion(self, firebase_uid: str) -> None:
+        """Retry Firebase deletion for a UID that timed out previously.
+
+        If the retry succeeds (or the user was already deleted), the pending
+        flag is removed so subsequent calls are clean.
+        """
+        row = await self._db.fetchone(
+            "SELECT firebase_uid FROM user_pending_deletions WHERE firebase_uid = ?",
+            firebase_uid,
+        )
+        if row is None:
+            return  # nothing to reconcile
+
+        if not firebase_admin._apps:
+            logger.info(
+                "Firebase Admin not initialized — keeping pending deletion for %s.",
+                _mask_uid(firebase_uid),
+            )
+            return
+
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(firebase_auth_sdk.get_user, firebase_uid),
+                timeout=10.0,
+            )
+            # User still exists — retry the deletion.
+            await asyncio.wait_for(
+                asyncio.to_thread(firebase_auth_sdk.delete_user, firebase_uid),
+                timeout=10.0,
+            )
+            logger.info(
+                "Reconciled pending deletion: deleted Firebase user %s.",
+                _mask_uid(firebase_uid),
+            )
+        except firebase_auth_sdk.UserNotFoundError:
+            logger.info(
+                "Reconciled pending deletion: user %s already gone.",
+                _mask_uid(firebase_uid),
+            )
+        except (AsyncTimeoutError, Exception):
+            # Retry failed — keep the pending flag for next time.
+            logger.warning(
+                "Reconciliation retry failed for %s — will retry on next call.",
+                _mask_uid(firebase_uid),
+            )
+            return
+
+        # Reconciliation succeeded — clear the pending flag.
+        await self._db.execute(
+            "DELETE FROM user_pending_deletions WHERE firebase_uid = ?",
+            firebase_uid,
+        )
+        await self._db.commit()
+
+    async def process_all_pending_deletions(self) -> None:
+        """Retry Firebase deletion for every pending entry.
+
+        Call this at application startup so unresolved timeouts from a previous
+        run are reconciled.
+        """
+        rows = await self._db.fetchall(
+            "SELECT firebase_uid FROM user_pending_deletions"
+        )
+        for row in rows:
+            await self._reconcile_pending_deletion(row["firebase_uid"])
 
     async def get_preferences(self, firebase_uid: str) -> ReadingPreferences:
         """Return reading preferences, creating defaults on first call."""
@@ -129,7 +416,7 @@ class UserService:
     async def get_library_entries(self, firebase_uid: str) -> list[dict]:
         """Return user-library rows with cached manga metadata, newest first."""
         rows = await self._db.fetchall(
-            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors "
+            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors, content_rating "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -142,6 +429,7 @@ class UserService:
                 "title": row["title"] or "",
                 "cover_url": row["cover_url"],
                 "authors": json.loads(row["authors"] or "[]"),
+                "content_rating": row.get("content_rating"),
             }
             for row in rows
         ]
@@ -158,6 +446,7 @@ class UserService:
         title: str | None = None,
         cover_url: str | None = None,
         authors: list[str] | None = None,
+        content_rating: str | None = None,
     ) -> None:
         """Save a manga to the user's library, caching its metadata.
 
@@ -168,12 +457,13 @@ class UserService:
         authors_json = json.dumps(authors or [])
         await self._db.execute(
             "INSERT INTO user_library "
-            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors) "
-            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?) "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors, content_rating) "
+            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
             "title = COALESCE(excluded.title, user_library.title), "
             "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
-            "authors = COALESCE(excluded.authors, user_library.authors)",
+            "authors = COALESCE(excluded.authors, user_library.authors), "
+            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating)",
             firebase_uid,
             manga_id,
             now,
@@ -181,6 +471,7 @@ class UserService:
             title,
             cover_url,
             authors_json,
+            content_rating,
         )
         await self._db.commit()
 

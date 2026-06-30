@@ -40,6 +40,8 @@ htmlcov/
 .atl/
 .engram/
 .gga
+.codegraph/
+.cursor/
 
 # Local SQLite runtime artifacts
 *.db

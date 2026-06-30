@@ -80,3 +80,38 @@ def get_chapter_pages_service(request: Request) -> ChapterPagesService:
         client=MangaDexClient(request.app.state.mangadex_http),
         cache=get_shared_cache(request),
     )
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> FirebaseTokenPayload | None:
+    """Like ``get_current_user`` but returns ``None`` instead of 401.
+
+    Used by age-resolution and other optional-auth dependencies where
+    anonymous / guest access is allowed.
+    """
+    if credentials is None:
+        return None
+    try:
+        return await verify_firebase_token(credentials.credentials)
+    except AuthenticationError:
+        return None
+
+
+async def get_user_age(
+    user: FirebaseTokenPayload | None = Depends(get_current_user_optional),
+    user_service: UserService = Depends(get_user_service),
+) -> int | None:
+    """Resolve the current user's age from their profile birth_date.
+
+    Returns ``None`` for guests or users without a birth_date set,
+    which downstream age-gating treats as "guest-only safe content".
+    """
+    if user is None:
+        return None
+    profile = await user_service.get_or_create_user(user)
+    if profile is None or profile.birth_date is None:
+        return None
+    from app.core.age import compute_age
+
+    return compute_age(profile.birth_date)

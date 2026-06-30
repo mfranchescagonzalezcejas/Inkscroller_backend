@@ -40,11 +40,27 @@ docker-compose.yml
 
 # Environment
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 
+# Local credentials and service accounts
+serviceAccountKey.json
+*serviceAccount*.json
+firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+*credentials*.json
+gcloud-*.json
+
+# Docker secrets
+docker-compose.override.yml
+
 # Database
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 *.sqlite
 *.sqlite3
 /data/

@@ -11,6 +11,28 @@ class ChapterService:
         self._client = client
         self._cache = cache
 
+    async def get_manga_id_for_chapter(self, chapter_id: str) -> str | None:
+        """Resolve the manga ID that owns a given chapter.
+
+        Uses a dedicated cache key so repeated lookups for the same
+        chapter (e.g. page loads) are served from cache.
+        """
+        cache_key = f"chapter-manga:{chapter_id}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        payload = await self._client.get_chapter(chapter_id)
+        data = payload.get("data", {})
+        rels = data.get("relationships", [])
+        manga_rel = next((r for r in rels if r.get("type") == "manga"), None)
+        manga_id = manga_rel.get("id") if manga_rel else None
+
+        if manga_id:
+            self._cache.set(cache_key, manga_id)
+
+        return manga_id
+
     async def get_chapters(
         self,
         manga_id: str,

@@ -9,6 +9,7 @@ from app.services.manga_mapper import map_mangadex_manga, apply_statistics
 from app.services.jikan_mapper import map_jikan_detail
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.core.config import settings
+from app.core.age import can_access_content
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,20 @@ class MangaService:
         self._jikan = jikan
         self._cache = cache
 
-    async def search(self, query: str, limit: int = 5):
+    def _filter_by_age(
+        self, manga_list: list[dict], user_age: int | None
+    ) -> list[dict]:
+        """Filter out manga that the user cannot access due to age restrictions."""
+        if user_age is None:
+            # Guest or missing birth_date: only safe content
+            return [m for m in manga_list if m.get("contentRating") == "safe"]
+        return [
+            m
+            for m in manga_list
+            if can_access_content(m.get("contentRating"), user_age)
+        ]
+
+    async def search(self, query: str, limit: int = 5, user_age: int | None = None):
         cache_key = f"search:{query}:{limit}"
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -33,6 +47,7 @@ class MangaService:
         payload = await self._client.search_manga(query=query, limit=limit)
         items = payload.get("data", []) if isinstance(payload, dict) else []
         result = [map_mangadex_manga(item) for item in items]
+        result = self._filter_by_age(result, user_age)
 
         self._cache.set(cache_key, result)
         return result
@@ -46,6 +61,7 @@ class MangaService:
         status: str | None = None,
         order: str | None = None,
         genre: str | None = None,
+        user_age: int | None = None,
     ):
         cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}"
         cached = self._cache.get(cache_key)
@@ -70,8 +86,10 @@ class MangaService:
         )
 
         items = payload.get("data", [])
-        total = payload.get("total", 0)
 
+        # Capture upstream total BEFORE filtering so pagination metadata
+        # reflects the actual dataset size, not just the current page.
+        total_count = payload.get("total", len(items))
         result = [map_mangadex_manga(item) for item in items]
 
         # Always fetch statistics to get rating for all manga lists
@@ -91,57 +109,81 @@ class MangaService:
                     exc_info=True,
                 )
 
+        result = self._filter_by_age(result, user_age)
+
         response = {
             "data": result,
             "limit": limit,
             "offset": offset,
-            "total": total,
+            "total": total_count,
         }
 
         self._cache.set(cache_key, response)
         return response
 
-    async def get_by_id(self, manga_id: str):
+    async def get_by_id(
+        self,
+        manga_id: str,
+        user_age: int | None = None,
+        skip_age_filter: bool = False,
+    ):
         cache_key = f"manga:{manga_id}"
         cached = self._cache.get(cache_key)
+
         if cached is not None:
-            return cached
+            # Cache always stores raw (unfiltered) data; re-evaluate access
+            # per request so that a prior ``skip_age_filter=True`` call cannot
+            # poison the shared cache for age-restricted readers.
+            if skip_age_filter:
+                return cached
+            if user_age is None and cached.get("contentRating") != "safe":
+                return None  # guest: only safe content
+            if can_access_content(cached.get("contentRating"), user_age):
+                return cached
+            return None
 
         payload = await self._client.get_manga(manga_id)
         item = payload.get("data")
         if not item:
             return None
 
-        # Base MangaDex
+        # Base MangaDex — always cache raw data
         result = map_mangadex_manga(item)
 
         # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
-        if not settings.enable_jikan_enrichment:
-            self._cache.set(cache_key, result)
-            return result
+        if settings.enable_jikan_enrichment:
+            try:
+                jikan_payload = await self._jikan.search_manga(result["title"])
+                search_data = jikan_payload.get("data", [])
+                jikan_data = (
+                    map_jikan_detail({"data": search_data[0]}) if search_data else None
+                )
 
-        try:
-            jikan_payload = await self._jikan.search_manga(result["title"])
-            search_data = jikan_payload.get("data", [])
-            jikan_data = (
-                map_jikan_detail({"data": search_data[0]}) if search_data else None
-            )
-
-            if jikan_data is not None:
-                for key, value in jikan_data.items():
-                    # Solo rellenamos si MangaDex no tenía el dato
-                    if result.get(key) in (None, [], "") and value not in (
-                        None,
-                        [],
-                        "",
-                    ):
-                        result[key] = value
-        except Exception:
-            logger.warning(
-                "Jikan enrichment failed for manga %s, continuing without it",
-                manga_id,
-                exc_info=True,
-            )
+                if jikan_data is not None:
+                    for key, value in jikan_data.items():
+                        # Solo rellenamos si MangaDex no tenía el dato
+                        if result.get(key) in (None, [], "") and value not in (
+                            None,
+                            [],
+                            "",
+                        ):
+                            result[key] = value
+            except Exception:
+                logger.warning(
+                    "Jikan enrichment failed for manga %s, continuing without it",
+                    manga_id,
+                    exc_info=True,
+                )
 
         self._cache.set(cache_key, result)
+
+        # Age restriction — applied AFTER cache write so the shared cache
+        # always holds raw data and access is re-evaluated per request.
+        if skip_age_filter:
+            return result
+        if user_age is None and result.get("contentRating") != "safe":
+            return None  # guest: only safe content
+        if not can_access_content(result.get("contentRating"), user_age):
+            return None
+
         return result

@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS users (
     firebase_uid  TEXT    PRIMARY KEY,
     email         TEXT    NOT NULL,
     display_name  TEXT,
+    username      TEXT,
+    birth_date    TEXT,
     created_at    TEXT    NOT NULL
 );
 
@@ -48,6 +50,13 @@ CREATE TABLE IF NOT EXISTS user_library (
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
     PRIMARY KEY (firebase_uid, manga_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_pending_deletions (
+    firebase_uid  TEXT PRIMARY KEY,
+    created_at    TEXT NOT NULL,
+    retries       INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT
 );
 """
 
@@ -56,8 +65,16 @@ CREATE TABLE IF NOT EXISTS users (
     firebase_uid  TEXT    PRIMARY KEY,
     email         TEXT    NOT NULL,
     display_name  TEXT,
+    username      TEXT,
+    birth_date    DATE,
     created_at    TEXT    NOT NULL
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique
+ON users(username)
+WHERE username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
     firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
@@ -75,7 +92,15 @@ CREATE TABLE IF NOT EXISTS user_library (
     title          TEXT,
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
+    content_rating TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_pending_deletions (
+    firebase_uid  TEXT PRIMARY KEY,
+    created_at    TEXT NOT NULL,
+    retries       INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT
 );
 """
 
@@ -107,6 +132,23 @@ async def _migrate_sqlite_columns(conn: object) -> None:
 
     assert isinstance(conn, aiosqlite.Connection)
 
+    async with conn.execute("PRAGMA table_info(users)") as cursor:
+        rows = await cursor.fetchall()
+    user_columns = {row["name"] for row in rows}
+
+    user_migrations = [
+        ("username", "ALTER TABLE users ADD COLUMN username TEXT"),
+        ("birth_date", "ALTER TABLE users ADD COLUMN birth_date TEXT"),
+    ]
+    for col, ddl in user_migrations:
+        if col not in user_columns:
+            await conn.execute(ddl)
+
+    await conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique "
+        "ON users(username) WHERE username IS NOT NULL"
+    )
+
     async with conn.execute("PRAGMA table_info(user_library)") as cursor:
         rows = await cursor.fetchall()
     columns = {row["name"] for row in rows}
@@ -123,6 +165,7 @@ async def _migrate_sqlite_columns(conn: object) -> None:
             "authors",
             "ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'",
         ),
+        ("content_rating", "ALTER TABLE user_library ADD COLUMN content_rating TEXT"),
     ]
     for col, ddl in migrations:
         if col not in columns:
@@ -158,7 +201,13 @@ async def _init_postgres() -> DatabaseAdapter:
                 db=settings.db_name,
             )
 
-        pool = await asyncpg.create_pool(connect=_getconn, min_size=1, max_size=10)
+        pool = await asyncpg.create_pool(
+            connect=_getconn,
+            min_size=1,
+            max_size=10,
+            command_timeout=30.0,
+            max_inactive_connection_lifetime=60.0,
+        )
         logger.info(
             "PostgreSQL pool ready via Cloud SQL connector (%s)",
             settings.cloud_sql_instance,
@@ -166,7 +215,11 @@ async def _init_postgres() -> DatabaseAdapter:
     else:
         # Direct DATABASE_URL — useful for local Docker Compose or CI.
         pool = await asyncpg.create_pool(
-            dsn=settings.database_url, min_size=1, max_size=10
+            dsn=settings.database_url,
+            min_size=1,
+            max_size=10,
+            command_timeout=30.0,
+            max_inactive_connection_lifetime=60.0,
         )
         logger.info("PostgreSQL pool ready via DATABASE_URL")
 
@@ -187,12 +240,15 @@ async def _init_postgres() -> DatabaseAdapter:
 async def init_db(db_path: str | None = None) -> DatabaseAdapter:
     """Return the appropriate DatabaseAdapter for the current environment.
 
-    - ``db_path`` overrides ``settings.db_path`` and is only used for SQLite.
+    - ``db_path`` forces SQLite and overrides all configured database settings.
       Pass ``":memory:"`` in tests for a hermetic in-memory database.
-    - When ``CLOUD_SQL_INSTANCE`` or ``DATABASE_URL`` is set, the PostgreSQL
-      adapter is returned and ``db_path`` is ignored.
+    - Without ``db_path``, ``CLOUD_SQL_INSTANCE`` or ``DATABASE_URL`` select the
+      PostgreSQL adapter.
     """
+    if db_path is not None:
+        return await _init_sqlite(db_path)
+
     if settings.cloud_sql_instance or settings.database_url:
         return await _init_postgres()
 
-    return await _init_sqlite(db_path or settings.db_path)
+    return await _init_sqlite(settings.db_path)

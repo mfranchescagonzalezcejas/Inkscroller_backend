@@ -33,6 +33,9 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         f"{COVER_BASE_URL}/{item['id']}/{cover_file}.256.jpg" if cover_file else None
     )
 
+    # Content rating
+    content_rating = attributes.get("contentRating")
+
     # Tags - extract genre names from attributes
     tags = attributes.get("tags", [])
     genre_names = [
@@ -48,6 +51,7 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "coverUrl": cover_url,
         "demographic": demographic,
         "status": status,
+        "contentRating": content_rating,
         "genres": genre_names,
         # ⬇️ Statistics (filled by get_statistics in service)
         "score": None,

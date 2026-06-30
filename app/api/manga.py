@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List
 import httpx
-from app.core.dependencies import get_manga_service
+from app.core.age import CONTENT_AGE_LIMITS, can_access_content
+from app.core.dependencies import get_manga_service, get_user_age
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.core.cache import SimpleCache
 from app.models.manga import Manga
@@ -100,18 +101,32 @@ async def list_genres():
 async def search_manga(
     q: str = Query(..., min_length=1),
     service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
 ):
-    return await service.search(q)
+    """Search manga by title, filtering results by the caller's age."""
+    return await service.search(q, user_age=user_age)
 
 
 @router.get("/{manga_id}", response_model=Manga)
 async def get_manga(
     manga_id: str,
     service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
 ):
+    """Return manga detail, blocking if the caller is too young."""
     manga_id = manga_id.strip()
-    manga = await service.get_by_id(manga_id)
+    manga = await service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
+        # Check if it exists but is blocked by age restriction
+        full_manga = await service.get_by_id(manga_id, skip_age_filter=True)
+        if full_manga and not can_access_content(
+            full_manga.get("contentRating"), user_age
+        ):
+            min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
+            raise HTTPException(
+                status_code=403,
+                detail=f"This content is age-restricted (requires {min_age}+)",
+            )
         raise HTTPException(status_code=404, detail="Manga not found")
     return manga
 
@@ -130,7 +145,12 @@ async def list_manga(
     order_latest: str | None = Query(None, alias="order[latestUploadedChapter]"),
     genre: str | None = None,
     service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
 ):
+    """Return a paginated manga list, filtering results by the caller's age.
+
+    Supports ordering, genre and demographic filters.
+    """
     resolved_order = order
     if resolved_order is None:
         if order_followed_count == "desc":
@@ -150,4 +170,5 @@ async def list_manga(
         status=status,
         order=resolved_order,
         genre=genre,
+        user_age=user_age,
     )

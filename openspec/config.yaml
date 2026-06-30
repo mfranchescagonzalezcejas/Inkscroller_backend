@@ -1,0 +1,59 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Python 3.12.10 / FastAPI 0.128.0 / Uvicorn
+  Architecture: Service-layer with FastAPI dependency injection
+  Auth: Firebase Admin SDK 6.8.0
+  Database: SQLite (dev/test) / PostgreSQL via asyncpg + Cloud SQL (prod)
+  Testing: unittest (python -m unittest discover)
+  Quality: Ruff 0.15.9 (lint + format)
+  CI: GitHub Actions + GitLab CI (validate job)
+
+testing:
+  strict_tdd: true
+  test_command: "python -m unittest discover -s tests -v"
+  coverage_available: false
+  coverage_command: ""
+  layers:
+    unit: true
+    integration: true
+    e2e: false
+  quality_tools:
+    linter:
+      available: true
+      command: "ruff check app/ main.py"
+    formatter:
+      available: true
+      command: "ruff format --check app/ main.py"
+    type_checker:
+      available: false
+      command: ""
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Consider Firebase Auth implications for auth-related changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Note database strategy (SQLite vs PostgreSQL) for data layer changes
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Tag tasks with test layer (unit/integration/compliance)
+  apply:
+    tdd: true
+    test_command: "python -m unittest discover -s tests -v"
+    guidelines:
+      - Follow existing code patterns
+      - Use hermetic test app pattern from tests/api/helpers.py
+      - Maintain compliance test coverage
+  verify:
+    test_command: "python -m unittest discover -s tests -v"
+    build_command: "ruff check app/ main.py && ruff format --check app/ main.py"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas

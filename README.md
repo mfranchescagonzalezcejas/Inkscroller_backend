@@ -5,10 +5,6 @@
 ![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and Jikan (MyAnimeList) data, and provides authenticated user preferences via Firebase Auth.
-
-> **Repository strategy:** GitLab is the primary source for planning/review (Jira + Merge Requests), GitHub is a public mirror for visibility, and Railway is the active deployment target.
-
 ---
 
 ## Features
@@ -25,6 +21,11 @@ REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and J
 | **Preferences** | Reading preferences per user (`defaultReaderMode`, `defaultLanguage`) |
 | **Caching** | In-memory 5-minute TTL cache on all service calls |
 | **Health check** | Liveness probe at `/ping` |
+| **Profile metadata** | `username` and `birth_date` on authenticated user profile |
+| **Account deletion** | Full account and data deletion (`DELETE /users/me`) |
+| **Library** | Personal manga library with CRUD, content-rating storage, and age-based filtering |
+| **Age-gated content** | Content access enforcement by age (safe/suggestive/erotica/pornographic) |
+| **Home feed** | Latest chapters endpoint for the home screen (`/chapters/latest`) |
 
 ---
 
@@ -53,6 +54,8 @@ REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and J
 | `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`) |
 | `GET` | `/manga/search?q=` | Title search — max 5 results |
 | `GET` | `/manga/{id}` | Manga detail with Jikan enrichment |
+| `GET` | `/manga/tags` | MangaDex filter tags |
+| `GET` | `/chapters/latest` | Latest chapters for the home feed |
 | `GET` | `/chapters/manga/{id}` | Chapter list (filtered by `lang`, default `en`) |
 | `GET` | `/chapters/{id}/pages` | Page image URLs via MangaDex@Home |
 
@@ -61,10 +64,39 @@ REST API backend for the **InkScroller** manga reader. Aggregates MangaDex and J
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/users/me` | Get or create user profile |
+| `PATCH` | `/users/me` | Update profile — `username` and/or `birth_date` (birth_date is immutable after first set) |
+| `DELETE` | `/users/me` | Delete account and all associated data |
 | `GET` | `/users/me/preferences` | Get reading preferences |
 | `PUT` | `/users/me/preferences` | Update `defaultReaderMode` and/or `defaultLanguage` |
+| `GET` | `/users/me/library` | List library entries (age-filtered) |
+| `POST` | `/users/me/library/{manga_id}` | Add manga to library |
+| `PATCH` | `/users/me/library/{manga_id}` | Update library status for a saved manga |
+| `DELETE` | `/users/me/library/{manga_id}` | Remove manga from library |
 
 > Full API details: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
+
+---
+
+### Age Gating — Content Rating Thresholds
+
+Content from MangaDex is classified into four age tiers. Access is enforced
+at the route and service layers:
+
+| Tier | Content Rating | Access |
+|------|---------------|--------|
+| 0+ | `safe` | All users (including unauthenticated guests) |
+| 16+ | `suggestive` | Authenticated users aged 16+ |
+| 18+ | `erotica` | Authenticated users aged 18+ |
+| 18+ | `pornographic` | Authenticated users aged 18+ |
+
+- **Guest users** (unauthenticated): only `safe` content is accessible.
+- **Age computation**: derived from `birth_date` on the user profile. Guests have no age → safe-only.
+- **403 responses**: restricted content returns `403` with a message like
+  `"This content is age-restricted (requires 16+)"`.
+- **Library**: `content_rating` is stored when adding to library; GET library
+  filters entries by the caller's age automatically.
+- **birth_date immutability**: once set, `birth_date` cannot be changed (prevents
+  age-gating bypass).
 
 ---
 
@@ -82,7 +114,8 @@ python -m pip install -r requirements.txt
 # 3. Configure environment
 cp .env.example .env
 # Edit .env — set FIREBASE_PROJECT_ID and either
-# GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway)
+# GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway).
+# Keep production/staging CORS origins explicit; use CORS_ORIGINS=* only for local development.
 
 # 4. Start server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -102,11 +135,15 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 Deployed to **Railway** across 3 environments:
 
-| Environment | Railway URL |
-|------------|-------------|
-| dev | `https://inkscrollerbackend-dev.up.railway.app` |
-| staging | `https://inkscrollerbackend-stg.up.railway.app` |
-| prod | `https://inkscrollerbackend-pro.up.railway.app` |
+| Environment | API base URL | Health check |
+|------------|--------------|--------------|
+| dev | `https://api.dev.inkscroller.devdigi.dev` | `https://api.dev.inkscroller.devdigi.dev/ping` |
+| staging | `https://api.stg.inkscroller.devdigi.dev` | `https://api.stg.inkscroller.devdigi.dev/ping` |
+| prod | `https://api.inkscroller.devdigi.dev` | `https://api.inkscroller.devdigi.dev/ping` |
+
+Production and development `/ping` have been verified online. The staging custom domain is reserved for the staging environment and should be verified after that environment is deployed/routed.
+
+Railway serves the backend on port `8080` in each environment. Cloudflare hosts the CNAME and TXT verification records for these custom API domains. The existing portfolio remains on `https://devdigi.dev` / `https://www.devdigi.dev` and is not routed to Railway.
 
 > Full deployment guide (Railway environments, Firebase secrets, Postgres): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
@@ -123,15 +160,21 @@ Inkscroller_backend/
 └── app/
     ├── api/                       # FastAPI route handlers
     │   ├── health.py              # GET /ping
-    │   ├── manga.py               # GET /manga, /manga/search, /manga/{id}
-    │   ├── chapters.py            # GET /chapters/manga/{id}, /chapters/{id}/pages
-    │   └── users.py               # GET/PUT /users/me, /users/me/preferences
+    │   ├── manga.py               # GET /manga, /manga/search, /manga/{id}, /manga/tags
+    │   ├── chapters.py            # GET /chapters/latest, /chapters/manga/{id}, /chapters/{id}/pages
+    │   └── users.py               # GET/PATCH/DELETE /users/me, prefs, library CRUD
     │
     ├── core/
+    │   ├── age.py                 # Age computation and content restriction rules
     │   ├── cache.py               # SimpleCache — TTL-based in-memory cache
     │   ├── config.py              # Settings via env vars
     │   ├── firebase_auth.py       # Firebase ID token verification middleware
-    │   └── dependencies.py        # FastAPI DI factories
+    │   ├── dependencies.py        # FastAPI DI factories
+    │   ├── db_adapter.py          # Database adapter (SQLite / PostgreSQL)
+    │   ├── database.py            # Database bootstrap and migration helpers
+    │   ├── exceptions.py          # Global exception handlers
+    │   ├── logging.py             # Structured logging configuration
+    │   └── resilience.py          # Retry decorator with exponential backoff
     │
     ├── models/                    # Pydantic response models
     │   ├── manga.py

@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import AsyncContextManager, Callable
 
 import httpx
 from fastapi import FastAPI
@@ -15,41 +16,66 @@ from app.core.database import init_db
 from app.core.exceptions import register_exception_handlers
 from app.core.firebase_auth import init_firebase_admin
 from app.core.logging import setup_logging
+from app.services.user_service import UserService
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # ── Database (SQLite local / PostgreSQL) ─────────────────────
-    init_firebase_admin()
-    app.state.db = await init_db()
+def build_lifespan(
+    db_path: str | None = None,
+) -> Callable[[FastAPI], AsyncContextManager[None]]:
+    @asynccontextmanager
+    async def app_lifespan(app: FastAPI):
+        db = None
+        mangadex_http = None
+        jikan_http = None
 
-    # ── Upstream HTTP clients ────────────────────────────────────
-    app.state.mangadex_http = httpx.AsyncClient(
-        base_url=settings.mangadex_base_url,
-        timeout=httpx.Timeout(10.0),
-    )
-    app.state.jikan_http = httpx.AsyncClient(
-        base_url=settings.jikan_base_url,
-        timeout=httpx.Timeout(10.0),
-    )
-    app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
+        try:
+            # ── Database (SQLite local / PostgreSQL) ─────────────────────
+            init_firebase_admin()
+            db = app.state.db = await init_db(db_path)
 
-    yield
+            # ── Reconcile pending Firebase deletions ─────────────────────
+            user_svc = UserService(db)
+            await user_svc.process_all_pending_deletions()
 
-    await app.state.mangadex_http.aclose()
-    await app.state.jikan_http.aclose()
-    await app.state.db.close()
+            # ── Upstream HTTP clients ────────────────────────────────────
+            mangadex_http = app.state.mangadex_http = httpx.AsyncClient(
+                base_url=settings.mangadex_base_url,
+                timeout=httpx.Timeout(10.0),
+            )
+            jikan_http = app.state.jikan_http = httpx.AsyncClient(
+                base_url=settings.jikan_base_url,
+                timeout=httpx.Timeout(10.0),
+            )
+            app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
+
+            yield
+        finally:
+            if mangadex_http is not None:
+                await mangadex_http.aclose()
+            if jikan_http is not None:
+                await jikan_http.aclose()
+            if db is not None:
+                await db.close()
+
+    return app_lifespan
 
 
-def create_app() -> FastAPI:
+lifespan = build_lifespan()
+
+
+def create_app(
+    lifespan_context: Callable[[FastAPI], AsyncContextManager[None]] = lifespan,
+) -> FastAPI:
+    settings.validate_cors_configuration()
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.version,
         debug=settings.debug,
-        lifespan=lifespan,
+        lifespan=lifespan_context,
     )
 
     logger.info(
@@ -59,7 +85,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_credentials=True,
+        allow_credentials=settings.cors_allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
