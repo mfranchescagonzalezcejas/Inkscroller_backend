@@ -50,7 +50,8 @@
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/ping` | Health check → `{"ok": true}` |
+| `GET` | `/ping` | Liveness probe → `{"ok": true}` |
+| `GET` | `/ready` | Readiness probe — DB connectivity check → `{"ready": true}` or `503` |
 | `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`) |
 | `GET` | `/manga/search?q=` | Title search — max 5 results |
 | `GET` | `/manga/{id}` | Manga detail with Jikan enrichment |
@@ -123,7 +124,8 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 | URL | Description |
 |-----|-------------|
-| `http://localhost:8000/ping` | Health check |
+| `http://localhost:8000/ping` | Liveness probe |
+| `http://localhost:8000/ready` | Readiness probe (DB check) |
 | `http://localhost:8000/docs` | Swagger UI |
 | `http://localhost:8000/redoc` | ReDoc |
 
@@ -159,7 +161,7 @@ Inkscroller_backend/
 │
 └── app/
     ├── api/                       # FastAPI route handlers
-    │   ├── health.py              # GET /ping
+    │   ├── health.py              # GET /ping, GET /ready
     │   ├── manga.py               # GET /manga, /manga/search, /manga/{id}, /manga/tags
     │   ├── chapters.py            # GET /chapters/latest, /chapters/manga/{id}, /chapters/{id}/pages
     │   └── users.py               # GET/PATCH/DELETE /users/me, prefs, library CRUD
