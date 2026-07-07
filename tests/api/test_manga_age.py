@@ -87,13 +87,27 @@ class FakeMangaServiceWithAge:
             return None
         return dict(manga)
 
-    async def search(self, query: str, user_age: int | None = None) -> list[dict]:
-        self.calls.append({"method": "search", "query": query, "user_age": user_age})
-        return [
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        user_age: int | None = None,
+    ) -> dict:
+        self.calls.append(
+            {"method": "search", "query": query, "limit": limit, "offset": offset, "user_age": user_age}
+        )
+        results = [
             dict(m)
             for m in self.manga_db.values()
             if can_access_content(m.get("contentRating"), user_age)
         ]
+        return {
+            "data": results,
+            "total": len(results),
+            "limit": limit,
+            "offset": offset,
+        }
 
     async def list_manga(self, **kwargs) -> dict:
         self.calls.append({"method": "list_manga", **kwargs})
@@ -146,9 +160,9 @@ class TestMangaSearchAgeRestriction(unittest.TestCase):
             response = client.get("/manga/search?q=test")
 
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 2)
-        ratings = {m["contentRating"] for m in data}
+        body = response.json()
+        self.assertEqual(len(body["data"]), 2)
+        ratings = {m["contentRating"] for m in body["data"]}
         self.assertTrue(ratings.issubset({"safe", None}))
 
     def test_user_16_sees_suggestive_in_search(self):
@@ -159,9 +173,9 @@ class TestMangaSearchAgeRestriction(unittest.TestCase):
             response = client.get("/manga/search?q=test")
 
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 3)  # 2 safe + 1 suggestive
-        ids = {m["id"] for m in data}
+        body = response.json()
+        self.assertEqual(len(body["data"]), 3)  # 2 safe + 1 suggestive
+        ids = {m["id"] for m in body["data"]}
         self.assertIn("suggestive-1", ids)
 
     def test_user_12_only_sees_safe_in_search(self):
@@ -172,9 +186,9 @@ class TestMangaSearchAgeRestriction(unittest.TestCase):
             response = client.get("/manga/search?q=test")
 
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 2)
-        ids = {m["id"] for m in data}
+        body = response.json()
+        self.assertEqual(len(body["data"]), 2)
+        ids = {m["id"] for m in body["data"]}
         self.assertNotIn("suggestive-1", ids)
         self.assertNotIn("erotica-1", ids)
 
@@ -186,8 +200,8 @@ class TestMangaSearchAgeRestriction(unittest.TestCase):
             response = client.get("/manga/search?q=test")
 
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data), 4)
+        body = response.json()
+        self.assertEqual(len(body["data"]), 4)
 
 
 class TestMangaGetAgeRestriction(unittest.TestCase):
@@ -430,8 +444,8 @@ class TestMangaRouteEdgeCases(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         # Only safe content returned (same as guest)
-        data = response.json()
-        for m in data:
+        body = response.json()
+        for m in body["data"]:
             self.assertIn(m["contentRating"], (None, "safe"))
 
 

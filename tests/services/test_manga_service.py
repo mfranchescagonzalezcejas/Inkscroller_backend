@@ -123,11 +123,14 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
         ]
-        self.client.search_manga.return_value = {"data": raw_items}
+        self.client.search_manga.return_value = {"data": raw_items, "total": 2}
 
         result = await self.service.search("test")
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["id"], "1")
+        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(result["data"][0]["id"], "1")
+        self.assertEqual(result["limit"], 10)
+        self.assertEqual(result["offset"], 0)
+        self.assertEqual(result["total"], 2)
 
     async def test_search_filters_by_age_12(self):
         """A 12-year-old only sees safe manga."""
@@ -135,11 +138,11 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
         ]
-        self.client.search_manga.return_value = {"data": raw_items}
+        self.client.search_manga.return_value = {"data": raw_items, "total": 2}
 
         result = await self.service.search("test", user_age=12)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["id"], "1")
+        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(result["data"][0]["id"], "1")
 
     async def test_search_filters_by_age_16(self):
         """A 16-year-old sees safe + suggestive."""
@@ -147,10 +150,10 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
         ]
-        self.client.search_manga.return_value = {"data": raw_items}
+        self.client.search_manga.return_value = {"data": raw_items, "total": 2}
 
         result = await self.service.search("test", user_age=16)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result["data"]), 2)
 
     async def test_search_guest_filters_suggestive(self):
         """Guest (user_age=None) sees only safe."""
@@ -158,11 +161,11 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
         ]
-        self.client.search_manga.return_value = {"data": raw_items}
+        self.client.search_manga.return_value = {"data": raw_items, "total": 2}
 
         result = await self.service.search("test", user_age=None)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["id"], "1")
+        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(result["data"][0]["id"], "1")
 
 
 class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):

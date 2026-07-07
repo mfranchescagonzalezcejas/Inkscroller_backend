@@ -38,14 +38,19 @@ class FakeMangaService:
 
     async def search(self, query: str, **kwargs):
         self.search_queries.append(query)
-        return [
-            {
-                "id": "search-1",
-                "title": f"Result for {query}",
-                "authors": [],
-                "genres": [],
-            }
-        ]
+        return {
+            "data": [
+                {
+                    "id": "search-1",
+                    "title": f"Result for {query}",
+                    "authors": [],
+                    "genres": [],
+                }
+            ],
+            "total": 1,
+            "limit": kwargs.get("limit", 10),
+            "offset": kwargs.get("offset", 0),
+        }
 
     async def list_manga(self, **kwargs):
         self.list_calls.append(kwargs)
@@ -182,7 +187,7 @@ class AppSmokeTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(fake_service.search_queries, ["berserk"])
-        self.assertEqual(response.json()[0]["id"], "search-1")
+        self.assertEqual(response.json()["data"][0]["id"], "search-1")
 
     def test_list_manga_route_passes_query_params_to_service(self):
         fake_service = FakeMangaService()
