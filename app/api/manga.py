@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from typing import List
 import httpx
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
 from app.core.dependencies import get_manga_service, get_user_age
@@ -97,14 +96,20 @@ async def list_genres():
     return {"genres": list(GENRE_TAG_UUIDS.keys())}
 
 
-@router.get("/search", response_model=List[Manga])
+@router.get("/search")
 async def search_manga(
     q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
-    """Search manga by title, filtering results by the caller's age."""
-    return await service.search(q, user_age=user_age)
+    """Search manga by title, filtering results by the caller's age.
+
+    Returns a paginated response with ``data``, ``limit``, ``offset``, and
+    ``total``, matching the existing ``GET /manga`` contract.
+    """
+    return await service.search(q, limit=limit, offset=offset, user_age=user_age)
 
 
 @router.get("/{manga_id}", response_model=Manga)

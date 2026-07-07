@@ -166,13 +166,13 @@ class TestNoBinaryCaching(unittest.TestCase):
         first = asyncio.run(service.search("query", limit=1))
         second = asyncio.run(service.search("query", limit=1))
 
-        client.search_manga.assert_awaited_once_with(query="query", limit=1)
+        client.search_manga.assert_awaited_once_with(query="query", limit=1, offset=0)
         self.assertEqual(first, second)
         self.assertTrue(first)
-        self.assertIsInstance(first[0].get("coverUrl"), str)
+        self.assertIsInstance(first["data"][0].get("coverUrl"), str)
         self._assert_no_binary_content(first)
 
-        cached = cache.get("search:query:1")
+        cached = cache.get("search:query:1:0")
         self.assertEqual(cached, first)
         self._assert_no_binary_content(cached)
 

@@ -38,19 +38,35 @@ class MangaService:
             if can_access_content(m.get("contentRating"), user_age)
         ]
 
-    async def search(self, query: str, limit: int = 5, user_age: int | None = None):
-        cache_key = f"search:{query}:{limit}"
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        user_age: int | None = None,
+    ):
+        cache_key = f"search:{query}:{limit}:{offset}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
 
-        payload = await self._client.search_manga(query=query, limit=limit)
+        payload = await self._client.search_manga(
+            query=query, limit=limit, offset=offset
+        )
         items = payload.get("data", []) if isinstance(payload, dict) else []
+        total_count = payload.get("total", len(items))
         result = [map_mangadex_manga(item) for item in items]
         result = self._filter_by_age(result, user_age)
 
-        self._cache.set(cache_key, result)
-        return result
+        response = {
+            "data": result,
+            "limit": limit,
+            "offset": offset,
+            "total": total_count,
+        }
+
+        self._cache.set(cache_key, response)
+        return response
 
     async def list_manga(
         self,

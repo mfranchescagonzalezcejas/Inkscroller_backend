@@ -12,12 +12,13 @@ class MangaDexClient:
         self.client = client
 
     @with_retry()
-    async def search_manga(self, query: str, limit: int = 5):
+    async def search_manga(self, query: str, limit: int = 5, offset: int = 0):
         response = await self.client.get(
             "/manga",
             params={
                 "title": query,
                 "limit": limit,
+                "offset": offset,
                 "includes[]": ["cover_art"],
                 "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
             },
