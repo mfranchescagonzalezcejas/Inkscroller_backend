@@ -57,6 +57,22 @@ class MangaService:
         items = payload.get("data", []) if isinstance(payload, dict) else []
         total_count = payload.get("total", len(items))
         result = [map_mangadex_manga(item) for item in items]
+
+        # Fetch statistics (ratings/scores) for search results
+        if result:
+            try:
+                manga_ids = [m["id"] for m in result]
+                stats_payload = await self._client.get_statistics(manga_ids)
+                stats_dict = stats_payload.get("statistics", {})
+                for manga in result:
+                    manga_stats = stats_dict.get(manga["id"], {})
+                    apply_statistics(manga, manga_stats)
+            except Exception:
+                logger.warning(
+                    "Failed to fetch statistics for search results, continuing without ratings",
+                    exc_info=True,
+                )
+
         result = self._filter_by_age(result, user_age)
 
         response = {
