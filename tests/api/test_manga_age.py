@@ -97,14 +97,16 @@ class FakeMangaServiceWithAge:
         self.calls.append(
             {"method": "search", "query": query, "limit": limit, "offset": offset, "user_age": user_age}
         )
+        # Simulate MangaDex pagination: slice the full page, then age-filter
+        all_results = [dict(m) for m in self.manga_db.values()]
+        page = all_results[offset : offset + limit]
         results = [
-            dict(m)
-            for m in self.manga_db.values()
+            m for m in page
             if can_access_content(m.get("contentRating"), user_age)
         ]
         return {
             "data": results,
-            "total": len(results),
+            "total": len(all_results),
             "limit": limit,
             "offset": offset,
         }
