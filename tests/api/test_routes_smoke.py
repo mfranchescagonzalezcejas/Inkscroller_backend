@@ -189,6 +189,19 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(fake_service.search_queries, ["berserk"])
         self.assertEqual(response.json()["data"][0]["id"], "search-1")
 
+    def test_search_route_passes_limit_offset(self):
+        fake_service = FakeMangaService()
+        self.app.dependency_overrides[get_manga_service] = lambda: fake_service
+
+        with TestClient(self.app) as client:
+            response = client.get("/manga/search?q=berserk&limit=5&offset=10")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["limit"], 5)
+        self.assertEqual(body["offset"], 10)
+        self.assertEqual(body["total"], 1)
+
     def test_list_manga_route_passes_query_params_to_service(self):
         fake_service = FakeMangaService()
         self.app.dependency_overrides[get_manga_service] = lambda: fake_service

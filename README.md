@@ -12,7 +12,7 @@
 | Area | Description |
 |------|-------------|
 | **Manga catalogue** | Browse, filter, and paginate the MangaDex catalogue |
-| **Search** | Title-based manga search (up to 5 results) |
+| **Search** | Title-based manga search with pagination (`limit`, `offset`) |
 | **Detail enrichment** | MangaDex data augmented with Jikan/MAL metadata (score, rank, authors, genres) |
 | **Chapter listing** | Per-manga chapter list with language filtering |
 | **Page URLs** | MangaDex@Home image URLs for any chapter |
@@ -53,7 +53,7 @@
 | `GET` | `/ping` | Liveness probe → `{"ok": true}` |
 | `GET` | `/ready` | Readiness probe — DB connectivity check → `{"ready": true}` or `503` |
 | `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`) |
-| `GET` | `/manga/search?q=` | Title search — max 5 results |
+| `GET` | `/manga/search?q=&limit=&offset=` | Paginated title search (`limit`: 1-100, default 10; `offset`: 0+, default 0) |
 | `GET` | `/manga/{id}` | Manga detail with Jikan enrichment |
 | `GET` | `/manga/tags` | MangaDex filter tags |
 | `GET` | `/chapters/latest` | Latest chapters for the home feed |

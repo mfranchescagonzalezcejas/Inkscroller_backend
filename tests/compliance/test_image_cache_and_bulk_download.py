@@ -172,7 +172,7 @@ class TestNoBinaryCaching(unittest.TestCase):
         self.assertIsInstance(first["data"][0].get("coverUrl"), str)
         self._assert_no_binary_content(first)
 
-        cached = cache.get("search:query:1:0")
+        cached = cache.get("search:query:1:0:age:none")
         self.assertEqual(cached, first)
         self._assert_no_binary_content(cached)
 

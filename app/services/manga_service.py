@@ -45,7 +45,8 @@ class MangaService:
         offset: int = 0,
         user_age: int | None = None,
     ):
-        cache_key = f"search:{query}:{limit}:{offset}"
+        age_key = "none" if user_age is None else str(user_age)
+        cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached

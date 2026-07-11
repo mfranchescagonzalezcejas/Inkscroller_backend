@@ -167,6 +167,23 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result["data"]), 1)
         self.assertEqual(result["data"][0]["id"], "1")
 
+    async def test_search_forwards_limit_offset_to_client(self):
+        """search forwards explicit limit/offset to MangaDex client."""
+        raw_items = [
+            _raw_mangadex_item("1", "safe"),
+            _raw_mangadex_item("3", "suggestive"),
+        ]
+        self.client.search_manga.return_value = {"data": raw_items, "total": 50}
+
+        result = await self.service.search("test", limit=2, offset=4)
+
+        self.client.search_manga.assert_awaited_once_with(
+            query="test", limit=2, offset=4
+        )
+        self.assertEqual(result["limit"], 2)
+        self.assertEqual(result["offset"], 4)
+        self.assertEqual(result["total"], 50)
+
 
 class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
     """T3.3 — list_manga() with user_age parameter."""
