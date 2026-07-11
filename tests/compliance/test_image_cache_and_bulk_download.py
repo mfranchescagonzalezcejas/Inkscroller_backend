@@ -11,7 +11,7 @@ import sys
 import types
 import unittest
 from importlib.util import find_spec
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, call, patch
 
 if find_spec("dotenv") is None:
     raise unittest.SkipTest("python-dotenv is not installed")
@@ -166,7 +166,7 @@ class TestNoBinaryCaching(unittest.TestCase):
         first = asyncio.run(service.search("query", limit=1))
         second = asyncio.run(service.search("query", limit=1))
 
-        client.search_manga.assert_awaited_once_with(query="query", limit=1, offset=0)
+        # second hit comes from cache — client only called once so far
         self.assertEqual(first, second)
         self.assertTrue(first)
         self.assertIsInstance(first["data"][0].get("coverUrl"), str)
@@ -175,6 +175,18 @@ class TestNoBinaryCaching(unittest.TestCase):
         cached = cache.get("search:query:1:0:age:none")
         self.assertEqual(cached, first)
         self._assert_no_binary_content(cached)
+
+        # Different offset → different cache key (no collision)
+        third = asyncio.run(service.search("query", limit=1, offset=1))
+        cached_page2 = cache.get("search:query:1:1:age:none")
+        self.assertEqual(cached_page2, third)
+        self.assertIsNot(cached, cached_page2)
+        self._assert_no_binary_content(cached_page2)
+
+        client.search_manga.assert_has_awaits([
+            call(query="query", limit=1, offset=0),
+            call(query="query", limit=1, offset=1),
+        ])
 
     def test_chapter_service_caches_metadata_not_images(self):
         """P0-B4 — ChapterService cachea metadatos de capítulos, no binarios."""
