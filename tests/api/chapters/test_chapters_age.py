@@ -8,7 +8,6 @@ Strategy:
 
 import unittest
 from importlib.util import find_spec
-from unittest.mock import AsyncMock
 
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
@@ -143,8 +142,8 @@ class TestChaptersAgeRestriction(unittest.TestCase):
         self.app.dependency_overrides.clear()
 
     def _override(self, user_age=None):
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_chapter_service] = lambda: FakeChapterService(
             self.CHAPTERS
@@ -242,7 +241,6 @@ class TestChaptersAgeRestriction(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         detail = response.json()["detail"]
         self.assertIn("18", detail)
-
 
 
 class TestChapterPagesAgeRestriction(unittest.TestCase):

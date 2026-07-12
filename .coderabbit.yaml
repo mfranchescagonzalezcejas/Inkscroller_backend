@@ -1,0 +1,23 @@
+# CodeRabbit configuration
+# See: https://docs.coderabbit.ai/configuration/auto-review
+
+language: "en-US"
+
+reviews:
+  # Disable automatic PR reviews — we use CodeRabbit CLI locally before push
+  auto_review:
+    enabled: false
+    drafts: false
+  request_changes_workflow: false
+  high_level_summary: false
+  poem: false
+  review_status: false
+  review_details: false
+  finishing_touches:
+    autofix:
+      enabled: false
+
+# Allow manual trigger via label for occasional web reviews
+# Add "coderabbit-review" label to a PR to trigger a web review
+chat:
+  auto_reply: false

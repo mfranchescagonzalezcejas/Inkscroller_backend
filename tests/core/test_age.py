@@ -1,6 +1,6 @@
 import unittest
 from datetime import date, timedelta
-from app.core.age import compute_age, can_access_content, CONTENT_AGE_LIMITS
+from app.core.age import compute_age, can_access_content
 
 
 class TestComputeAge(unittest.TestCase):
