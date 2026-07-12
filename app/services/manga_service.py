@@ -51,15 +51,51 @@ class MangaService:
             and can_access_content(m.get("contentRating"), user_age)
         ]
 
+    @staticmethod
+    def _content_rating_to_mangadex(content_rating: str | None) -> list[str]:
+        """Map frontend aggregate content_rating to MangaDex content rating values.
+
+        ``None`` and unknown values fall back to ``["safe"]`` — the most
+        restrictive option — so the backend never broadens access on an
+        unrecognised wire value.
+        """
+        mapping = {
+            "safe": ["safe"],
+            "suggestive": ["safe", "suggestive"],
+            "all": ["safe", "suggestive", "erotica", "pornographic"],
+        }
+        return mapping.get(content_rating, ["safe"])
+
+    def _resolve_content_ratings(
+        self, user_age: int | None, content_rating: str | None
+    ) -> list[str]:
+        """Resolve which MangaDex content ratings to request.
+
+        When the caller provides an explicit ``content_rating`` preference,
+        use it — but always intersect with the age-allowed set so that
+        a minor cannot escalate their access via the query parameter.
+        When ``content_rating`` is ``None``, fall back to the age-based
+        default.
+        """
+        age_allowed = self._age_allowed_content_ratings(user_age)
+
+        if content_rating is None:
+            return age_allowed
+
+        explicit = self._content_rating_to_mangadex(content_rating)
+        return [r for r in explicit if r in age_allowed]
+
     async def search(
         self,
         query: str,
         limit: int = 10,
         offset: int = 0,
         user_age: int | None = None,
+        content_rating: str | None = None,
     ):
+        cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
-        cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}"
+        cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -68,7 +104,7 @@ class MangaService:
             query=query,
             limit=limit,
             offset=offset,
-            content_ratings=self._age_allowed_content_ratings(user_age),
+            content_ratings=self._resolve_content_ratings(user_age, content_rating),
         )
         items = payload.get("data", []) if isinstance(payload, dict) else []
         total_count = payload.get("total", len(items))
@@ -111,9 +147,14 @@ class MangaService:
         order: str | None = None,
         genre: str | None = None,
         user_age: int | None = None,
+        content_rating: str | None = None,
     ):
+        cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
-        cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}:age:{age_key}"
+        cache_key = (
+            f"manga:list:{limit}:{offset}:{title}:{demographic}:"
+            f"{status}:{order}:{genre}:age:{age_key}:cr:{cr_key}"
+        )
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -133,7 +174,7 @@ class MangaService:
             status=status,
             order=order,
             included_tags=included_tags,
-            content_ratings=self._age_allowed_content_ratings(user_age),
+            content_ratings=self._resolve_content_ratings(user_age, content_rating),
         )
 
         items = payload.get("data", [])

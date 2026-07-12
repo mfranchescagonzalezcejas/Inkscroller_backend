@@ -101,15 +101,26 @@ async def search_manga(
     q: str = Query(..., min_length=1),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    content_rating: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
     """Search manga by title, filtering results by the caller's age.
 
+    When ``content_rating`` is provided (safe/suggestive/all), it overrides
+    the age-based default. Age restrictions still apply — a minor cannot
+    escalate access via this parameter.
+
     Returns a paginated response with ``data``, ``limit``, ``offset``, and
     ``total``, matching the existing ``GET /manga`` contract.
     """
-    return await service.search(q, limit=limit, offset=offset, user_age=user_age)
+    return await service.search(
+        q,
+        limit=limit,
+        offset=offset,
+        user_age=user_age,
+        content_rating=content_rating,
+    )
 
 
 @router.get("/{manga_id}", response_model=Manga)
@@ -149,10 +160,15 @@ async def list_manga(
     order_title: str | None = Query(None, alias="order[title]"),
     order_latest: str | None = Query(None, alias="order[latestUploadedChapter]"),
     genre: str | None = None,
+    content_rating: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ):
     """Return a paginated manga list, filtering results by the caller's age.
+
+    When ``content_rating`` is provided (safe/suggestive/all), it overrides
+    the age-based default. Age restrictions still apply — a minor cannot
+    escalate access via this parameter.
 
     Supports ordering, genre and demographic filters.
     """
@@ -176,4 +192,5 @@ async def list_manga(
         order=resolved_order,
         genre=genre,
         user_age=user_age,
+        content_rating=content_rating,
     )

@@ -311,6 +311,160 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["total"], 3)
 
 
+class TestResolveContentRatings(unittest.TestCase):
+    """_resolve_content_ratings and _content_rating_to_mangadex."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.service = MangaService(self.client, self.jikan, self.cache)
+
+    def test_content_rating_to_mangadex_safe(self):
+        result = MangaService._content_rating_to_mangadex("safe")
+        self.assertEqual(result, ["safe"])
+
+    def test_content_rating_to_mangadex_suggestive(self):
+        result = MangaService._content_rating_to_mangadex("suggestive")
+        self.assertEqual(result, ["safe", "suggestive"])
+
+    def test_content_rating_to_mangadex_all(self):
+        result = MangaService._content_rating_to_mangadex("all")
+        self.assertEqual(result, ["safe", "suggestive", "erotica", "pornographic"])
+
+    def test_content_rating_to_mangadex_unknown_defaults_to_safe(self):
+        result = MangaService._content_rating_to_mangadex("invalid")
+        self.assertEqual(result, ["safe"])
+
+    def test_content_rating_to_mangadex_none_defaults_to_safe(self):
+        result = MangaService._content_rating_to_mangadex(None)
+        self.assertEqual(result, ["safe"])
+
+    def test_resolve_no_explicit_uses_age_default_guest(self):
+        """No explicit content_rating — falls back to age default (guest = safe)."""
+        result = self.service._resolve_content_ratings(None, None)
+        self.assertEqual(result, ["safe"])
+
+    def test_resolve_no_explicit_uses_age_default_adult(self):
+        """No explicit content_rating — adult sees all 4 ratings."""
+        result = self.service._resolve_content_ratings(18, None)
+        self.assertEqual(result, ["safe", "suggestive", "erotica", "pornographic"])
+
+    def test_resolve_explicit_safe_for_adult(self):
+        """Adult passes content_rating=safe — only safe returned."""
+        result = self.service._resolve_content_ratings(18, "safe")
+        self.assertEqual(result, ["safe"])
+
+    def test_resolve_explicit_suggestive_for_adult(self):
+        """Adult passes content_rating=suggestive — safe+suggestive returned."""
+        result = self.service._resolve_content_ratings(18, "suggestive")
+        self.assertEqual(result, ["safe", "suggestive"])
+
+    def test_resolve_explicit_all_for_adult(self):
+        """Adult passes content_rating=all — all 4 returned."""
+        result = self.service._resolve_content_ratings(18, "all")
+        self.assertEqual(result, ["safe", "suggestive", "erotica", "pornographic"])
+
+    def test_resolve_teen_cannot_escalate_to_all(self):
+        """16yo passes content_rating=all — intersected with age-allowed (safe+suggestive)."""
+        result = self.service._resolve_content_ratings(16, "all")
+        self.assertEqual(result, ["safe", "suggestive"])
+
+    def test_resolve_teen_cannot_escalate_to_erotica(self):
+        """16yo passes content_rating=all — erotica/pornographic stripped by age gate."""
+        ratings = self.service._resolve_content_ratings(16, "all")
+        self.assertNotIn("erotica", ratings)
+        self.assertNotIn("pornographic", ratings)
+
+    def test_resolve_teen_with_safe(self):
+        """16yo passes content_rating=safe — only safe returned."""
+        result = self.service._resolve_content_ratings(16, "safe")
+        self.assertEqual(result, ["safe"])
+
+    def test_resolve_guest_cannot_escalate(self):
+        """Guest passes content_rating=all — only safe returned."""
+        result = self.service._resolve_content_ratings(None, "all")
+        self.assertEqual(result, ["safe"])
+
+    def test_resolve_guest_with_suggestive(self):
+        """Guest passes content_rating=suggestive — only safe (age gate strips suggestive)."""
+        result = self.service._resolve_content_ratings(None, "suggestive")
+        self.assertEqual(result, ["safe"])
+
+
+class TestSearchWithContentRating(unittest.IsolatedAsyncioTestCase):
+    """search() with explicit content_rating override."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.search_manga = AsyncMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.cache.get.return_value = None
+        self.service = MangaService(self.client, self.jikan, self.cache)
+
+    async def test_search_with_content_rating_safe(self):
+        """content_rating=safe — only requests safe from MangaDex."""
+        self.client.search_manga.return_value = {"data": [], "total": 0}
+        await self.service.search("test", user_age=18, content_rating="safe")
+        self.client.search_manga.assert_awaited_once()
+        _, kwargs = self.client.search_manga.call_args
+        self.assertEqual(kwargs["content_ratings"], ["safe"])
+
+    async def test_search_with_content_rating_suggestive(self):
+        """content_rating=suggestive — requests safe+suggestive from MangaDex."""
+        self.client.search_manga.return_value = {"data": [], "total": 0}
+        await self.service.search("test", user_age=18, content_rating="suggestive")
+        self.client.search_manga.assert_awaited_once()
+        _, kwargs = self.client.search_manga.call_args
+        self.assertEqual(kwargs["content_ratings"], ["safe", "suggestive"])
+
+    async def test_search_forwards_content_rating_in_cache_key(self):
+        """Different content_rating values produce different cache keys."""
+        self.client.search_manga.return_value = {"data": [], "total": 0}
+        await self.service.search("test", user_age=18, content_rating="safe")
+        await self.service.search("test", user_age=18, content_rating="suggestive")
+        # Two different cache keys — both called
+        self.assertEqual(self.client.search_manga.call_count, 2)
+
+
+class TestListMangaWithContentRating(unittest.IsolatedAsyncioTestCase):
+    """list_manga() with explicit content_rating override."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.list_manga = AsyncMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.cache.get.return_value = None
+        self.service = MangaService(self.client, self.jikan, self.cache)
+
+    async def test_list_with_content_rating_safe(self):
+        """content_rating=safe — only requests safe from MangaDex."""
+        self.client.list_manga.return_value = {"data": [], "total": 0}
+        await self.service.list_manga(user_age=18, content_rating="safe")
+        self.client.list_manga.assert_awaited_once()
+        _, kwargs = self.client.list_manga.call_args
+        self.assertEqual(kwargs["content_ratings"], ["safe"])
+
+    async def test_list_teen_cannot_escalate_with_all(self):
+        """16yo with content_rating=all — requests only safe+suggestive."""
+        self.client.list_manga.return_value = {"data": [], "total": 0}
+        await self.service.list_manga(user_age=16, content_rating="all")
+        self.client.list_manga.assert_awaited_once()
+        _, kwargs = self.client.list_manga.call_args
+        self.assertEqual(kwargs["content_ratings"], ["safe", "suggestive"])
+
+    async def test_list_with_content_rating_all_caches_separately(self):
+        """Different content_rating values produce different cache keys."""
+        self.client.list_manga.return_value = {"data": [], "total": 0}
+        await self.service.list_manga(user_age=18, content_rating="safe")
+        await self.service.list_manga(user_age=18, content_rating="all")
+        self.assertEqual(self.client.list_manga.call_count, 2)
+
+
 class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
     """T3.4 — get_by_id() with user_age parameter."""
 

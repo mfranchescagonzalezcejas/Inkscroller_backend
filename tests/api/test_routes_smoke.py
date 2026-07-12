@@ -226,6 +226,7 @@ class AppSmokeTests(unittest.TestCase):
                     "order": "latest",
                     "genre": None,
                     "user_age": None,
+                    "content_rating": None,
                 }
             ],
         )
