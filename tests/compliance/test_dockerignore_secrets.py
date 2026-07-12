@@ -49,7 +49,9 @@ def _pattern_positions(
 ) -> dict[str, list[int]]:
     return {
         required_pattern: [
-            index for index, pattern in enumerate(patterns) if pattern == required_pattern
+            index
+            for index, pattern in enumerate(patterns)
+            if pattern == required_pattern
         ]
         for required_pattern in required_patterns
     }

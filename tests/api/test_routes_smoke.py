@@ -123,7 +123,9 @@ class AppSmokeTests(unittest.TestCase):
 
         with TestClient(self.app) as client:
             db = client.app.state.db
-            with patch.object(db, "fetchone", side_effect=Exception("internal db error")):
+            with patch.object(
+                db, "fetchone", side_effect=Exception("internal db error")
+            ):
                 response = client.get("/ready")
 
         self.assertEqual(response.status_code, 503)
@@ -252,7 +254,9 @@ class AppSmokeTests(unittest.TestCase):
             response = client.get("/chapters/manga/manga-77?lang=es")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(fake_service.calls, [{"manga_id": "manga-77", "language": "es"}])
+        self.assertEqual(
+            fake_service.calls, [{"manga_id": "manga-77", "language": "es"}]
+        )
         self.assertEqual(response.json()[0]["id"], "chapter-1")
         self.assertEqual(response.json()[0]["scanlation_group"], "Team Ink")
 
