@@ -156,7 +156,27 @@ pre-commit install --hook-type pre-push
 # Done. From now on, every commit and push runs the gates automatically.
 ```
 
-Hooks are defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
+### AI code review with GGA (optional)
+
+The project also supports [Gentleman Guardian Angel (GGA)](https://github.com/Gentleman-Programming/gentleman-guardian-angel) for AI-powered code review using OpenCode:
+
+```bash
+brew install gentleman-programming/tap/gga       # install
+gga install                                       # enable pre-commit hook
+```
+
+Coding standards for reviews are defined in [`AGENTS.md`](AGENTS.md).
+
+### Full pipeline
+
+```
+git commit
+  ├── GGA — AI code review (OpenCode, local, no rate limits)
+  ├── ruff lint
+  ├── ruff format
+git push
+  └── unit tests (169+)
+```
 
 ---
 
