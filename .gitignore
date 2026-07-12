@@ -39,7 +39,6 @@ htmlcov/
 # Agent tooling
 .atl/
 .engram/
-.gga
 .codegraph/
 .cursor/
 
