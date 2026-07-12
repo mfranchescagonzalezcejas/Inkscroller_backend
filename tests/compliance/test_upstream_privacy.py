@@ -74,7 +74,9 @@ def _flatten_param_names(params: dict) -> set[str]:
 class TestUpstreamPrivacyBehavior(unittest.IsolatedAsyncioTestCase):
     """P0-B7: anti-fragile checks centrados en payload HTTP saliente."""
 
-    def assert_no_pii_in_outbound_params(self, client_name: str, path: str, params: dict):
+    def assert_no_pii_in_outbound_params(
+        self, client_name: str, path: str, params: dict
+    ):
         outbound_keys = _flatten_param_names(params)
         violations = {
             f"{key} contains {keyword}"

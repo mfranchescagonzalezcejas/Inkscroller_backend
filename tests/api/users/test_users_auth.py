@@ -28,7 +28,12 @@ from fastapi.testclient import TestClient
 
 from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
-from app.core.dependencies import get_current_user, get_db, get_manga_service, get_user_age
+from app.core.dependencies import (
+    get_current_user,
+    get_db,
+    get_manga_service,
+    get_user_age,
+)
 from app.core.exceptions import ProfileConflictError
 from app.core.firebase_auth import FirebaseTokenPayload
 from firebase_admin import auth as firebase_auth_sdk

@@ -2,7 +2,7 @@
 
 > **Source of truth for public readers:** this repository (`README`, `docs/PROJECT_STATUS.md`, `docs/DEPLOYMENT.md`)
 > **Repo role:** backend implementation and operational status for the FastAPI service
-> **Last updated:** 2026-06-29 (age-gated content, library CRUD, profile metadata, account deletion)
+> **Last updated:** 2026-07-12 (quality gates, AI code review, pre-commit hooks, GGA)
 
 ---
 
@@ -105,6 +105,14 @@ Production and development custom-domain `/ping` checks return `200 {"ok": true}
 - Smoke tests with DI overrides
 - **Docker** — Multi-stage Dockerfile for Railway/container deployment
 - **PostgreSQL** — production persistence path via `DATABASE_URL`
+
+### Quality Gates & Code Review
+
+- **pre-commit hooks** — ruff lint + ruff format on every commit, unit tests on push
+- **AGENTS.md** — coding standards for AI-assisted code review
+- **GGA (Gentleman Guardian Angel)** — AI code review with OpenCode, runs as pre-commit hook (local, no rate limits)
+- **.coderabbit.yaml** — CodeRabbit configured in CLI-only mode to avoid Fair Usage rate limits
+- **CodeRabbit CLI** — alternative AI review option, run manually with `coderabbit review --base develop`
 
 ### Repo hygiene
 

@@ -9,7 +9,6 @@ Strategy:
 
 import unittest
 from importlib.util import find_spec
-from unittest.mock import AsyncMock
 
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
@@ -95,14 +94,19 @@ class FakeMangaServiceWithAge:
         user_age: int | None = None,
     ) -> dict:
         self.calls.append(
-            {"method": "search", "query": query, "limit": limit, "offset": offset, "user_age": user_age}
+            {
+                "method": "search",
+                "query": query,
+                "limit": limit,
+                "offset": offset,
+                "user_age": user_age,
+            }
         )
         # Simulate MangaDex pagination: slice the full page, then age-filter
         all_results = [dict(m) for m in self.manga_db.values()]
         page = all_results[offset : offset + limit]
         results = [
-            m for m in page
-            if can_access_content(m.get("contentRating"), user_age)
+            m for m in page if can_access_content(m.get("contentRating"), user_age)
         ]
         return {
             "data": results,
@@ -149,8 +153,8 @@ class TestMangaSearchAgeRestriction(unittest.TestCase):
         self.app.dependency_overrides.clear()
 
     def _override(self, user_age=None):
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_user_age] = lambda: user_age
 
@@ -222,8 +226,8 @@ class TestMangaGetAgeRestriction(unittest.TestCase):
         self.app.dependency_overrides.clear()
 
     def _override(self, user_age=None):
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_user_age] = lambda: user_age
 
@@ -332,8 +336,8 @@ class TestMangaListAgeRestriction(unittest.TestCase):
         self.app.dependency_overrides.clear()
 
     def _override(self, user_age=None):
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_user_age] = lambda: user_age
 
@@ -405,8 +409,8 @@ class TestMangaRouteEdgeCases(unittest.TestCase):
 
     def test_search_min_length_still_enforced(self):
         """Query param validation should still work with age dependencies."""
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_user_age] = lambda: None
 
@@ -417,8 +421,8 @@ class TestMangaRouteEdgeCases(unittest.TestCase):
 
     def test_manga_id_trimmed_with_age_check(self):
         """Whitespace in manga_id should be trimmed before age check."""
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_user_age] = lambda: None
 
@@ -435,8 +439,8 @@ class TestMangaRouteEdgeCases(unittest.TestCase):
         returns None (guest/missing birth_date), routes behave identically
         to unauthenticated guests.
         """
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         # Simulate missing birth_date by having get_user_age return None
         self.app.dependency_overrides[get_user_age] = lambda: None

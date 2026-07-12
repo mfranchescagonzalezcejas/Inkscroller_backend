@@ -133,6 +133,53 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
+## Quality Gates
+
+The project uses [pre-commit](https://pre-commit.com) to automatically enforce code quality before commits and pushes — catching issues before they reach CI.
+
+### Gates
+
+| Gate | Trigger | What it checks | Time |
+|------|---------|----------------|------|
+| **ruff lint** | `git commit` | Static analysis, unused imports, common bugs | ~10s |
+| **ruff format** | `git commit` | Code style matches project config | ~5s |
+| **unit tests** | `git push` | All 169+ tests pass | ~60s |
+
+### Developer setup (one-time)
+
+```bash
+# From the project root, with the virtualenv activated:
+python -m pip install pre-commit
+pre-commit install
+pre-commit install --hook-type pre-push
+
+# Done. From now on, every commit and push runs the gates automatically.
+```
+
+### AI code review with GGA (optional)
+
+The project also supports [Gentleman Guardian Angel (GGA)](https://github.com/Gentleman-Programming/gentleman-guardian-angel) for AI-powered code review using OpenCode:
+
+```bash
+brew install gentleman-programming/tap/gga       # install
+gga install                                       # enable pre-commit hook
+```
+
+Coding standards for reviews are defined in [`AGENTS.md`](AGENTS.md).
+
+### Full pipeline
+
+```
+git commit
+  ├── GGA — AI code review (OpenCode, local, no rate limits)
+  ├── ruff lint
+  ├── ruff format
+git push
+  └── unit tests (169+)
+```
+
+---
+
 ## Deployment
 
 Deployed to **Railway** across 3 environments:

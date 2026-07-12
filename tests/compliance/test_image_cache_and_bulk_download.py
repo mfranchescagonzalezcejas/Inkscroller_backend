@@ -43,7 +43,6 @@ from app.core.cache import SimpleCache
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
 from app.services.manga_service import MangaService
-from unittest.mock import AsyncMock
 
 from app.api import chapters as chapters_router_module
 from app.api import manga as manga_router_module
@@ -54,6 +53,7 @@ from app.api import health as health_router_module
 # ---------------------------------------------------------------------------
 # P0-B4 — No binary image caching
 # ---------------------------------------------------------------------------
+
 
 class TestNoBinaryCaching(unittest.TestCase):
     """P0-B4 — El caché solo almacena URLs (strings) y metadatos, no binarios de imagen."""
@@ -74,12 +74,11 @@ class TestNoBinaryCaching(unittest.TestCase):
 
     def test_simple_cache_stores_any_not_bytes(self):
         """SimpleCache acepta Any — verificamos que en uso real nunca se almacenan bytes/bytearray."""
-        cache = SimpleCache(ttl_seconds=300)
-
         # Un valor bytes explícito debería ser el único tipo de dato que violaría B4.
         # Verificamos que el tipo anotado del value en SimpleCache es Any (no bytes),
         # y que el uso productivo en ChapterPagesService almacena un dict de URLs.
         import typing
+
         hints = typing.get_type_hints(SimpleCache.set)
         # El parámetro value es Any — no restringe bytes, pero auditamos todos los
         # callers para confirmar que ninguno pasa bytes (ver tests de callers abajo).
@@ -104,7 +103,9 @@ class TestNoBinaryCaching(unittest.TestCase):
         self.assertEqual(result["external"], False)
         self.assertTrue(result["pages"])
         for page in result["pages"]:
-            self.assertIsInstance(page, str, msg="P0-B4 FAIL — pages must be URL strings.")
+            self.assertIsInstance(
+                page, str, msg="P0-B4 FAIL — pages must be URL strings."
+            )
             self.assertFalse(
                 isinstance(page, (bytes, bytearray)),
                 msg="P0-B4 FAIL — binary page content detected in service response.",
@@ -112,7 +113,9 @@ class TestNoBinaryCaching(unittest.TestCase):
 
         cached = cache.get("pages:chapter-1")
         self.assertEqual(cached, result)
-        self.assertIsInstance(cached, dict, msg="P0-B4 FAIL — cache value must be metadata dict.")
+        self.assertIsInstance(
+            cached, dict, msg="P0-B4 FAIL — cache value must be metadata dict."
+        )
 
     def test_chapter_pages_result_structure_is_urls_only(self):
         """P0-B4 — resultado no legible devuelve externo con pages vacías (sin binarios)."""
@@ -183,10 +186,12 @@ class TestNoBinaryCaching(unittest.TestCase):
         self.assertIsNot(cached, cached_page2)
         self._assert_no_binary_content(cached_page2)
 
-        client.search_manga.assert_has_awaits([
-            call(query="query", limit=1, offset=0),
-            call(query="query", limit=1, offset=1),
-        ])
+        client.search_manga.assert_has_awaits(
+            [
+                call(query="query", limit=1, offset=0),
+                call(query="query", limit=1, offset=1),
+            ]
+        )
 
     def test_chapter_service_caches_metadata_not_images(self):
         """P0-B4 — ChapterService cachea metadatos de capítulos, no binarios."""
@@ -256,16 +261,25 @@ class TestNoBinaryCaching(unittest.TestCase):
             "data": [
                 {
                     "id": "manga-1",
-                    "attributes": {"title": {"en": "Manga"}, "description": {"en": "d"}, "tags": []},
+                    "attributes": {
+                        "title": {"en": "Manga"},
+                        "description": {"en": "d"},
+                        "tags": [],
+                    },
                     "relationships": [],
                 }
             ]
         }
 
-        with patch("builtins.open", side_effect=AssertionError("P0-B4 FAIL — file I/O detected")) as open_mock:
+        with patch(
+            "builtins.open",
+            side_effect=AssertionError("P0-B4 FAIL — file I/O detected"),
+        ) as open_mock:
             pages_service = ChapterPagesService(client=pages_client, cache=cache)
             chapter_service = ChapterService(client=chapter_client, cache=cache)
-            manga_service = MangaService(client=manga_client, jikan=AsyncMock(), cache=cache)
+            manga_service = MangaService(
+                client=manga_client, jikan=AsyncMock(), cache=cache
+            )
 
             pages_result = asyncio.run(pages_service.get_pages("chapter-1"))
             chapters_result = asyncio.run(chapter_service.get_chapters("manga-1"))
@@ -281,7 +295,10 @@ class TestNoBinaryCaching(unittest.TestCase):
         """P0-B4 — contrato de rutas no declara respuestas streaming/file para imágenes."""
         violations = []
 
-        for router_name, module in [("chapters", chapters_router_module), ("manga", manga_router_module)]:
+        for router_name, module in [
+            ("chapters", chapters_router_module),
+            ("manga", manga_router_module),
+        ]:
             router = getattr(module, "router", None)
             if router is None:
                 continue
@@ -290,7 +307,9 @@ class TestNoBinaryCaching(unittest.TestCase):
                     continue
 
                 response_class = route.response_class
-                response_class_name = getattr(response_class, "__name__", "") if response_class else ""
+                response_class_name = (
+                    getattr(response_class, "__name__", "") if response_class else ""
+                )
                 if response_class_name in {"StreamingResponse", "FileResponse"}:
                     violations.append(
                         f"P0-B4 FAIL — {router_name} route '{route.path}' uses {response_class.__name__}."
@@ -299,7 +318,11 @@ class TestNoBinaryCaching(unittest.TestCase):
                 for _, metadata in (route.responses or {}).items():
                     content = (metadata or {}).get("content", {})
                     media_types = {m.lower() for m in content.keys()}
-                    if {"application/octet-stream", "image/jpeg", "image/png"} & media_types:
+                    if {
+                        "application/octet-stream",
+                        "image/jpeg",
+                        "image/png",
+                    } & media_types:
                         violations.append(
                             f"P0-B4 FAIL — {router_name} route '{route.path}' declares binary/image media types: "
                             f"{sorted(media_types)}"
@@ -311,6 +334,7 @@ class TestNoBinaryCaching(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # P0-B5 — No bulk download endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestNoBulkDownloadEndpoint(unittest.TestCase):
     """P0-B5 — No existe ningún endpoint de bulk download de capítulos o imágenes."""
@@ -327,12 +351,14 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
             router = getattr(module, "router", None)
             if router is not None:
                 for route in router.routes:
-                    routes.append({
-                        "module": module_name,
-                        "path": getattr(route, "path", ""),
-                        "methods": getattr(route, "methods", set()),
-                        "name": getattr(route, "name", ""),
-                    })
+                    routes.append(
+                        {
+                            "module": module_name,
+                            "path": getattr(route, "path", ""),
+                            "methods": getattr(route, "methods", set()),
+                            "name": getattr(route, "name", ""),
+                        }
+                    )
         return routes
 
     def test_no_bulk_download_route_exists(self):
@@ -383,11 +409,17 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
                 )
 
             # P0-B5: sin semántica de descarga masiva/archivo.
-            if any(token in path_lower for token in ("download", "bulk", "archive", "export", "zip")):
+            if any(
+                token in path_lower
+                for token in ("download", "bulk", "archive", "export", "zip")
+            ):
                 violations.append(
                     f"P0-B5 FAIL — chapters route '{route.path}' suggests bulk/binary behavior."
                 )
-            if any(token in name_lower for token in ("download", "bulk", "archive", "export", "zip")):
+            if any(
+                token in name_lower
+                for token in ("download", "bulk", "archive", "export", "zip")
+            ):
                 violations.append(
                     f"P0-B5 FAIL — chapters endpoint '{route.name}' suggests bulk/binary behavior."
                 )
@@ -419,7 +451,6 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
 
     def test_no_archive_media_type_or_file_stream_contract(self):
         """P0-B5 — contrato HTTP no expone ZIP/TAR ni respuestas tipo archivo/stream."""
-        routes = self._collect_all_routes()
         archive_media_types = {
             "application/zip",
             "application/x-zip-compressed",
@@ -429,7 +460,12 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
         }
 
         violations = []
-        for module in (chapters_router_module, manga_router_module, users_router_module, health_router_module):
+        for module in (
+            chapters_router_module,
+            manga_router_module,
+            users_router_module,
+            health_router_module,
+        ):
             router = getattr(module, "router", None)
             if router is None:
                 continue
@@ -438,7 +474,9 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
                     continue
 
                 response_class = route.response_class
-                response_class_name = getattr(response_class, "__name__", "") if response_class else ""
+                response_class_name = (
+                    getattr(response_class, "__name__", "") if response_class else ""
+                )
                 if response_class_name in {"StreamingResponse", "FileResponse"}:
                     violations.append(
                         f"P0-B5 FAIL — Route '{route.path}' uses response_class={response_class.__name__}, "
@@ -469,7 +507,9 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
         pages_service.get_pages.return_value = payload
 
         fake_chapter_service = AsyncMock()
-        fake_chapter_service.get_manga_id_for_chapter = AsyncMock(return_value="safe-manga")
+        fake_chapter_service.get_manga_id_for_chapter = AsyncMock(
+            return_value="safe-manga"
+        )
 
         manga_service = AsyncMock()
         manga_service.get_by_id = AsyncMock(
@@ -492,7 +532,11 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
 
         pages_service.get_pages.assert_awaited_once_with("chapter-id")
         self.assertEqual(result, payload)
-        self.assertIsInstance(result["pages"][0], str, msg="P0-B5 FAIL — pages endpoint must return URL strings.")
+        self.assertIsInstance(
+            result["pages"][0],
+            str,
+            msg="P0-B5 FAIL — pages endpoint must return URL strings.",
+        )
 
     def test_mangadex_get_statistics_uses_one_request_per_manga_id_p0_b5(self):
         """P0-B5 — get_statistics confirma por comportamiento que NO hay endpoint bulk."""
@@ -563,7 +607,10 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
 
                 for status_code, metadata in (route.responses or {}).items():
                     headers = (metadata or {}).get("headers", {})
-                    if any(str(header_name).lower() == "content-disposition" for header_name in headers.keys()):
+                    if any(
+                        str(header_name).lower() == "content-disposition"
+                        for header_name in headers.keys()
+                    ):
                         violations.append(
                             f"P0-B5 FAIL — Route '{route.path}' ({module_name}) advertises Content-Disposition "
                             f"on status {status_code}, hinting attachment download."
@@ -571,7 +618,11 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
 
                     content = (metadata or {}).get("content", {})
                     media_types = {str(m).lower() for m in content.keys()}
-                    if any(mt.startswith("application/") and any(k in mt for k in ("zip", "tar", "gzip", "octet-stream")) for mt in media_types):
+                    if any(
+                        mt.startswith("application/")
+                        and any(k in mt for k in ("zip", "tar", "gzip", "octet-stream"))
+                        for mt in media_types
+                    ):
                         violations.append(
                             f"P0-B5 FAIL — Route '{route.path}' ({module_name}) declares binary/archive media type(s): "
                             f"{sorted(media_types)}"
