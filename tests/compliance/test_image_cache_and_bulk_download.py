@@ -164,6 +164,8 @@ class TestNoBinaryCaching(unittest.TestCase):
                 }
             ]
         }
+        # search also fetches statistics now — mock it
+        client.get_statistics = AsyncMock(return_value={"statistics": {}})
 
         service = MangaService(client=client, jikan=jikan, cache=cache)
 
@@ -189,8 +191,8 @@ class TestNoBinaryCaching(unittest.TestCase):
 
         client.search_manga.assert_has_awaits(
             [
-                call(query="query", limit=1, offset=0),
-                call(query="query", limit=1, offset=1),
+                call(query="query", limit=1, offset=0, content_ratings=["safe"]),
+                call(query="query", limit=1, offset=1, content_ratings=["safe"]),
             ]
         )
 
@@ -258,6 +260,7 @@ class TestNoBinaryCaching(unittest.TestCase):
         }
 
         manga_client = AsyncMock()
+        manga_client.get_statistics = AsyncMock(return_value={"statistics": {}})
         manga_client.search_manga.return_value = {
             "data": [
                 {

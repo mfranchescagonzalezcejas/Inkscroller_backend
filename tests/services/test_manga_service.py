@@ -140,6 +140,7 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.client = MagicMock()
         self.client.search_manga = AsyncMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
         self.jikan = MagicMock()
         self.cache = MagicMock()
         self.cache.get.return_value = None
@@ -229,7 +230,7 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.search("test", limit=2, offset=4)
 
         self.client.search_manga.assert_awaited_once_with(
-            query="test", limit=2, offset=4
+            query="test", limit=2, offset=4, content_ratings=["safe"]
         )
         self.assertEqual(result["limit"], 2)
         self.assertEqual(result["offset"], 4)

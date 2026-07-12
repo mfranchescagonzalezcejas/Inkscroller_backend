@@ -25,6 +25,15 @@ class MangaService:
         self._jikan = jikan
         self._cache = cache
 
+    @staticmethod
+    def _age_allowed_content_ratings(user_age: int | None) -> list[str]:
+        """Content ratings the user can access, so we only ask MangaDex for those."""
+        if user_age is None or user_age < 16:
+            return ["safe"]
+        if user_age < 18:
+            return ["safe", "suggestive"]
+        return ["safe", "suggestive", "erotica", "pornographic"]
+
     def _filter_by_age(
         self, manga_list: list[dict], user_age: int | None
     ) -> list[dict]:
@@ -56,7 +65,10 @@ class MangaService:
             return cached
 
         payload = await self._client.search_manga(
-            query=query, limit=limit, offset=offset
+            query=query,
+            limit=limit,
+            offset=offset,
+            content_ratings=self._age_allowed_content_ratings(user_age),
         )
         items = payload.get("data", []) if isinstance(payload, dict) else []
         total_count = payload.get("total", len(items))
@@ -100,7 +112,8 @@ class MangaService:
         genre: str | None = None,
         user_age: int | None = None,
     ):
-        cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}"
+        age_key = "none" if user_age is None else str(user_age)
+        cache_key = f"manga:list:{limit}:{offset}:{title}:{demographic}:{status}:{order}:{genre}:age:{age_key}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -120,6 +133,7 @@ class MangaService:
             status=status,
             order=order,
             included_tags=included_tags,
+            content_ratings=self._age_allowed_content_ratings(user_age),
         )
 
         items = payload.get("data", [])

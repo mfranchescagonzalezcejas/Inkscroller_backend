@@ -12,7 +12,13 @@ class MangaDexClient:
         self.client = client
 
     @with_retry()
-    async def search_manga(self, query: str, limit: int = 5, offset: int = 0):
+    async def search_manga(
+        self,
+        query: str,
+        limit: int = 5,
+        offset: int = 0,
+        content_ratings: list[str] | None = None,
+    ):
         response = await self.client.get(
             "/manga",
             params={
@@ -20,7 +26,7 @@ class MangaDexClient:
                 "limit": limit,
                 "offset": offset,
                 "includes[]": ["cover_art"],
-                "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
+                "contentRating[]": content_ratings or self._ALLOWED_CONTENT_RATINGS,
             },
         )
         response.raise_for_status()
@@ -119,12 +125,13 @@ class MangaDexClient:
         order: str | None = None,
         included_tags: list[str] | None = None,
         order_map: dict[str, str] | None = None,
+        content_ratings: list[str] | None = None,
     ):
         params: dict[str, Any] = {
             "limit": limit,
             "offset": offset,
             "includes[]": ["cover_art"],
-            "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
+            "contentRating[]": content_ratings or self._ALLOWED_CONTENT_RATINGS,
         }
 
         if title:
