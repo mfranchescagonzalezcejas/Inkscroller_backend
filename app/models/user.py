@@ -60,6 +60,7 @@ class ReadingPreferences(BaseModel):
     firebase_uid: str
     default_reader_mode: str = "vertical"
     default_language: str = "en"
+    content_rating_filter: str | None = None
     updated_at: str
 
 
@@ -68,6 +69,7 @@ class UpdatePreferencesRequest(BaseModel):
 
     default_reader_mode: str | None = None
     default_language: str | None = None
+    content_rating_filter: str | None = None
 
 
 class UpdateLibraryStatusRequest(BaseModel):

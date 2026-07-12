@@ -348,7 +348,7 @@ class UserService:
     async def get_preferences(self, firebase_uid: str) -> ReadingPreferences:
         """Return reading preferences, creating defaults on first call."""
         row = await self._db.fetchone(
-            "SELECT firebase_uid, default_reader_mode, default_language, updated_at "
+            "SELECT firebase_uid, default_reader_mode, default_language, content_rating_filter, updated_at "
             "FROM reading_preferences WHERE firebase_uid = ?",
             firebase_uid,
         )
@@ -360,6 +360,7 @@ class UserService:
             firebase_uid=row["firebase_uid"],
             default_reader_mode=row["default_reader_mode"],
             default_language=row["default_language"],
+            content_rating_filter=row["content_rating_filter"],
             updated_at=row["updated_at"],
         )
 
@@ -389,17 +390,25 @@ class UserService:
 
         new_mode = req.default_reader_mode or current.default_reader_mode
         new_lang = req.default_language or current.default_language
+        new_filter = (
+            req.content_rating_filter
+            if req.content_rating_filter is not None
+            else current.content_rating_filter
+        )
 
         await self._db.execute(
-            """INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, updated_at)
-               VALUES (?, ?, ?, ?)
+            """INSERT INTO reading_preferences
+                   (firebase_uid, default_reader_mode, default_language, content_rating_filter, updated_at)
+               VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(firebase_uid) DO UPDATE SET
-                   default_reader_mode = excluded.default_reader_mode,
-                   default_language    = excluded.default_language,
-                   updated_at          = excluded.updated_at""",
+                   default_reader_mode     = excluded.default_reader_mode,
+                   default_language        = excluded.default_language,
+                   content_rating_filter   = excluded.content_rating_filter,
+                   updated_at              = excluded.updated_at""",
             firebase_uid,
             new_mode,
             new_lang,
+            new_filter,
             now,
         )
         await self._db.commit()
@@ -408,6 +417,7 @@ class UserService:
             firebase_uid=firebase_uid,
             default_reader_mode=new_mode,
             default_language=new_lang,
+            content_rating_filter=new_filter,
             updated_at=now,
         )
 
@@ -528,8 +538,8 @@ class UserService:
     ) -> ReadingPreferences:
         now = _utc_now()
         await self._db.execute(
-            "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, updated_at) "
-            "VALUES (?, 'vertical', 'en', ?)",
+            "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, content_rating_filter, updated_at) "
+            "VALUES (?, 'vertical', 'en', NULL, ?)",
             firebase_uid,
             now,
         )
@@ -538,5 +548,6 @@ class UserService:
             firebase_uid=firebase_uid,
             default_reader_mode="vertical",
             default_language="en",
+            content_rating_filter=None,
             updated_at=now,
         )

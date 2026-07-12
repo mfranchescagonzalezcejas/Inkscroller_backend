@@ -34,10 +34,11 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
-    firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
-    default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
-    default_language     TEXT    NOT NULL DEFAULT 'en',
-    updated_at           TEXT    NOT NULL
+    firebase_uid            TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
+    default_reader_mode     TEXT    NOT NULL DEFAULT 'vertical',
+    default_language        TEXT    NOT NULL DEFAULT 'en',
+    content_rating_filter   TEXT,
+    updated_at              TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_library (
@@ -77,10 +78,11 @@ ON users(username)
 WHERE username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
-    firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
-    default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
-    default_language     TEXT    NOT NULL DEFAULT 'en',
-    updated_at           TEXT    NOT NULL
+    firebase_uid            TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
+    default_reader_mode     TEXT    NOT NULL DEFAULT 'vertical',
+    default_language        TEXT    NOT NULL DEFAULT 'en',
+    content_rating_filter   TEXT,
+    updated_at              TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_library (
@@ -170,6 +172,15 @@ async def _migrate_sqlite_columns(conn: object) -> None:
     for col, ddl in migrations:
         if col not in columns:
             await conn.execute(ddl)
+
+    # Ponytail: additive migration for reading_preferences.content_rating_filter
+    async with conn.execute("PRAGMA table_info(reading_preferences)") as cursor:
+        rows = await cursor.fetchall()
+    prefs_columns = {row["name"] for row in rows}
+    if "content_rating_filter" not in prefs_columns:
+        await conn.execute(
+            "ALTER TABLE reading_preferences ADD COLUMN content_rating_filter TEXT"
+        )
 
     await conn.execute(
         "UPDATE user_library "
