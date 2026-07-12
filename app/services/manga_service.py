@@ -9,7 +9,7 @@ from app.services.manga_mapper import map_mangadex_manga, apply_statistics
 from app.services.jikan_mapper import map_jikan_detail
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.core.config import settings
-from app.core.age import can_access_content
+from app.core.age import can_access_content, can_access_demographic
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,18 @@ class MangaService:
     def _filter_by_age(
         self, manga_list: list[dict], user_age: int | None
     ) -> list[dict]:
-        """Filter out manga that the user cannot access due to age restrictions."""
-        if user_age is None:
-            # Guest or missing birth_date: only safe content
-            return [m for m in manga_list if m.get("contentRating") == "safe"]
+        """Filter out manga that the user cannot access due to age restrictions.
+
+        Applies two gates:
+        1. Demographic: content without publication demographic (doujinshi/self-published)
+           is restricted to registered adults (18+).
+        2. Content rating: age-gating per content rating (safe/suggestive/erotica/pornographic).
+        """
         return [
             m
             for m in manga_list
-            if can_access_content(m.get("contentRating"), user_age)
+            if can_access_demographic(m.get("demographic"), user_age)
+            and can_access_content(m.get("contentRating"), user_age)
         ]
 
     async def search(

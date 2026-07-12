@@ -28,10 +28,15 @@ def _make_manga(manga_id: str, content_rating: str | None = None) -> dict:
     }
 
 
-def _raw_mangadex_item(manga_id: str, content_rating: str | None = None) -> dict:
+def _raw_mangadex_item(
+    manga_id: str,
+    content_rating: str | None = None,
+    demographic: str = "shounen",
+) -> dict:
     """Build a raw MangaDex API item (as returned by the client)."""
     attrs: dict = {
         "title": {"en": f"Manga {manga_id}"},
+        "publicationDemographic": demographic,
         "tags": [],
     }
     if content_rating is not None:
@@ -54,27 +59,50 @@ class TestFilterByAge(unittest.TestCase):
 
     def test_filter_by_age_guest(self):
         manga_list = [
-            {"id": "1", "contentRating": "safe"},
-            {"id": "2", "contentRating": "suggestive"},
-            {"id": "3", "contentRating": None},
+            {"id": "1", "contentRating": "safe", "demographic": "shounen"},
+            {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
+            {"id": "3", "contentRating": None, "demographic": "shounen"},
+            {"id": "4", "contentRating": "safe", "demographic": None},  # doujinshi
         ]
         result = self.service._filter_by_age(manga_list, None)
-        self.assertEqual(len(result), 1)
+        self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["id"], "1")
+        self.assertEqual(result[1]["id"], "3")
 
     def test_filter_by_age_16(self):
         manga_list = [
-            {"id": "1", "contentRating": "safe"},
-            {"id": "2", "contentRating": "suggestive"},
-            {"id": "3", "contentRating": None},
+            {"id": "1", "contentRating": "safe", "demographic": "shounen"},
+            {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
+            {"id": "3", "contentRating": None, "demographic": "shounen"},
+            {"id": "4", "contentRating": "safe", "demographic": None},  # doujinshi
         ]
         result = self.service._filter_by_age(manga_list, 16)
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0]["id"], "1")
+        self.assertEqual(result[1]["id"], "2")
+        self.assertEqual(result[2]["id"], "3")
+
+    def test_filter_by_age_18_with_doujinshi(self):
+        manga_list = [
+            {"id": "1", "contentRating": "safe", "demographic": "shounen"},
+            {
+                "id": "2",
+                "contentRating": "suggestive",
+                "demographic": None,
+            },  # doujinshi
+            {
+                "id": "3",
+                "contentRating": "erotica",
+                "demographic": None,
+            },  # doujinshi 18+
+        ]
+        result = self.service._filter_by_age(manga_list, 18)
         self.assertEqual(len(result), 3)
 
     def test_filter_by_age_12(self):
         manga_list = [
-            {"id": "1", "contentRating": "safe"},
-            {"id": "2", "contentRating": "suggestive"},
+            {"id": "1", "contentRating": "safe", "demographic": "shounen"},
+            {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
         ]
         result = self.service._filter_by_age(manga_list, 12)
         self.assertEqual(len(result), 1)
@@ -86,21 +114,21 @@ class TestFilterByAge(unittest.TestCase):
 
     def test_filter_by_age_erotica_guest(self):
         manga_list = [
-            {"id": "1", "contentRating": "erotica"},
+            {"id": "1", "contentRating": "erotica", "demographic": "shounen"},
         ]
         result = self.service._filter_by_age(manga_list, None)
         self.assertEqual(len(result), 0)
 
     def test_filter_by_age_erotica_18(self):
         manga_list = [
-            {"id": "1", "contentRating": "erotica"},
+            {"id": "1", "contentRating": "erotica", "demographic": "shounen"},
         ]
         result = self.service._filter_by_age(manga_list, 18)
         self.assertEqual(len(result), 1)
 
     def test_filter_by_age_erotica_17(self):
         manga_list = [
-            {"id": "1", "contentRating": "erotica"},
+            {"id": "1", "contentRating": "erotica", "demographic": "shounen"},
         ]
         result = self.service._filter_by_age(manga_list, 17)
         self.assertEqual(len(result), 0)
@@ -166,6 +194,29 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.search("test", user_age=None)
         self.assertEqual(len(result["data"]), 1)
         self.assertEqual(result["data"][0]["id"], "1")
+
+    async def test_search_guest_filters_doujinshi(self):
+        """Guest (user_age=None) does NOT see content without demographic."""
+        raw_items = [
+            _raw_mangadex_item("1", "safe", "shounen"),
+            _raw_mangadex_item("2", "safe", None),  # doujinshi
+        ]
+        self.client.search_manga.return_value = {"data": raw_items, "total": 2}
+
+        result = await self.service.search("test", user_age=None)
+        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(result["data"][0]["id"], "1")
+
+    async def test_search_18_sees_doujinshi(self):
+        """User 18+ sees doujinshi content."""
+        raw_items = [
+            _raw_mangadex_item("1", "safe", "shounen"),
+            _raw_mangadex_item("2", "safe", None),  # doujinshi
+        ]
+        self.client.search_manga.return_value = {"data": raw_items, "total": 2}
+
+        result = await self.service.search("test", user_age=18)
+        self.assertEqual(len(result["data"]), 2)
 
     async def test_search_forwards_limit_offset_to_client(self):
         """search forwards explicit limit/offset to MangaDex client."""
@@ -253,8 +304,9 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
             "total": 3,
         }
 
+        # safe + None (no rating = allowed) pass; suggestive blocked; all have demographic
         result = await self.service.list_manga(user_age=None)
-        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(len(result["data"]), 2)
         self.assertEqual(result["total"], 3)
 
 

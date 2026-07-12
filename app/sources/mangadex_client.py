@@ -20,6 +20,7 @@ class MangaDexClient:
                 "limit": limit,
                 "offset": offset,
                 "includes[]": ["cover_art"],
+                "order[relevance]": "desc",
                 "contentRating[]": self._ALLOWED_CONTENT_RATINGS,
             },
         )
