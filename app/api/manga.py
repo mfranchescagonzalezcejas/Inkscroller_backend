@@ -152,7 +152,7 @@ async def list_manga(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     title: str | None = None,
-    demographic: str | None = None,
+    demographic: list[str] | None = Query(None),
     status: str | None = None,
     order: str | None = None,
     order_followed_count: str | None = Query(None, alias="order[followedCount]"),

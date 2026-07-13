@@ -120,7 +120,7 @@ class MangaDexClient:
         limit: int,
         offset: int,
         title: str | None = None,
-        demographic: str | None = None,
+        demographic: list[str] | None = None,
         status: str | None = None,
         order: str | None = None,
         included_tags: list[str] | None = None,

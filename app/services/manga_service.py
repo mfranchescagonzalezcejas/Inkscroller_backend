@@ -142,7 +142,7 @@ class MangaService:
         limit: int = 20,
         offset: int = 0,
         title: str | None = None,
-        demographic: str | None = None,
+        demographic: list[str] | None = None,
         status: str | None = None,
         order: str | None = None,
         genre: str | None = None,
