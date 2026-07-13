@@ -18,7 +18,7 @@ class MangaDexClient:
         limit: int = 5,
         offset: int = 0,
         content_ratings: list[str] | None = None,
-    ):
+    ) -> dict[str, Any]:
         response = await self.client.get(
             "/manga",
             params={
@@ -33,7 +33,7 @@ class MangaDexClient:
         return response.json()
 
     @with_retry()
-    async def get_manga(self, manga_id: str):
+    async def get_manga(self, manga_id: str) -> dict[str, Any]:
         response = await self.client.get(
             f"/manga/{manga_id}",
             params={
@@ -49,7 +49,7 @@ class MangaDexClient:
         manga_id: str,
         language: str = "en",
         limit: int = 100,
-    ):
+    ) -> dict[str, Any]:
         response = await self.client.get(
             "/chapter",
             params={
@@ -68,7 +68,9 @@ class MangaDexClient:
         return response.json()
 
     @with_retry()
-    async def get_latest_chapters(self, language: str = "en", limit: int = 10):
+    async def get_latest_chapters(
+        self, language: str = "en", limit: int = 10
+    ) -> dict[str, Any]:
         response = await self.client.get(
             "/chapter",
             params={
@@ -84,7 +86,7 @@ class MangaDexClient:
         return response.json()
 
     @with_retry()
-    async def get_manga_list_by_ids(self, manga_ids: list[str]):
+    async def get_manga_list_by_ids(self, manga_ids: list[str]) -> dict[str, Any]:
         if not manga_ids:
             return {"data": []}
 
@@ -126,7 +128,7 @@ class MangaDexClient:
         included_tags: list[str] | None = None,
         order_map: dict[str, str] | None = None,
         content_ratings: list[str] | None = None,
-    ):
+    ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "limit": limit,
             "offset": offset,

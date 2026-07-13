@@ -20,7 +20,7 @@ class MangaService:
         client: MangaDexClient,
         jikan: JikanClient,
         cache: SimpleCache,
-    ):
+    ) -> None:
         self._client = client
         self._jikan = jikan
         self._cache = cache
@@ -92,7 +92,7 @@ class MangaService:
         offset: int = 0,
         user_age: int | None = None,
         content_rating: str | None = None,
-    ):
+    ) -> dict:
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
         cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}"
@@ -148,7 +148,7 @@ class MangaService:
         genre: str | None = None,
         user_age: int | None = None,
         content_rating: str | None = None,
-    ):
+    ) -> dict:
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
         cache_key = (
@@ -218,7 +218,7 @@ class MangaService:
         manga_id: str,
         user_age: int | None = None,
         skip_age_filter: bool = False,
-    ):
+    ) -> dict | None:
         cache_key = f"manga:{manga_id}"
         cached = self._cache.get(cache_key)
 

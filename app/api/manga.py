@@ -11,7 +11,7 @@ router = APIRouter(prefix="/manga", tags=["Manga"])
 
 
 @router.get("/tags")
-async def list_tags(request: Request):
+async def list_tags(request: Request) -> dict:
     """
     Returns all available tags from MangaDex, grouped by type.
 
@@ -82,7 +82,7 @@ async def list_tags(request: Request):
     return grouped
 
 
-def _fallback_tags():
+def _fallback_tags() -> list[dict]:
     """Fallback if MangaDex API is unreachable."""
     return [
         {"id": "423e2eae-a7a2-4a8b-ac03-a8351462d71d", "name": "Romance"},
@@ -91,7 +91,7 @@ def _fallback_tags():
 
 
 @router.get("/genres")
-async def list_genres():
+async def list_genres() -> dict:
     """Returns available genre tags for filtering (legacy endpoint)."""
     return {"genres": list(GENRE_TAG_UUIDS.keys())}
 
@@ -104,7 +104,7 @@ async def search_manga(
     content_rating: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-):
+) -> dict:
     """Search manga by title, filtering results by the caller's age.
 
     When ``content_rating`` is provided (safe/suggestive/all), it overrides
@@ -163,7 +163,7 @@ async def list_manga(
     content_rating: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-):
+) -> dict:
     """Return a paginated manga list, filtering results by the caller's age.
 
     When ``content_rating`` is provided (safe/suggestive/all), it overrides
