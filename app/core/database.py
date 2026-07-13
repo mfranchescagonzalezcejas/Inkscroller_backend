@@ -61,6 +61,14 @@ CREATE TABLE IF NOT EXISTS user_pending_deletions (
 );
 """
 
+# ── Additive PostgreSQL migrations ─────────────────────────────────────────────
+# These run after the base DDL to add columns that were introduced in later
+# schema versions. PostgreSQL's ADD COLUMN IF NOT EXISTS is idempotent.
+_POSTGRES_MIGRATIONS = [
+    "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS content_rating_filter TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS content_rating TEXT",
+]
+
 _POSTGRES_DDL = """
 CREATE TABLE IF NOT EXISTS users (
     firebase_uid  TEXT    PRIMARY KEY,
@@ -241,6 +249,10 @@ async def _init_postgres() -> DatabaseAdapter:
                 s = stmt.strip()
                 if s:
                     await conn.execute(s)
+
+            # ── Additive migrations for columns added after the initial DDL ──
+            for migration in _POSTGRES_MIGRATIONS:
+                await conn.execute(migration)
 
     return PostgresAdapter(pool)
 

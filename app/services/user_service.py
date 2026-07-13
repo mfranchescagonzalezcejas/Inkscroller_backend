@@ -26,6 +26,7 @@ from app.models.user import (
 
 _VALID_READER_MODES = frozenset({"vertical", "paged"})
 _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it", "ja", "ko", "zh"})
+_VALID_CONTENT_RATINGS = frozenset({"safe", "suggestive", "all"})
 _VALID_LIBRARY_STATUSES = frozenset({"reading", "completed", "paused"})
 
 logger = logging.getLogger(__name__)
@@ -383,6 +384,14 @@ class UserService:
             raise PreferencesValidationError(
                 f"Invalid language '{req.default_language}'. "
                 f"Accepted values: {sorted(_VALID_LANGUAGES)}."
+            )
+        if (
+            req.content_rating_filter is not None
+            and req.content_rating_filter not in _VALID_CONTENT_RATINGS
+        ):
+            raise PreferencesValidationError(
+                f"Invalid content rating filter '{req.content_rating_filter}'. "
+                f"Accepted values: {sorted(_VALID_CONTENT_RATINGS)}."
             )
 
         current = await self.get_preferences(firebase_uid)
