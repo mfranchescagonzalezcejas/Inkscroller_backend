@@ -306,6 +306,7 @@ class UsersEndpointTests(unittest.TestCase):
                     firebase_uid TEXT PRIMARY KEY REFERENCES users(firebase_uid),
                     default_reader_mode TEXT NOT NULL DEFAULT 'vertical',
                     default_language TEXT NOT NULL DEFAULT 'en',
+                    content_rating_filter TEXT,
                     updated_at TEXT NOT NULL
                 )"""
             )
@@ -520,6 +521,32 @@ class UsersEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["default_reader_mode"], "paged")
+
+    def test_update_preferences_with_content_rating_filter(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            response = client.put(
+                "/users/me/preferences",
+                json={"content_rating_filter": "safe"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["content_rating_filter"], "safe")
+
+    def test_update_preferences_invalid_content_rating_returns_422(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            response = client.put(
+                "/users/me/preferences",
+                json={"content_rating_filter": "invalid"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 422)
 
     # -- Auth rejection -------------------------------------------------------
 

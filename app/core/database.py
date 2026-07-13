@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS reading_preferences (
     firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
     default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
     default_language     TEXT    NOT NULL DEFAULT 'en',
+    content_rating_filter TEXT,
     updated_at           TEXT    NOT NULL
 );
 
@@ -77,10 +78,11 @@ ON users(username)
 WHERE username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
-    firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
-    default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
-    default_language     TEXT    NOT NULL DEFAULT 'en',
-    updated_at           TEXT    NOT NULL
+    firebase_uid          TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
+    default_reader_mode   TEXT    NOT NULL DEFAULT 'vertical',
+    default_language      TEXT    NOT NULL DEFAULT 'en',
+    content_rating_filter TEXT,
+    updated_at            TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_library (
@@ -148,6 +150,19 @@ async def _migrate_sqlite_columns(conn: object) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique "
         "ON users(username) WHERE username IS NOT NULL"
     )
+
+    async with conn.execute("PRAGMA table_info(reading_preferences)") as cursor:
+        rows = await cursor.fetchall()
+    prefs_columns = {row["name"] for row in rows}
+    prefs_migrations = [
+        (
+            "content_rating_filter",
+            "ALTER TABLE reading_preferences ADD COLUMN content_rating_filter TEXT",
+        ),
+    ]
+    for col, ddl in prefs_migrations:
+        if col not in prefs_columns:
+            await conn.execute(ddl)
 
     async with conn.execute("PRAGMA table_info(user_library)") as cursor:
         rows = await cursor.fetchall()
