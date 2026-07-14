@@ -429,6 +429,13 @@ class TestSearchWithContentRating(unittest.IsolatedAsyncioTestCase):
         # Two different cache keys — both called
         self.assertEqual(self.client.search_manga.call_count, 2)
 
+    async def test_search_different_demographics_produce_different_cache_keys(self):
+        """Different demographic filters produce different cache keys — P1 fix."""
+        self.client.search_manga.return_value = {"data": [], "total": 0}
+        await self.service.search("test", user_age=18, demographic=["seinen"])
+        await self.service.search("test", user_age=18, demographic=["josei"])
+        self.assertEqual(self.client.search_manga.call_count, 2)
+
 
 class TestListMangaWithContentRating(unittest.IsolatedAsyncioTestCase):
     """list_manga() with explicit content_rating override."""
@@ -599,6 +606,22 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
                 user_age=18,
                 demographic=["unspecified"],
                 cursor=f"{snapshot_id}:0",
+            )
+
+    async def test_cursor_without_unspecified_raises_value_error(self):
+        """Cursor in non-union path raises ValueError — P2 fix."""
+        self.client.list_manga.return_value = {"data": [], "total": 0}
+        with self.assertRaises(ValueError):
+            await self.service.list_manga(
+                limit=1, user_age=18, demographic=["seinen"], cursor="some-cursor"
+            )
+
+    async def test_search_cursor_without_unspecified_raises_value_error(self):
+        """Search cursor in non-union path raises ValueError — P2 fix."""
+        self.client.search_manga.return_value = {"data": [], "total": 0}
+        with self.assertRaises(ValueError):
+            await self.service.search(
+                "test", limit=1, user_age=18, demographic=["seinen"], cursor="some-cursor"
             )
 
     async def test_union_preserves_genre_and_initial_offset(self):

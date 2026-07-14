@@ -28,6 +28,7 @@ _VALID_READER_MODES = frozenset({"vertical", "paged"})
 _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it", "ja", "ko", "zh"})
 _VALID_CONTENT_RATINGS = frozenset({"safe", "suggestive", "all"})
 _VALID_LIBRARY_STATUSES = frozenset({"reading", "completed", "paused"})
+_VALID_DEMOGRAPHICS = frozenset({"shounen", "shoujo", "seinen", "josei", "unspecified"})
 
 logger = logging.getLogger(__name__)
 
@@ -397,6 +398,14 @@ class UserService:
                 f"Invalid content rating filter '{req.content_rating_filter}'. "
                 f"Accepted values: {sorted(_VALID_CONTENT_RATINGS)}."
             )
+
+        if req.demographic_filter is not None:
+            invalid = [d for d in req.demographic_filter if d not in _VALID_DEMOGRAPHICS]
+            if invalid:
+                raise PreferencesValidationError(
+                    f"Invalid demographic values: {invalid}. "
+                    f"Accepted values: {sorted(_VALID_DEMOGRAPHICS)}."
+                )
 
         current = await self.get_preferences(firebase_uid)
         now = _utc_now()

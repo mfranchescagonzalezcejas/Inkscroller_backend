@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class MangaService:
-    _CURSOR_SECRET = b"inkscroller-manga-cursor-v1"
 
     def __init__(
         self,
@@ -110,7 +109,7 @@ class MangaService:
     @classmethod
     def _cursor_token(cls, snapshot_id: str, offset: int, fingerprint: str) -> str:
         payload = f"{snapshot_id}:{offset}:{fingerprint}".encode()
-        signature = hmac.new(cls._CURSOR_SECRET, payload, hashlib.sha256).hexdigest()
+        signature = hmac.new(settings.cursor_secret.encode(), payload, hashlib.sha256).hexdigest()
         return f"{snapshot_id}:{offset}:{signature}"
 
     def _cursor_page(self, cursor: str, limit: int, fingerprint: str) -> dict:
@@ -235,9 +234,12 @@ class MangaService:
                 user_age,
             )
             return self._snapshot_page(items, limit, offset, fingerprint)
+        if cursor is not None:
+            raise ValueError("Cursor does not match this request")
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
-        cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}"
+        demo_key = ":".join(sorted(demographic)) if demographic else "none"
+        cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}:demo:{demo_key}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -321,10 +323,13 @@ class MangaService:
                 user_age,
             )
             return self._snapshot_page(items, limit, offset, fingerprint)
+        if cursor is not None:
+            raise ValueError("Cursor does not match this request")
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
+        demo_key = ":".join(sorted(demographic)) if demographic else "none"
         cache_key = (
-            f"manga:list:{limit}:{offset}:{title}:{demographic}:"
+            f"manga:list:{limit}:{offset}:{title}:{demo_key}:"
             f"{status}:{order}:{genre}:age:{age_key}:cr:{cr_key}"
         )
         cached = self._cache.get(cache_key)

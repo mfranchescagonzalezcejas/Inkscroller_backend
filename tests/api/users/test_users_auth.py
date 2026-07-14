@@ -588,6 +588,18 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["demographic_filter"], ["shounen"])
 
+    def test_update_preferences_rejects_invalid_demographic(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            response = client.put(
+                "/users/me/preferences",
+                json={"demographic_filter": ["unknown", "shounen"]},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 422)
+
     # -- Auth rejection -------------------------------------------------------
 
     def test_missing_token_returns_401(self):
