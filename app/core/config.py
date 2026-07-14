@@ -69,7 +69,9 @@ class Settings:
         self.firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
 
         # ── Cursor signing key ────────────────────────────────────────
-        self.cursor_secret: str = os.getenv("CURSOR_SECRET", "inkscroller-manga-cursor-v1")
+        self.cursor_secret: str = os.getenv(
+            "CURSOR_SECRET", "inkscroller-manga-cursor-v1"
+        )
 
         # ── Database ──────────────────────────────────────────────────
         # SQLite (local dev): set DB_PATH or leave default.

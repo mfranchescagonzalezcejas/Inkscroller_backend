@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class MangaService:
-
     def __init__(
         self,
         client: MangaDexClient,
@@ -109,7 +108,9 @@ class MangaService:
     @classmethod
     def _cursor_token(cls, snapshot_id: str, offset: int, fingerprint: str) -> str:
         payload = f"{snapshot_id}:{offset}:{fingerprint}".encode()
-        signature = hmac.new(settings.cursor_secret.encode(), payload, hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            settings.cursor_secret.encode(), payload, hashlib.sha256
+        ).hexdigest()
         return f"{snapshot_id}:{offset}:{signature}"
 
     def _cursor_page(self, cursor: str, limit: int, fingerprint: str) -> dict:
@@ -239,7 +240,9 @@ class MangaService:
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
         demo_key = ":".join(sorted(demographic)) if demographic else "none"
-        cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}:demo:{demo_key}"
+        cache_key = (
+            f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}:demo:{demo_key}"
+        )
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached

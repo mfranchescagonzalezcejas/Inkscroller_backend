@@ -400,7 +400,9 @@ class UserService:
             )
 
         if req.demographic_filter is not None:
-            invalid = [d for d in req.demographic_filter if d not in _VALID_DEMOGRAPHICS]
+            invalid = [
+                d for d in req.demographic_filter if d not in _VALID_DEMOGRAPHICS
+            ]
             if invalid:
                 raise PreferencesValidationError(
                     f"Invalid demographic values: {invalid}. "
