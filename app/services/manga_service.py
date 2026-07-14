@@ -59,8 +59,12 @@ class MangaService:
         fetches: list,
         demographics: list[str],
         user_age: int | None,
+        max_offset: int = 5000,
     ) -> list[dict]:
-        """Build the complete authorized union before exposing its first page."""
+        """Build the complete authorized union before exposing its first page.
+
+        Scans up to ``max_offset`` items per fetch to limit upstream requests.
+        """
         merged: dict[str, dict] = {}
         for fetch in fetches:
             offset = 0
@@ -76,7 +80,11 @@ class MangaService:
                     ) and manga["id"] not in merged:
                         merged[manga["id"]] = manga
                 offset += len(raw_items)
-                if not raw_items or offset >= payload.get("total", offset):
+                if (
+                    not raw_items
+                    or offset >= payload.get("total", offset)
+                    or offset >= max_offset
+                ):
                     break
         return list(merged.values())
 
