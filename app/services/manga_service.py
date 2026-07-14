@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class MangaService:
     _CURSOR_SECRET = b"inkscroller-manga-cursor-v1"
+
     def __init__(
         self,
         client: MangaDexClient,
@@ -37,14 +38,20 @@ class MangaService:
             manga.get("demographic") is None and "unspecified" in demographics
         ) or manga.get("demographic") in demographics
 
-    async def _map_and_filter(self, items: list[dict], user_age: int | None) -> list[dict]:
+    async def _map_and_filter(
+        self, items: list[dict], user_age: int | None
+    ) -> list[dict]:
         """Map MangaDex items and apply the existing age gates once."""
         result = [map_mangadex_manga(item) for item in items]
         if result:
             try:
-                statistics = await self._client.get_statistics([manga["id"] for manga in result])
+                statistics = await self._client.get_statistics(
+                    [manga["id"] for manga in result]
+                )
                 for manga in result:
-                    apply_statistics(manga, statistics.get("statistics", {}).get(manga["id"], {}))
+                    apply_statistics(
+                        manga, statistics.get("statistics", {}).get(manga["id"], {})
+                    )
             except Exception:
                 logger.warning("Failed to fetch manga statistics", exc_info=True)
         return self._filter_by_age(result, user_age)
@@ -64,7 +71,10 @@ class MangaService:
             raw_items = payload.get("data", []) if isinstance(payload, dict) else []
             mapped = await self._map_and_filter(raw_items, user_age)
             for manga in mapped:
-                if self._matches_demographic(manga, demographics) and manga["id"] not in seen:
+                if (
+                    self._matches_demographic(manga, demographics)
+                    and manga["id"] not in seen
+                ):
                     seen.add(manga["id"])
                     matched.append(manga)
             offset += len(raw_items)
@@ -116,7 +126,9 @@ class MangaService:
             raise ValueError("Unknown snapshot cursor") from None
         if saved_fingerprint != fingerprint:
             raise ValueError("Snapshot cursor does not match this request")
-        expected = self._cursor_token(snapshot_id, offset, fingerprint).rsplit(":", 1)[1]
+        expected = self._cursor_token(snapshot_id, offset, fingerprint).rsplit(":", 1)[
+            1
+        ]
         if not hmac.compare_digest(signature, expected):
             raise ValueError("Invalid snapshot cursor")
         page = items[offset : offset + limit]
@@ -214,7 +226,9 @@ class MangaService:
                     query=query,
                     limit=100,
                     offset=page_offset,
-                    content_ratings=self._resolve_content_ratings(user_age, content_rating),
+                    content_ratings=self._resolve_content_ratings(
+                        user_age, content_rating
+                    ),
                     demographic=None,
                 ),
                 demographic,
@@ -299,7 +313,9 @@ class MangaService:
                     status=status,
                     order=order,
                     included_tags=included_tags,
-                    content_ratings=self._resolve_content_ratings(user_age, content_rating),
+                    content_ratings=self._resolve_content_ratings(
+                        user_age, content_rating
+                    ),
                 ),
                 demographic,
                 user_age,

@@ -20,7 +20,9 @@ def _validate_demographics(
     if any(token not in _SUPPORTED_DEMOGRAPHICS for token in demographics):
         raise HTTPException(status_code=422, detail="Unsupported demographic")
     if "unspecified" in demographics and (user_age is None or user_age < 18):
-        raise HTTPException(status_code=403, detail="Unspecified demographic requires 18+")
+        raise HTTPException(
+            status_code=403, detail="Unspecified demographic requires 18+"
+        )
     return list(dict.fromkeys(demographics))
 
 
