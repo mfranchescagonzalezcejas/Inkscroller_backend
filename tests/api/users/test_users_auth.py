@@ -492,6 +492,19 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(data["default_reader_mode"], "vertical")
         self.assertEqual(data["default_language"], "en")
 
+    def test_get_preferences_returns_null_demographic_filter_on_first_request(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/users/me/preferences",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsNone(data.get("demographic_filter"))
+
     # -- PUT /users/me/preferences --------------------------------------------
 
     def test_update_preferences_persists_and_returns_updated_values(self):
@@ -509,6 +522,20 @@ class UsersEndpointTests(unittest.TestCase):
         self.assertEqual(data["default_reader_mode"], "paged")
         self.assertEqual(data["default_language"], "es")
 
+    def test_update_preferences_persists_demographic_filter(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            response = client.put(
+                "/users/me/preferences",
+                json={"demographic_filter": ["shounen", "shoujo"]},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["demographic_filter"], ["shounen", "shoujo"])
+
     def test_update_preferences_subsequent_get_returns_updated_values(self):
         asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
 
@@ -525,6 +552,41 @@ class UsersEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["default_reader_mode"], "paged")
+
+    def test_update_demographic_filter_subsequent_get_returns_same_value(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            client.put(
+                "/users/me/preferences",
+                json={"demographic_filter": ["seinen", "josei"]},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.get(
+                "/users/me/preferences",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["demographic_filter"], ["seinen", "josei"])
+
+    def test_update_preferences_without_demographic_filter_preserves_existing(self):
+        asyncio.run(UserService(self.db).get_or_create_user(_FAKE_PAYLOAD))
+
+        with TestClient(self.app) as client:
+            client.put(
+                "/users/me/preferences",
+                json={"demographic_filter": ["shounen"]},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.put(
+                "/users/me/preferences",
+                json={"default_reader_mode": "paged"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["demographic_filter"], ["shounen"])
 
     # -- Auth rejection -------------------------------------------------------
 

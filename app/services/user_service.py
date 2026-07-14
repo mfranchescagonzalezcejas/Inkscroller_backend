@@ -349,7 +349,7 @@ class UserService:
     async def get_preferences(self, firebase_uid: str) -> ReadingPreferences:
         """Return reading preferences, creating defaults on first call."""
         row = await self._db.fetchone(
-            "SELECT firebase_uid, default_reader_mode, default_language, content_rating_filter, updated_at "
+            "SELECT firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at "
             "FROM reading_preferences WHERE firebase_uid = ?",
             firebase_uid,
         )
@@ -357,11 +357,15 @@ class UserService:
         if row is None:
             return await self._create_default_preferences(firebase_uid)
 
+        demographic = (
+            json.loads(row["demographic_filter"]) if row["demographic_filter"] else None
+        )
         return ReadingPreferences(
             firebase_uid=row["firebase_uid"],
             default_reader_mode=row["default_reader_mode"],
             default_language=row["default_language"],
             content_rating_filter=row["content_rating_filter"],
+            demographic_filter=demographic,
             updated_at=row["updated_at"],
         )
 
@@ -404,20 +408,30 @@ class UserService:
             if req.content_rating_filter is not None
             else current.content_rating_filter
         )
+        new_demographic = (
+            req.demographic_filter
+            if req.demographic_filter is not None
+            else current.demographic_filter
+        )
+        demographic_json = (
+            json.dumps(new_demographic) if new_demographic is not None else None
+        )
 
         await self._db.execute(
             """INSERT INTO reading_preferences
-                   (firebase_uid, default_reader_mode, default_language, content_rating_filter, updated_at)
-               VALUES (?, ?, ?, ?, ?)
+                   (firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(firebase_uid) DO UPDATE SET
                    default_reader_mode     = excluded.default_reader_mode,
                    default_language        = excluded.default_language,
                    content_rating_filter   = excluded.content_rating_filter,
+                   demographic_filter      = excluded.demographic_filter,
                    updated_at              = excluded.updated_at""",
             firebase_uid,
             new_mode,
             new_lang,
             new_filter,
+            demographic_json,
             now,
         )
         await self._db.commit()
@@ -427,6 +441,7 @@ class UserService:
             default_reader_mode=new_mode,
             default_language=new_lang,
             content_rating_filter=new_filter,
+            demographic_filter=new_demographic,
             updated_at=now,
         )
 
@@ -547,8 +562,8 @@ class UserService:
     ) -> ReadingPreferences:
         now = _utc_now()
         await self._db.execute(
-            "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, content_rating_filter, updated_at) "
-            "VALUES (?, 'vertical', 'en', NULL, ?)",
+            "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at) "
+            "VALUES (?, 'vertical', 'en', NULL, NULL, ?)",
             firebase_uid,
             now,
         )
@@ -558,5 +573,6 @@ class UserService:
             default_reader_mode="vertical",
             default_language="en",
             content_rating_filter=None,
+            demographic_filter=None,
             updated_at=now,
         )

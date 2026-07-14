@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS reading_preferences (
     default_reader_mode     TEXT    NOT NULL DEFAULT 'vertical',
     default_language        TEXT    NOT NULL DEFAULT 'en',
     content_rating_filter   TEXT,
+    demographic_filter      TEXT,
     updated_at              TEXT    NOT NULL
 );
 
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS user_pending_deletions (
 # schema versions. PostgreSQL's ADD COLUMN IF NOT EXISTS is idempotent.
 _POSTGRES_MIGRATIONS = [
     "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS content_rating_filter TEXT",
+    "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS demographic_filter TEXT",
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS content_rating TEXT",
 ]
 
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS reading_preferences (
     default_reader_mode     TEXT    NOT NULL DEFAULT 'vertical',
     default_language        TEXT    NOT NULL DEFAULT 'en',
     content_rating_filter   TEXT,
+    demographic_filter      TEXT,
     updated_at              TEXT    NOT NULL
 );
 
@@ -188,6 +191,10 @@ async def _migrate_sqlite_columns(conn: object) -> None:
     if "content_rating_filter" not in prefs_columns:
         await conn.execute(
             "ALTER TABLE reading_preferences ADD COLUMN content_rating_filter TEXT"
+        )
+    if "demographic_filter" not in prefs_columns:
+        await conn.execute(
+            "ALTER TABLE reading_preferences ADD COLUMN demographic_filter TEXT"
         )
 
     await conn.execute(
