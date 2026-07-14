@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.manga_service import MangaService
+from app.core.manga_tags import GENRE_TAG_UUIDS
 
 
 def _make_manga(manga_id: str, content_rating: str | None = None) -> dict:
@@ -463,6 +464,166 @@ class TestListMangaWithContentRating(unittest.IsolatedAsyncioTestCase):
         await self.service.list_manga(user_age=18, content_rating="safe")
         await self.service.list_manga(user_age=18, content_rating="all")
         self.assertEqual(self.client.list_manga.call_count, 2)
+
+
+class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
+    """The local null-demographic filter produces stable, complete pages."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.list_manga = AsyncMock()
+        self.client.search_manga = AsyncMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.cache.get.return_value = None
+        self.service = MangaService(self.client, self.jikan, self.cache)
+
+    async def test_list_null_only_scans_without_forwarding_sentinel(self):
+        self.client.list_manga.return_value = {
+            "data": [
+                _raw_mangadex_item("named", "safe", "seinen"),
+                _raw_mangadex_item("null", "safe", None),
+            ],
+            "total": 2,
+        }
+
+        result = await self.service.list_manga(
+            limit=1,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        self.assertEqual([item["id"] for item in result["data"]], ["null"])
+        self.assertEqual(result["total"], 1)
+        self.assertFalse(result["has_more"])
+        _, kwargs = self.client.list_manga.call_args
+        self.assertIsNone(kwargs["demographic"])
+
+    async def test_search_mixed_union_deduplicates_and_has_full_pages(self):
+        self.client.search_manga.return_value = {
+            "data": [
+                _raw_mangadex_item("named", "safe", "seinen"),
+                _raw_mangadex_item("null", "safe", None),
+                _raw_mangadex_item("other", "safe", "shounen"),
+            ],
+            "total": 3,
+        }
+
+        result = await self.service.search(
+            "test",
+            limit=2,
+            user_age=18,
+            demographic=["seinen", "unspecified"],
+        )
+
+        self.assertEqual([item["id"] for item in result["data"]], ["named", "null"])
+        self.assertEqual(result["total"], 2)
+        self.assertFalse(result["has_more"])
+        _, kwargs = self.client.search_manga.call_args
+        self.assertIsNone(kwargs["demographic"])
+
+    async def test_cursor_reuses_snapshot_without_rescanning(self):
+        self.client.list_manga.return_value = {
+            "data": [
+                _raw_mangadex_item("first", "safe", None),
+                _raw_mangadex_item("second", "safe", None),
+            ],
+            "total": 2,
+        }
+
+        first = await self.service.list_manga(
+            limit=1,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+        second = await self.service.list_manga(
+            limit=1,
+            user_age=18,
+            demographic=["unspecified"],
+            cursor=first["next_cursor"],
+        )
+
+        self.assertEqual([item["id"] for item in first["data"]], ["first"])
+        self.assertEqual([item["id"] for item in second["data"]], ["second"])
+        self.assertIsNone(second["next_cursor"])
+        self.assertEqual(self.client.list_manga.await_count, 1)
+
+    async def test_cursor_rejects_mismatched_filter_and_expiry(self):
+        self.client.list_manga.return_value = {
+            "data": [
+                _raw_mangadex_item("first", "safe", None),
+                _raw_mangadex_item("second", "safe", None),
+            ],
+            "total": 2,
+        }
+        first = await self.service.list_manga(
+            limit=1,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        with self.assertRaises(ValueError):
+            await self.service.list_manga(
+                limit=1,
+                user_age=18,
+                demographic=["seinen", "unspecified"],
+                cursor=first["next_cursor"] or "missing",
+            )
+        with self.assertRaises(ValueError):
+            await self.service.list_manga(
+                limit=1,
+                user_age=18,
+                demographic=["unspecified"],
+                cursor="expired-or-unknown",
+            )
+
+    async def test_cursor_rejects_tampered_position(self):
+        self.client.list_manga.return_value = {
+            "data": [
+                _raw_mangadex_item("first", "safe", None),
+                _raw_mangadex_item("second", "safe", None),
+            ],
+            "total": 2,
+        }
+        first = await self.service.list_manga(
+            limit=1,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+        snapshot_id, _, _ = first["next_cursor"].partition(":")
+
+        with self.assertRaises(ValueError):
+            await self.service.list_manga(
+                limit=1,
+                user_age=18,
+                demographic=["unspecified"],
+                cursor=f"{snapshot_id}:0",
+            )
+
+    async def test_union_preserves_genre_and_initial_offset(self):
+        self.client.list_manga.return_value = {
+            "data": [
+                _raw_mangadex_item("first", "safe", None),
+                _raw_mangadex_item("second", "safe", None),
+                _raw_mangadex_item("third", "safe", None),
+            ],
+            "total": 3,
+        }
+
+        result = await self.service.list_manga(
+            limit=1,
+            offset=1,
+            genre="romance",
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        self.assertEqual([item["id"] for item in result["data"]], ["second"])
+        self.assertEqual(result["offset"], 1)
+        self.assertEqual(result["total"], 3)
+        _, kwargs = self.client.list_manga.call_args
+        self.assertEqual(kwargs["included_tags"], [GENRE_TAG_UUIDS["romance"]])
 
 
 class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):

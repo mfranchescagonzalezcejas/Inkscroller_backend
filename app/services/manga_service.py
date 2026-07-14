@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import uuid
+import hashlib
+import hmac
 
 from app.sources.mangadex_client import MangaDexClient
 from app.core.cache import SimpleCache
@@ -15,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class MangaService:
+    _CURSOR_SECRET = b"inkscroller-manga-cursor-v1"
     def __init__(
         self,
         client: MangaDexClient,
@@ -24,6 +28,112 @@ class MangaService:
         self._client = client
         self._jikan = jikan
         self._cache = cache
+        self._snapshots: dict[str, tuple[str, list[dict]]] = {}
+
+    @staticmethod
+    def _matches_demographic(manga: dict, demographics: list[str]) -> bool:
+        """Return whether a mapped title belongs to the requested OR-union."""
+        return (
+            manga.get("demographic") is None and "unspecified" in demographics
+        ) or manga.get("demographic") in demographics
+
+    async def _map_and_filter(self, items: list[dict], user_age: int | None) -> list[dict]:
+        """Map MangaDex items and apply the existing age gates once."""
+        result = [map_mangadex_manga(item) for item in items]
+        if result:
+            try:
+                statistics = await self._client.get_statistics([manga["id"] for manga in result])
+                for manga in result:
+                    apply_statistics(manga, statistics.get("statistics", {}).get(manga["id"], {}))
+            except Exception:
+                logger.warning("Failed to fetch manga statistics", exc_info=True)
+        return self._filter_by_age(result, user_age)
+
+    async def _scan_union(
+        self,
+        fetch,
+        demographics: list[str],
+        user_age: int | None,
+    ) -> list[dict]:
+        """Build the complete authorized union before exposing its first page."""
+        offset = 0
+        seen: set[str] = set()
+        matched: list[dict] = []
+        while True:
+            payload = await fetch(offset)
+            raw_items = payload.get("data", []) if isinstance(payload, dict) else []
+            mapped = await self._map_and_filter(raw_items, user_age)
+            for manga in mapped:
+                if self._matches_demographic(manga, demographics) and manga["id"] not in seen:
+                    seen.add(manga["id"])
+                    matched.append(manga)
+            offset += len(raw_items)
+            if not raw_items or offset >= payload.get("total", offset):
+                return matched
+
+    @staticmethod
+    def _snapshot_cache_key(snapshot_id: str) -> str:
+        return f"manga:snapshot:{snapshot_id}"
+
+    def _snapshot_page(
+        self, items: list[dict], limit: int, offset: int, fingerprint: str
+    ) -> dict:
+        """Persist a five-minute snapshot in the shared application cache."""
+        snapshot_id = uuid.uuid4().hex
+        self._snapshots[snapshot_id] = (fingerprint, items)
+        self._cache.set(self._snapshot_cache_key(snapshot_id), (fingerprint, items))
+        page = items[offset : offset + limit]
+        next_cursor = (
+            self._cursor_token(snapshot_id, offset + len(page), fingerprint)
+            if offset + len(page) < len(items)
+            else None
+        )
+        return {
+            "data": page,
+            "limit": limit,
+            "offset": offset,
+            "total": len(items),
+            "has_more": next_cursor is not None,
+            "next_cursor": next_cursor,
+        }
+
+    @classmethod
+    def _cursor_token(cls, snapshot_id: str, offset: int, fingerprint: str) -> str:
+        payload = f"{snapshot_id}:{offset}:{fingerprint}".encode()
+        signature = hmac.new(cls._CURSOR_SECRET, payload, hashlib.sha256).hexdigest()
+        return f"{snapshot_id}:{offset}:{signature}"
+
+    def _cursor_page(self, cursor: str, limit: int, fingerprint: str) -> dict:
+        """Read a verified page from a live snapshot without rescanning upstream."""
+        try:
+            snapshot_id, raw_offset, signature = cursor.rsplit(":", 2)
+            offset = int(raw_offset)
+            snapshot = self._cache.get(self._snapshot_cache_key(snapshot_id))
+            if not isinstance(snapshot, tuple):
+                snapshot = self._snapshots[snapshot_id]
+            saved_fingerprint, items = snapshot
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("Unknown snapshot cursor") from None
+        if saved_fingerprint != fingerprint:
+            raise ValueError("Snapshot cursor does not match this request")
+        expected = self._cursor_token(snapshot_id, offset, fingerprint).rsplit(":", 1)[1]
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("Invalid snapshot cursor")
+        page = items[offset : offset + limit]
+        next_offset = offset + len(page)
+        next_cursor = (
+            self._cursor_token(snapshot_id, next_offset, fingerprint)
+            if next_offset < len(items)
+            else None
+        )
+        return {
+            "data": page,
+            "limit": limit,
+            "offset": offset,
+            "total": len(items),
+            "has_more": next_cursor is not None,
+            "next_cursor": next_cursor,
+        }
 
     @staticmethod
     def _age_allowed_content_ratings(user_age: int | None) -> list[str]:
@@ -92,7 +202,25 @@ class MangaService:
         offset: int = 0,
         user_age: int | None = None,
         content_rating: str | None = None,
+        demographic: list[str] | None = None,
+        cursor: str | None = None,
     ) -> dict:
+        if demographic and "unspecified" in demographic:
+            fingerprint = f"search:{query}:{user_age}:{content_rating}:{demographic}"
+            if cursor is not None:
+                return self._cursor_page(cursor, limit, fingerprint)
+            items = await self._scan_union(
+                lambda page_offset: self._client.search_manga(
+                    query=query,
+                    limit=100,
+                    offset=page_offset,
+                    content_ratings=self._resolve_content_ratings(user_age, content_rating),
+                    demographic=None,
+                ),
+                demographic,
+                user_age,
+            )
+            return self._snapshot_page(items, limit, offset, fingerprint)
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
         cache_key = f"search:{query}:{limit}:{offset}:age:{age_key}:cr:{cr_key}"
@@ -100,12 +228,15 @@ class MangaService:
         if cached is not None:
             return cached
 
-        payload = await self._client.search_manga(
-            query=query,
-            limit=limit,
-            offset=offset,
-            content_ratings=self._resolve_content_ratings(user_age, content_rating),
-        )
+        search_kwargs = {
+            "query": query,
+            "limit": limit,
+            "offset": offset,
+            "content_ratings": self._resolve_content_ratings(user_age, content_rating),
+        }
+        if demographic is not None:
+            search_kwargs["demographic"] = demographic
+        payload = await self._client.search_manga(**search_kwargs)
         items = payload.get("data", []) if isinstance(payload, dict) else []
         total_count = payload.get("total", len(items))
         result = [map_mangadex_manga(item) for item in items]
@@ -148,7 +279,32 @@ class MangaService:
         genre: str | None = None,
         user_age: int | None = None,
         content_rating: str | None = None,
+        cursor: str | None = None,
     ) -> dict:
+        if demographic and "unspecified" in demographic:
+            fingerprint = f"list:{title}:{status}:{order}:{genre}:{user_age}:{content_rating}:{demographic}"
+            if cursor is not None:
+                return self._cursor_page(cursor, limit, fingerprint)
+            included_tags = None
+            if genre:
+                tag_uuid = GENRE_TAG_UUIDS.get(genre.lower())
+                if tag_uuid:
+                    included_tags = [tag_uuid]
+            items = await self._scan_union(
+                lambda page_offset: self._client.list_manga(
+                    limit=100,
+                    offset=page_offset,
+                    title=title,
+                    demographic=None,
+                    status=status,
+                    order=order,
+                    included_tags=included_tags,
+                    content_ratings=self._resolve_content_ratings(user_age, content_rating),
+                ),
+                demographic,
+                user_age,
+            )
+            return self._snapshot_page(items, limit, offset, fingerprint)
         cr_key = content_rating or "default"
         age_key = "none" if user_age is None else str(user_age)
         cache_key = (

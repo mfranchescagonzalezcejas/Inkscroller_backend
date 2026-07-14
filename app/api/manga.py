@@ -8,6 +8,32 @@ from app.models.manga import Manga
 from app.services.manga_service import MangaService
 
 router = APIRouter(prefix="/manga", tags=["Manga"])
+_SUPPORTED_DEMOGRAPHICS = {"shounen", "shoujo", "seinen", "josei", "unspecified"}
+
+
+def _validate_demographics(
+    demographics: list[str] | None, user_age: int | None
+) -> list[str] | None:
+    """Reject unknown and unauthorized local demographic filter tokens."""
+    if not demographics:
+        return None
+    if any(token not in _SUPPORTED_DEMOGRAPHICS for token in demographics):
+        raise HTTPException(status_code=422, detail="Unsupported demographic")
+    if "unspecified" in demographics and (user_age is None or user_age < 18):
+        raise HTTPException(status_code=403, detail="Unspecified demographic requires 18+")
+    return list(dict.fromkeys(demographics))
+
+
+@router.get("/capabilities")
+async def manga_capabilities() -> dict:
+    """Advertise the backend contract required for null-demographic filtering."""
+    return {
+        "demographic_filter": {
+            "contract_version": 1,
+            "null_union": True,
+            "pagination": "cursor-v1",
+        }
+    }
 
 
 @router.get("/tags")
@@ -102,6 +128,8 @@ async def search_manga(
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     content_rating: str | None = Query(None),
+    demographic: list[str] | None = Query(None),
+    cursor: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ) -> dict:
@@ -114,13 +142,24 @@ async def search_manga(
     Returns a paginated response with ``data``, ``limit``, ``offset``, and
     ``total``, matching the existing ``GET /manga`` contract.
     """
-    return await service.search(
-        q,
-        limit=limit,
-        offset=offset,
-        user_age=user_age,
-        content_rating=content_rating,
+    demographic = _validate_demographics(
+        [token for token in demographic if token] if demographic else None,
+        user_age,
     )
+    kwargs = {
+        "limit": limit,
+        "offset": offset,
+        "user_age": user_age,
+        "content_rating": content_rating,
+    }
+    if demographic is not None:
+        kwargs["demographic"] = demographic
+    if cursor is not None:
+        kwargs["cursor"] = cursor
+    try:
+        return await service.search(q, **kwargs)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/{manga_id}", response_model=Manga)
@@ -161,6 +200,7 @@ async def list_manga(
     order_latest: str | None = Query(None, alias="order[latestUploadedChapter]"),
     genre: str | None = None,
     content_rating: str | None = Query(None),
+    cursor: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ) -> dict:
@@ -184,16 +224,25 @@ async def list_manga(
             resolved_order = "latest"
 
     # ponytail: FastAPI parses ?demographic= as [""] — filter empty entries
-    demographic = [d for d in demographic if d] if demographic else None
-
-    return await service.list_manga(
-        limit=limit,
-        offset=offset,
-        title=title,
-        demographic=demographic,
-        status=status,
-        order=resolved_order,
-        genre=genre,
-        user_age=user_age,
-        content_rating=content_rating,
+    demographic = _validate_demographics(
+        [token for token in demographic if token] if demographic else None,
+        user_age,
     )
+
+    kwargs = {
+        "limit": limit,
+        "offset": offset,
+        "title": title,
+        "demographic": demographic,
+        "status": status,
+        "order": resolved_order,
+        "genre": genre,
+        "user_age": user_age,
+        "content_rating": content_rating,
+    }
+    if cursor is not None:
+        kwargs["cursor"] = cursor
+    try:
+        return await service.list_manga(**kwargs)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error

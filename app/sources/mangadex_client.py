@@ -18,16 +18,20 @@ class MangaDexClient:
         limit: int = 5,
         offset: int = 0,
         content_ratings: list[str] | None = None,
+        demographic: list[str] | None = None,
     ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "title": query,
+            "limit": limit,
+            "offset": offset,
+            "includes[]": ["cover_art"],
+            "contentRating[]": content_ratings or self._ALLOWED_CONTENT_RATINGS,
+        }
+        if demographic:
+            params["publicationDemographic[]"] = demographic
         response = await self.client.get(
             "/manga",
-            params={
-                "title": query,
-                "limit": limit,
-                "offset": offset,
-                "includes[]": ["cover_art"],
-                "contentRating[]": content_ratings or self._ALLOWED_CONTENT_RATINGS,
-            },
+            params=params,
         )
         response.raise_for_status()
         return response.json()
