@@ -218,7 +218,9 @@ class MangaService:
         cursor: str | None = None,
     ) -> dict:
         if demographic and "unspecified" in demographic:
-            fingerprint = f"search:{query}:{user_age}:{content_rating}:{sorted(demographic)}"
+            fingerprint = (
+                f"search:{query}:{user_age}:{content_rating}:{sorted(demographic)}"
+            )
             if cursor is not None:
                 return self._cursor_page(cursor, limit, fingerprint)
             items = await self._scan_union(
