@@ -56,28 +56,29 @@ class MangaService:
 
     async def _scan_union(
         self,
-        fetch,
+        fetches: list,
         demographics: list[str],
         user_age: int | None,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page."""
-        offset = 0
-        seen: set[str] = set()
-        matched: list[dict] = []
-        while True:
-            payload = await fetch(offset)
-            raw_items = payload.get("data", []) if isinstance(payload, dict) else []
-            mapped = await self._map_and_filter(raw_items, user_age)
-            for manga in mapped:
-                if (
-                    self._matches_demographic(manga, demographics)
-                    and manga["id"] not in seen
-                ):
-                    seen.add(manga["id"])
-                    matched.append(manga)
-            offset += len(raw_items)
-            if not raw_items or offset >= payload.get("total", offset):
-                return matched
+        merged: dict[str, dict] = {}
+        for fetch in fetches:
+            offset = 0
+            while True:
+                payload = await fetch(offset)
+                raw_items = (
+                    payload.get("data", []) if isinstance(payload, dict) else []
+                )
+                mapped = await self._map_and_filter(raw_items, user_age)
+                for manga in mapped:
+                    if self._matches_demographic(
+                        manga, demographics
+                    ) and manga["id"] not in merged:
+                        merged[manga["id"]] = manga
+                offset += len(raw_items)
+                if not raw_items or offset >= payload.get("total", offset):
+                    break
+        return list(merged.values())
 
     @staticmethod
     def _snapshot_cache_key(snapshot_id: str) -> str:
@@ -223,7 +224,21 @@ class MangaService:
             )
             if cursor is not None:
                 return self._cursor_page(cursor, limit, fingerprint)
-            items = await self._scan_union(
+            named = [d for d in demographic if d != "unspecified"]
+            fetches: list = []
+            if named:
+                fetches.append(
+                    lambda page_offset: self._client.search_manga(
+                        query=query,
+                        limit=100,
+                        offset=page_offset,
+                        content_ratings=self._resolve_content_ratings(
+                            user_age, content_rating
+                        ),
+                        demographic=named,
+                    )
+                )
+            fetches.append(
                 lambda page_offset: self._client.search_manga(
                     query=query,
                     limit=100,
@@ -231,8 +246,11 @@ class MangaService:
                     content_ratings=self._resolve_content_ratings(
                         user_age, content_rating
                     ),
-                    demographic=None,
-                ),
+                    demographic=["none"],
+                )
+            )
+            items = await self._scan_union(
+                fetches,
                 demographic,
                 user_age,
             )
@@ -311,19 +329,39 @@ class MangaService:
                 tag_uuid = GENRE_TAG_UUIDS.get(genre.lower())
                 if tag_uuid:
                     included_tags = [tag_uuid]
-            items = await self._scan_union(
+            named = [d for d in demographic if d != "unspecified"]
+            fetches: list = []
+            if named:
+                fetches.append(
+                    lambda page_offset: self._client.list_manga(
+                        limit=100,
+                        offset=page_offset,
+                        title=title,
+                        demographic=named,
+                        status=status,
+                        order=order,
+                        included_tags=included_tags,
+                        content_ratings=self._resolve_content_ratings(
+                            user_age, content_rating
+                        ),
+                    )
+                )
+            fetches.append(
                 lambda page_offset: self._client.list_manga(
                     limit=100,
                     offset=page_offset,
                     title=title,
-                    demographic=None,
+                    demographic=["none"],
                     status=status,
                     order=order,
                     included_tags=included_tags,
                     content_ratings=self._resolve_content_ratings(
                         user_age, content_rating
                     ),
-                ),
+                )
+            )
+            items = await self._scan_union(
+                fetches,
                 demographic,
                 user_age,
             )

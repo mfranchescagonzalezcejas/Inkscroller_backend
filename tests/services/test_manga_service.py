@@ -505,8 +505,8 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["total"], 1)
         self.assertFalse(result["has_more"])
         _, kwargs = self.client.list_manga.call_args
-        self.assertIsNone(kwargs["demographic"])
-
+        self.assertEqual(kwargs["demographic"], ["none"])
+ 
     async def test_search_mixed_union_deduplicates_and_has_full_pages(self):
         self.client.search_manga.return_value = {
             "data": [
@@ -528,7 +528,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["total"], 2)
         self.assertFalse(result["has_more"])
         _, kwargs = self.client.search_manga.call_args
-        self.assertIsNone(kwargs["demographic"])
+        self.assertEqual(kwargs["demographic"], ["none"])
 
     async def test_cursor_reuses_snapshot_without_rescanning(self):
         self.client.list_manga.return_value = {
@@ -645,8 +645,10 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([item["id"] for item in result["data"]], ["second"])
         self.assertEqual(result["offset"], 1)
         self.assertEqual(result["total"], 3)
+        self.assertEqual(self.client.list_manga.await_count, 1)
         _, kwargs = self.client.list_manga.call_args
         self.assertEqual(kwargs["included_tags"], [GENRE_TAG_UUIDS["romance"]])
+        self.assertEqual(kwargs["demographic"], ["none"])
 
 
 class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
