@@ -240,7 +240,7 @@ class AppSmokeTests(unittest.TestCase):
             response = client.get("/manga?demographic=unspecified")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(fake_service.list_calls, 1)
+        self.assertEqual(len(fake_service.list_calls), 1)
 
     def test_search_forwards_repeated_demographics(self):
         fake_service = FakeMangaService()
