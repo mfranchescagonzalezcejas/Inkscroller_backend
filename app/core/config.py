@@ -1,6 +1,9 @@
+import logging
 import os
 
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -72,6 +75,11 @@ class Settings:
         self.cursor_secret: str = os.getenv(
             "CURSOR_SECRET", "inkscroller-manga-cursor-v1"
         )
+        if self.cursor_secret == "inkscroller-manga-cursor-v1":
+            logger.warning(
+                "CURSOR_SECRET env var is not set — using default fallback value. "
+                "Set CURSOR_SECRET to a non-default value in production."
+            )
 
         # ── Database ──────────────────────────────────────────────────
         # SQLite (local dev): set DB_PATH or leave default.
