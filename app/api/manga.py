@@ -12,17 +12,13 @@ _SUPPORTED_DEMOGRAPHICS = {"shounen", "shoujo", "seinen", "josei", "unspecified"
 
 
 def _validate_demographics(
-    demographics: list[str] | None, user_age: int | None
+    demographics: list[str] | None,
 ) -> list[str] | None:
-    """Reject unknown and unauthorized local demographic filter tokens."""
+    """Reject unknown demographic filter tokens."""
     if not demographics:
         return None
     if any(token not in _SUPPORTED_DEMOGRAPHICS for token in demographics):
         raise HTTPException(status_code=422, detail="Unsupported demographic")
-    if "unspecified" in demographics and (user_age is None or user_age < 18):
-        raise HTTPException(
-            status_code=403, detail="Unspecified demographic requires 18+"
-        )
     return list(dict.fromkeys(demographics))
 
 
@@ -146,7 +142,6 @@ async def search_manga(
     """
     demographic = _validate_demographics(
         [token for token in demographic if token] if demographic else None,
-        user_age,
     )
     kwargs = {
         "limit": limit,
@@ -228,7 +223,6 @@ async def list_manga(
     # ponytail: FastAPI parses ?demographic= as [""] — filter empty entries
     demographic = _validate_demographics(
         [token for token in demographic if token] if demographic else None,
-        user_age,
     )
 
     kwargs = {

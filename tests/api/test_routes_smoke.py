@@ -231,7 +231,7 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(fake_service.list_calls, [])
 
-    def test_guest_unspecified_is_rejected_before_service(self):
+    def test_guest_unspecified_passes_validation_to_service(self):
         fake_service = FakeMangaService()
         self.app.dependency_overrides[get_manga_service] = lambda: fake_service
         self.app.dependency_overrides[get_user_age] = lambda: None
@@ -239,8 +239,8 @@ class AppSmokeTests(unittest.TestCase):
         with TestClient(self.app) as client:
             response = client.get("/manga?demographic=unspecified")
 
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(fake_service.list_calls, [])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(fake_service.list_calls, 1)
 
     def test_search_forwards_repeated_demographics(self):
         fake_service = FakeMangaService()
