@@ -183,6 +183,9 @@ async def list_manga(
         elif order_latest == "desc":
             resolved_order = "latest"
 
+    # ponytail: FastAPI parses ?demographic= as [""] — filter empty entries
+    demographic = [d for d in demographic if d] if demographic else None
+
     return await service.list_manga(
         limit=limit,
         offset=offset,

@@ -408,9 +408,10 @@ class UserService:
             if req.content_rating_filter is not None
             else current.content_rating_filter
         )
+        # ponytail: model_fields_set distinguishes "sent as null" from "omitted"
         new_demographic = (
             req.demographic_filter
-            if req.demographic_filter is not None
+            if "demographic_filter" in req.model_fields_set
             else current.demographic_filter
         )
         demographic_json = (
