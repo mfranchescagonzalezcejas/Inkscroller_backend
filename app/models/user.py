@@ -31,6 +31,7 @@ class UpdateUserProfileRequest(BaseModel):
     @field_validator("username", mode="before")
     @classmethod
     def normalize_username(cls, value: object) -> object:
+        """Strip, lowercase, and validate username format (3-30 chars, alphanumeric/dash/underscore)."""
         if value is None:
             return None
         if not isinstance(value, str):
@@ -45,6 +46,7 @@ class UpdateUserProfileRequest(BaseModel):
     @field_validator("birth_date")
     @classmethod
     def validate_birth_date(cls, value: date | None) -> date | None:
+        """Reject future or pre-1900 birth dates."""
         if value is None:
             return None
         if value > date.today():

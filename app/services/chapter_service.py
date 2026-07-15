@@ -1,3 +1,5 @@
+"""Service for fetching and caching MangaDex chapter data."""
+
 from datetime import datetime, timezone
 from typing import List
 from app.sources.mangadex_client import MangaDexClient
@@ -7,7 +9,10 @@ from app.services.manga_mapper import COVER_BASE_URL
 
 
 class ChapterService:
+    """Fetches and caches chapter data from MangaDex, including home-page latest chapters."""
+
     def __init__(self, client: MangaDexClient, cache: SimpleCache):
+        """Initialise with a MangaDex client and a shared cache instance."""
         self._client = client
         self._cache = cache
 
@@ -38,6 +43,7 @@ class ChapterService:
         manga_id: str,
         language: str = "en",
     ) -> List[dict]:
+        """Return the chapter list for a manga, filtered to readable/external entries."""
         cache_key = f"chapters:{manga_id}:{language}"
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -66,6 +72,7 @@ class ChapterService:
         language: str = "en",
         limit: int = 10,
     ) -> List[dict]:
+        """Return the latest chapters for the home feed, deduplicated (max 2 per manga)."""
         cache_key = f"chapters:latest:home:v4:{language}:{limit}"
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -191,6 +198,7 @@ class ChapterService:
 
 
 def _chapter_publish_at(item: dict) -> datetime | None:
+    """Extract and parse the ``publishAt`` datetime from a raw MangaDex chapter item."""
     value = item.get("attributes", {}).get("publishAt")
     if not value:
         return None

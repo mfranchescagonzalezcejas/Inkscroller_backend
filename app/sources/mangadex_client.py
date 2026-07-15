@@ -1,3 +1,5 @@
+"""HTTP client for the MangaDex v5 REST API with per-method retry support."""
+
 import httpx
 from typing import Any
 import asyncio
@@ -6,9 +8,12 @@ from app.core.resilience import with_retry
 
 
 class MangaDexClient:
+    """HTTP client for the MangaDex v5 REST API with per-method retry support."""
+
     _ALLOWED_CONTENT_RATINGS = ["safe", "suggestive", "erotica", "pornographic"]
 
     def __init__(self, client: httpx.AsyncClient):
+        """Initialise with an ``httpx.AsyncClient`` pre-configured with base URL and auth headers."""
         self.client = client
 
     @with_retry()
@@ -20,6 +25,7 @@ class MangaDexClient:
         content_ratings: list[str] | None = None,
         demographic: list[str] | None = None,
     ) -> dict[str, Any]:
+        """Search manga by title with pagination, content rating, and demographic filters."""
         params: dict[str, Any] = {
             "title": query,
             "limit": limit,
@@ -38,6 +44,7 @@ class MangaDexClient:
 
     @with_retry()
     async def get_manga(self, manga_id: str) -> dict[str, Any]:
+        """Fetch a single manga by its MangaDex UUID, including cover-art relationship."""
         response = await self.client.get(
             f"/manga/{manga_id}",
             params={
@@ -54,6 +61,7 @@ class MangaDexClient:
         language: str = "en",
         limit: int = 100,
     ) -> dict[str, Any]:
+        """Fetch all chapters for a manga, including scanlation-group relationships."""
         response = await self.client.get(
             "/chapter",
             params={
@@ -75,6 +83,7 @@ class MangaDexClient:
     async def get_latest_chapters(
         self, language: str = "en", limit: int = 10
     ) -> dict[str, Any]:
+        """Fetch the latest published chapters across all manga, ordered by ``readableAt``."""
         response = await self.client.get(
             "/chapter",
             params={
@@ -91,6 +100,7 @@ class MangaDexClient:
 
     @with_retry()
     async def get_manga_list_by_ids(self, manga_ids: list[str]) -> dict[str, Any]:
+        """Bulk-fetch multiple manga by their UUIDs (max 100 per call). Returns cover-art relationships."""
         if not manga_ids:
             return {"data": []}
 
@@ -116,6 +126,7 @@ class MangaDexClient:
 
     @with_retry()
     async def get_chapter_pages(self, chapter_id: str) -> dict:
+        """Fetch the MangaDex@Home server URLs for a chapter's page images."""
         response = await self.client.get(f"/at-home/server/{chapter_id}")
         response.raise_for_status()
         return response.json()
@@ -133,6 +144,7 @@ class MangaDexClient:
         order_map: dict[str, str] | None = None,
         content_ratings: list[str] | None = None,
     ) -> dict[str, Any]:
+        """List manga with filters (title, demographic, status, order, genre tags) and pagination."""
         params: dict[str, Any] = {
             "limit": limit,
             "offset": offset,

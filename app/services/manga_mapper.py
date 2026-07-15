@@ -1,3 +1,5 @@
+"""Map raw MangaDex manga API items to internal dict format and apply statistics."""
+
 from __future__ import annotations
 from typing import Any
 

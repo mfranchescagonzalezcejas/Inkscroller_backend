@@ -1,3 +1,5 @@
+"""Health-check probes (liveness + readiness) for the application."""
+
 import asyncio
 import logging
 
@@ -13,6 +15,7 @@ router = APIRouter()
 
 @router.get("/ping")
 def ping():
+    """Liveness probe — returns ``{"ok": true}`` if the application is running."""
     return {"ok": True}
 
 

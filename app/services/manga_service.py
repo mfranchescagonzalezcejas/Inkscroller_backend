@@ -1,3 +1,5 @@
+"""Service for manga catalogue queries, union-scans, age gating, caching, and Jikan enrichment."""
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class MangaService:
+    """Orchestrates manga catalogue queries, union-scans, age gating, caching, and Jikan enrichment."""
+
     def __init__(
         self,
         client: MangaDexClient,
@@ -25,6 +29,7 @@ class MangaService:
         cache: SimpleCache,
         worker_client: MangaDexClient | None = None,
     ) -> None:
+        """Initialise with MangaDex client, optional worker client for unspecified-demographic scans, Jikan client, and shared cache."""
         self._client = client
         self._worker_client = worker_client
         self._jikan = jikan
@@ -111,12 +116,13 @@ class MangaService:
 
     @staticmethod
     def _snapshot_cache_key(snapshot_id: str) -> str:
+        """Build the cache key for a union-scan snapshot by its UUID."""
         return f"manga:snapshot:{snapshot_id}"
 
     def _snapshot_page(
         self, items: list[dict], limit: int, offset: int, fingerprint: str
     ) -> dict:
-        """Persist a five-minute snapshot in the shared application cache."""
+        """Slice a page from the union-scan result and persist the full snapshot in the shared cache."""
         snapshot_id = uuid.uuid4().hex
         self._snapshots[snapshot_id] = (fingerprint, items)
         self._cache.set(self._snapshot_cache_key(snapshot_id), (fingerprint, items))
@@ -137,6 +143,7 @@ class MangaService:
 
     @classmethod
     def _cursor_token(cls, snapshot_id: str, offset: int, fingerprint: str) -> str:
+        """Sign a cursor token with HMAC-SHA256 for tamper-proof union-scan pagination."""
         secret = settings.cursor_secret
         if not secret:
             return ""
@@ -192,12 +199,12 @@ class MangaService:
     def _filter_by_age(
         self, manga_list: list[dict], user_age: int | None
     ) -> list[dict]:
-        """Filter out manga that the user cannot access due to age restrictions.
+        """Remove manga the user cannot access based on demographic and content rating gates.
 
         Applies two gates:
-        1. Demographic: content without publication demographic (doujinshi/self-published)
-           is restricted to registered adults (18+).
-        2. Content rating: age-gating per content rating (safe/suggestive/erotica/pornographic).
+        1. Demographic: titles without a publication demographic (doujinshi/self-published)
+           are restricted to registered adults (18+).
+        2. Content rating: standard age-tiered access (safe/suggestive/erotica/pornographic).
         """
         return [
             m
@@ -224,7 +231,7 @@ class MangaService:
     def _resolve_content_ratings(
         self, user_age: int | None, content_rating: str | None
     ) -> list[str]:
-        """Resolve which MangaDex content ratings to request.
+        """Determine the MangaDex content ratings to request, intersecting explicit preference with age gate.
 
         When the caller provides an explicit ``content_rating`` preference,
         use it — but always intersect with the age-allowed set so that
@@ -279,6 +286,7 @@ class MangaService:
         Returns:
             Paginated result dict with ``data``, ``limit``, ``offset``,
             ``total``, ``has_more``, and optionally ``next_cursor``.
+
         """
         if demographic and "unspecified" in demographic:
             fingerprint = (
@@ -381,8 +389,8 @@ class MangaService:
         status: str | None = None,
         order: str | None = None,
         genre: str | None = None,
-        content_rating: str | None = None,
         user_age: int | None = None,
+        content_rating: str | None = None,
         cursor: str | None = None,
     ) -> dict:
         """List manga from the MangaDex catalogue with filters.
@@ -399,12 +407,13 @@ class MangaService:
             status: Publication status filter.
             order: Sort order key.
             genre: Genre tag filter.
-            content_rating: Content rating override.
             user_age: User age for content gating.
+            content_rating: Content rating override.
             cursor: Cursor token for union pagination.
 
         Returns:
             Paginated result dict.
+
         """
         if demographic and "unspecified" in demographic:
             fingerprint = f"list:{title}:{status}:{order}:{genre}:{user_age}:{content_rating}:{sorted(demographic)}"
@@ -549,6 +558,7 @@ class MangaService:
 
         Returns:
             Mapped manga dict, or ``None`` if age-restricted or not found.
+
         """
         cache_key = f"manga:{manga_id}"
         cached = self._cache.get(cache_key)

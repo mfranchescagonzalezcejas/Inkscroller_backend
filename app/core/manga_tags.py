@@ -1,3 +1,8 @@
+"""MangaDex tag UUIDs for genre filtering.
+
+Source: https://api.mangadex.org/manga/tag
+"""
+
 # MangaDex tag UUIDs for genre filtering.
 # Source: https://api.mangadex.org/manga/tag
 

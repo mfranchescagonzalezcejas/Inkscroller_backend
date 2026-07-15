@@ -1,3 +1,5 @@
+"""FastAPI dependency-injection helpers for services, auth, and cache."""
+
 import logging
 
 from fastapi import Depends, Request
@@ -24,6 +26,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_shared_cache(request: Request) -> SimpleCache:
+    """Return the shared application cache stored in ``app.state.cache``."""
     return request.app.state.cache
 
 
@@ -61,6 +64,7 @@ async def get_current_user(
 
 
 def get_manga_service(request: Request) -> MangaService:
+    """Build a :class:`MangaService` with MangaDex, Jikan clients, and optional worker HTTP for the current request."""
     worker_http = getattr(request.app.state, "mangadex_worker_http", None)
     worker_client = MangaDexClient(worker_http) if worker_http else None
     return MangaService(
@@ -72,6 +76,7 @@ def get_manga_service(request: Request) -> MangaService:
 
 
 def get_chapter_service(request: Request) -> ChapterService:
+    """Build a :class:`ChapterService` with the shared MangaDex client and cache for the current request."""
     return ChapterService(
         client=MangaDexClient(request.app.state.mangadex_http),
         cache=get_shared_cache(request),
@@ -79,6 +84,7 @@ def get_chapter_service(request: Request) -> ChapterService:
 
 
 def get_chapter_pages_service(request: Request) -> ChapterPagesService:
+    """Build a :class:`ChapterPagesService` with the shared MangaDex client and cache for the current request."""
     return ChapterPagesService(
         client=MangaDexClient(request.app.state.mangadex_http),
         cache=get_shared_cache(request),

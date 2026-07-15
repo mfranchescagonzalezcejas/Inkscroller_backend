@@ -1,3 +1,5 @@
+"""Pydantic model for MangaDex chapter metadata."""
+
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime

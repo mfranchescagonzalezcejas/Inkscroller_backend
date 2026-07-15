@@ -121,6 +121,7 @@ async def verify_firebase_token(token: str) -> FirebaseTokenPayload:
     Raises:
         :class:AuthenticationError: If the token is empty, expired, or fails
             Firebase verification.
+
     """
     if not token:
         raise AuthenticationError("No authentication token provided.")
