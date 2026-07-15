@@ -1,9 +1,6 @@
-import logging
 import os
 
 from dotenv import load_dotenv
-
-logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -51,7 +48,6 @@ class Settings:
         self.mangadex_base_url: str = os.getenv(
             "MANGADEX_BASE_URL", "https://api.mangadex.org"
         )
-        self.mangadex_worker_url: str = os.getenv("MANGADEX_WORKER_URL", "")
         self.jikan_base_url: str = os.getenv(
             "JIKAN_BASE_URL", "https://api.jikan.moe/v4"
         )
@@ -71,15 +67,6 @@ class Settings:
 
         # Phase 5 — Firebase Auth Foundation
         self.firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
-        self.mangadex_contact: str = os.getenv("MANGADEX_CONTACT", "")
-
-        # ── Cursor signing key ────────────────────────────────────────
-        self.cursor_secret: str = os.getenv("CURSOR_SECRET", "")
-        if not self.cursor_secret:
-            logger.info(
-                "CURSOR_SECRET not set — cursor-based pagination is disabled. "
-                "Set CURSOR_SECRET to enable tamper-proof cursor tokens."
-            )
 
         # ── Database ──────────────────────────────────────────────────
         # SQLite (local dev): set DB_PATH or leave default.

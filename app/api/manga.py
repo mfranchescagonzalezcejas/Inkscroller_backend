@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
-from app.core.config import settings
 from app.core.dependencies import get_manga_service, get_user_age
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.core.cache import SimpleCache
@@ -9,35 +8,10 @@ from app.models.manga import Manga
 from app.services.manga_service import MangaService
 
 router = APIRouter(prefix="/manga", tags=["Manga"])
-_SUPPORTED_DEMOGRAPHICS = {"shounen", "shoujo", "seinen", "josei", "unspecified"}
-
-
-def _validate_demographics(
-    demographics: list[str] | None,
-) -> list[str] | None:
-    """Reject unknown demographic filter tokens."""
-    if not demographics:
-        return None
-    if any(token not in _SUPPORTED_DEMOGRAPHICS for token in demographics):
-        raise HTTPException(status_code=422, detail="Unsupported demographic")
-    return list(dict.fromkeys(demographics))
-
-
-@router.get("/capabilities")
-async def manga_capabilities() -> dict:
-    """Advertise the backend contract required for null-demographic filtering."""
-    pagination = "cursor-v1" if settings.cursor_secret else "offset"
-    return {
-        "demographic_filter": {
-            "contract_version": 1,
-            "null_union": True,
-            "pagination": pagination,
-        }
-    }
 
 
 @router.get("/tags")
-async def list_tags(request: Request) -> dict:
+async def list_tags(request: Request):
     """
     Returns all available tags from MangaDex, grouped by type.
 
@@ -108,7 +82,7 @@ async def list_tags(request: Request) -> dict:
     return grouped
 
 
-def _fallback_tags() -> list[dict]:
+def _fallback_tags():
     """Fallback if MangaDex API is unreachable."""
     return [
         {"id": "423e2eae-a7a2-4a8b-ac03-a8351462d71d", "name": "Romance"},
@@ -117,7 +91,7 @@ def _fallback_tags() -> list[dict]:
 
 
 @router.get("/genres")
-async def list_genres() -> dict:
+async def list_genres():
     """Returns available genre tags for filtering (legacy endpoint)."""
     return {"genres": list(GENRE_TAG_UUIDS.keys())}
 
@@ -128,11 +102,9 @@ async def search_manga(
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     content_rating: str | None = Query(None),
-    demographic: list[str] | None = Query(None),
-    cursor: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-) -> dict:
+):
     """Search manga by title, filtering results by the caller's age.
 
     When ``content_rating`` is provided (safe/suggestive/all), it overrides
@@ -142,23 +114,13 @@ async def search_manga(
     Returns a paginated response with ``data``, ``limit``, ``offset``, and
     ``total``, matching the existing ``GET /manga`` contract.
     """
-    demographic = _validate_demographics(
-        [token for token in demographic if token] if demographic else None,
+    return await service.search(
+        q,
+        limit=limit,
+        offset=offset,
+        user_age=user_age,
+        content_rating=content_rating,
     )
-    kwargs = {
-        "limit": limit,
-        "offset": offset,
-        "user_age": user_age,
-        "content_rating": content_rating,
-    }
-    if demographic is not None:
-        kwargs["demographic"] = demographic
-    if cursor is not None:
-        kwargs["cursor"] = cursor
-    try:
-        return await service.search(q, **kwargs)
-    except ValueError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/{manga_id}", response_model=Manga)
@@ -190,7 +152,7 @@ async def list_manga(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     title: str | None = None,
-    demographic: list[str] | None = Query(None),
+    demographic: str | None = None,
     status: str | None = None,
     order: str | None = None,
     order_followed_count: str | None = Query(None, alias="order[followedCount]"),
@@ -199,10 +161,9 @@ async def list_manga(
     order_latest: str | None = Query(None, alias="order[latestUploadedChapter]"),
     genre: str | None = None,
     content_rating: str | None = Query(None),
-    cursor: str | None = Query(None),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-) -> dict:
+):
     """Return a paginated manga list, filtering results by the caller's age.
 
     When ``content_rating`` is provided (safe/suggestive/all), it overrides
@@ -222,25 +183,14 @@ async def list_manga(
         elif order_latest == "desc":
             resolved_order = "latest"
 
-    # ponytail: FastAPI parses ?demographic= as [""] — filter empty entries
-    demographic = _validate_demographics(
-        [token for token in demographic if token] if demographic else None,
+    return await service.list_manga(
+        limit=limit,
+        offset=offset,
+        title=title,
+        demographic=demographic,
+        status=status,
+        order=resolved_order,
+        genre=genre,
+        user_age=user_age,
+        content_rating=content_rating,
     )
-
-    kwargs = {
-        "limit": limit,
-        "offset": offset,
-        "title": title,
-        "demographic": demographic,
-        "status": status,
-        "order": resolved_order,
-        "genre": genre,
-        "user_age": user_age,
-        "content_rating": content_rating,
-    }
-    if cursor is not None:
-        kwargs["cursor"] = cursor
-    try:
-        return await service.list_manga(**kwargs)
-    except ValueError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
