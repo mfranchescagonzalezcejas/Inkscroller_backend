@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.age import can_access_content
 from app.core.dependencies import (
     get_current_user,
+    get_current_user_verified,
     get_manga_service,
     get_user_age,
     get_user_service,
@@ -53,7 +54,7 @@ async def update_me(
 
 @router.delete("/me", status_code=204)
 async def delete_me(
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
 ) -> None:
     """Delete the authenticated account and all associated data."""

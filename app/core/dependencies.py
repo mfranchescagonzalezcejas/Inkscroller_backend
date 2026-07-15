@@ -63,6 +63,28 @@ async def get_current_user(
     return payload
 
 
+async def get_current_user_verified(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> FirebaseTokenPayload:
+    """Verify the Bearer token and return the Firebase payload — no DB side-effects.
+
+    Unlike :func:`get_current_user`, this dependency does **not** bootstrap or
+    look up the local user row. Use it for endpoints that only need Firebase
+    identity verification (e.g. account deletion).
+
+    Raises :class:`~app.core.exceptions.AuthError` for any authentication
+    failure so the registered handler emits a consistent
+    ``{"error": "authentication_error", "detail": "..."}`` 401 response.
+    """
+    if credentials is None:
+        raise AuthError("Authentication required.")
+
+    try:
+        return await verify_firebase_token(credentials.credentials)
+    except AuthenticationError as exc:
+        raise AuthError(str(exc)) from exc
+
+
 def get_manga_service(request: Request) -> MangaService:
     """Build a :class:`MangaService` with MangaDex, Jikan clients, and optional worker HTTP for the current request."""
     worker_http = getattr(request.app.state, "mangadex_worker_http", None)
