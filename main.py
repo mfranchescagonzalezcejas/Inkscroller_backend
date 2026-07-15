@@ -42,10 +42,13 @@ def build_lifespan(
             await user_svc.process_all_pending_deletions()
 
             # ── Upstream HTTP clients ────────────────────────────────────
+            user_agent = "InkScroller/1.0"
+            if settings.mangadex_contact:
+                user_agent += f" ({settings.mangadex_contact})"
             mangadex_http = app.state.mangadex_http = httpx.AsyncClient(
                 base_url=settings.mangadex_base_url,
                 timeout=httpx.Timeout(10.0),
-                headers={"User-Agent": "InkScroller/1.0 (mercedesgon03@gmail.com)"},
+                headers={"User-Agent": user_agent},
             )
             jikan_http = app.state.jikan_http = httpx.AsyncClient(
                 base_url=settings.jikan_base_url,

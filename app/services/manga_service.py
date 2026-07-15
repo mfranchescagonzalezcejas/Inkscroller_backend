@@ -39,11 +39,11 @@ class MangaService:
         ) or manga.get("demographic") in demographics
 
     async def _map_and_filter(
-        self, items: list[dict], user_age: int | None
+        self, items: list[dict], user_age: int | None, skip_statistics: bool = False
     ) -> list[dict]:
         """Map MangaDex items and apply the existing age gates once."""
         result = [map_mangadex_manga(item) for item in items]
-        if result:
+        if result and not skip_statistics:
             try:
                 statistics = await self._client.get_statistics(
                     [manga["id"] for manga in result]
@@ -61,6 +61,7 @@ class MangaService:
         fetches: list,
         demographics: list[str],
         user_age: int | None,
+        order: str | None = None,
         max_offset: int = 300,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page.
@@ -73,7 +74,9 @@ class MangaService:
             while True:
                 payload = await fetch(offset)
                 raw_items = payload.get("data", []) if isinstance(payload, dict) else []
-                mapped = await self._map_and_filter(raw_items, user_age)
+                mapped = await self._map_and_filter(
+                    raw_items, user_age, skip_statistics=True
+                )
                 for manga in mapped:
                     if (
                         self._matches_demographic(manga, demographics)
@@ -88,7 +91,17 @@ class MangaService:
                 ):
                     break
         items = list(merged.values())
-        items.sort(key=lambda m: m.get("popularity", 0) or 0, reverse=True)
+        if order:
+            _order_fields = {
+                "popular": ("popularity", True),
+                "rating": ("score", True),
+                "title": ("title", False),
+            }
+            entry = _order_fields.get(order)
+            if entry:
+                key, reverse = entry
+                items.sort(key=lambda m: m.get(key) or 0, reverse=reverse)
+        # ponytail: "latest" and None preserve per-fetch upstream order
         return items
 
     @staticmethod
@@ -220,6 +233,20 @@ class MangaService:
         explicit = self._content_rating_to_mangadex(content_rating)
         return [r for r in explicit if r in age_allowed]
 
+    async def _fetch_statistics(self, items: list[dict]) -> list[dict]:
+        """Fetch and merge statistics once for a final merged list."""
+        if not items:
+            return items
+        try:
+            manga_ids = [m["id"] for m in items]
+            stats = await self._client.get_statistics(manga_ids)
+            stats_dict = stats.get("statistics", {})
+            for manga in items:
+                apply_statistics(manga, stats_dict.get(manga["id"], {}))
+        except Exception:
+            logger.warning("Failed to fetch statistics for merged list", exc_info=True)
+        return items
+
     async def search(
         self,
         query: str,
@@ -267,6 +294,7 @@ class MangaService:
                 demographic,
                 user_age,
             )
+            items = await self._fetch_statistics(items)
             return self._snapshot_page(items, limit, offset, fingerprint)
         if cursor is not None:
             raise ValueError("Cursor does not match this request")
@@ -378,7 +406,9 @@ class MangaService:
                 fetches,
                 demographic,
                 user_age,
+                order=order,
             )
+            items = await self._fetch_statistics(items)
             return self._snapshot_page(items, limit, offset, fingerprint)
         if cursor is not None:
             raise ValueError("Cursor does not match this request")

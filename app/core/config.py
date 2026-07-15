@@ -71,6 +71,7 @@ class Settings:
 
         # Phase 5 — Firebase Auth Foundation
         self.firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
+        self.mangadex_contact: str = os.getenv("MANGADEX_CONTACT", "")
 
         # ── Cursor signing key ────────────────────────────────────────
         self.cursor_secret: str = os.getenv("CURSOR_SECRET", "")

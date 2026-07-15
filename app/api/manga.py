@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
+from app.core.config import settings
 from app.core.dependencies import get_manga_service, get_user_age
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.core.cache import SimpleCache
@@ -25,11 +26,12 @@ def _validate_demographics(
 @router.get("/capabilities")
 async def manga_capabilities() -> dict:
     """Advertise the backend contract required for null-demographic filtering."""
+    pagination = "cursor-v1" if settings.cursor_secret else "offset"
     return {
         "demographic_filter": {
             "contract_version": 1,
             "null_union": True,
-            "pagination": "cursor-v1",
+            "pagination": pagination,
         }
     }
 
