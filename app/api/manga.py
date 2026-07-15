@@ -55,13 +55,10 @@ async def list_tags(request: Request) -> dict:
         return cached
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://api.mangadex.org/manga/tag",
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            data = response.json()
+        client: httpx.AsyncClient = request.app.state.mangadex_http
+        response = await client.get("/manga/tag")
+        response.raise_for_status()
+        data = response.json()
     except Exception:
         # Fallback to hardcoded tags if MangaDex is unreachable
         fallback = {
