@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.manga_service import MangaService
+from app.core.config import settings
 from app.core.manga_tags import GENRE_TAG_UUIDS
 
 
@@ -485,6 +486,11 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.cache = MagicMock()
         self.cache.get.return_value = None
         self.service = MangaService(self.client, self.jikan, self.cache)
+        self._secret_patcher = patch.object(settings, "cursor_secret", "test-secret-for-cursors")
+        self._secret_patcher.start()
+
+    def tearDown(self):
+        self._secret_patcher.stop()
 
     async def test_list_null_only_scans_without_forwarding_sentinel(self):
         self.client.list_manga.return_value = {

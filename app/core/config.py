@@ -51,10 +51,7 @@ class Settings:
         self.mangadex_base_url: str = os.getenv(
             "MANGADEX_BASE_URL", "https://api.mangadex.org"
         )
-        self.mangadex_worker_url: str = os.getenv(
-            "MANGADEX_WORKER_URL",
-            "https://inkscroller-mangadex.mercedes-account.workers.dev",
-        )
+        self.mangadex_worker_url: str = os.getenv("MANGADEX_WORKER_URL", "")
         self.jikan_base_url: str = os.getenv(
             "JIKAN_BASE_URL", "https://api.jikan.moe/v4"
         )
@@ -76,13 +73,11 @@ class Settings:
         self.firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
 
         # ── Cursor signing key ────────────────────────────────────────
-        self.cursor_secret: str = os.getenv(
-            "CURSOR_SECRET", "inkscroller-manga-cursor-v1"
-        )
-        if self.cursor_secret == "inkscroller-manga-cursor-v1":
-            logger.warning(
-                "CURSOR_SECRET env var is not set — using default fallback value. "
-                "Set CURSOR_SECRET to a non-default value in production."
+        self.cursor_secret: str = os.getenv("CURSOR_SECRET", "")
+        if not self.cursor_secret:
+            logger.info(
+                "CURSOR_SECRET not set — cursor-based pagination is disabled. "
+                "Set CURSOR_SECRET to enable tamper-proof cursor tokens."
             )
 
         # ── Database ──────────────────────────────────────────────────

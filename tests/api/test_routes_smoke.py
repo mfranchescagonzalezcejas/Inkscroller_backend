@@ -88,8 +88,11 @@ class FakeChapterPagesService:
 class AppSmokeTests(unittest.TestCase):
     def setUp(self):
         self.app = create_hermetic_test_app()
+        self._secret_patcher = patch.object(settings, "cursor_secret", "test-secret-for-cursors")
+        self._secret_patcher.start()
 
     def tearDown(self):
+        self._secret_patcher.stop()
         self.app.dependency_overrides.clear()
 
     def test_ping_returns_ok(self):

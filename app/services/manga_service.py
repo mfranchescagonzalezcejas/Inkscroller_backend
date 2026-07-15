@@ -87,7 +87,9 @@ class MangaService:
                     or offset >= max_offset
                 ):
                     break
-        return list(merged.values())
+        items = list(merged.values())
+        items.sort(key=lambda m: m.get("popularity", 0) or 0, reverse=True)
+        return items
 
     @staticmethod
     def _snapshot_cache_key(snapshot_id: str) -> str:
@@ -101,11 +103,11 @@ class MangaService:
         self._snapshots[snapshot_id] = (fingerprint, items)
         self._cache.set(self._snapshot_cache_key(snapshot_id), (fingerprint, items))
         page = items[offset : offset + limit]
-        next_cursor = (
-            self._cursor_token(snapshot_id, offset + len(page), fingerprint)
-            if offset + len(page) < len(items)
-            else None
-        )
+        next_cursor = None
+        if offset + len(page) < len(items):
+            token = self._cursor_token(snapshot_id, offset + len(page), fingerprint)
+            if token:
+                next_cursor = token
         return {
             "data": page,
             "limit": limit,
@@ -117,10 +119,11 @@ class MangaService:
 
     @classmethod
     def _cursor_token(cls, snapshot_id: str, offset: int, fingerprint: str) -> str:
+        secret = settings.cursor_secret
+        if not secret:
+            return ""
         payload = f"{snapshot_id}:{offset}:{fingerprint}".encode()
-        signature = hmac.new(
-            settings.cursor_secret.encode(), payload, hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
         return f"{snapshot_id}:{offset}:{signature}"
 
     def _cursor_page(self, cursor: str, limit: int, fingerprint: str) -> dict:
@@ -142,12 +145,12 @@ class MangaService:
         if not hmac.compare_digest(signature, expected):
             raise ValueError("Invalid snapshot cursor")
         page = items[offset : offset + limit]
+        next_cursor = None
         next_offset = offset + len(page)
-        next_cursor = (
-            self._cursor_token(snapshot_id, next_offset, fingerprint)
-            if next_offset < len(items)
-            else None
-        )
+        if next_offset < len(items):
+            token = self._cursor_token(snapshot_id, next_offset, fingerprint)
+            if token:
+                next_cursor = token
         return {
             "data": page,
             "limit": limit,

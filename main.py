@@ -51,10 +51,13 @@ def build_lifespan(
                 base_url=settings.jikan_base_url,
                 timeout=httpx.Timeout(10.0),
             )
-            mangadex_worker_http = app.state.mangadex_worker_http = httpx.AsyncClient(
-                base_url=settings.mangadex_worker_url,
-                timeout=httpx.Timeout(10.0),
-            )
+            if settings.mangadex_worker_url:
+                mangadex_worker_http = app.state.mangadex_worker_http = (
+                    httpx.AsyncClient(
+                        base_url=settings.mangadex_worker_url,
+                        timeout=httpx.Timeout(10.0),
+                    )
+                )
             app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
 
             yield
