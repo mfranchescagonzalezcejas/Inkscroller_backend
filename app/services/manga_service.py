@@ -96,12 +96,12 @@ class MangaService:
                 "popular": ("popularity", True),
                 "rating": ("score", True),
                 "title": ("title", False),
+                "latest": ("latestUploadedChapter", True),
             }
             entry = _order_fields.get(order)
             if entry:
                 key, reverse = entry
                 items.sort(key=lambda m: m.get(key) or 0, reverse=reverse)
-        # ponytail: "latest" and None preserve per-fetch upstream order
         return items
 
     @staticmethod
@@ -126,7 +126,7 @@ class MangaService:
             "limit": limit,
             "offset": offset,
             "total": len(items),
-            "has_more": next_cursor is not None,
+            "has_more": offset + len(page) < len(items),
             "next_cursor": next_cursor,
         }
 
@@ -139,7 +139,7 @@ class MangaService:
         signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
         return f"{snapshot_id}:{offset}:{signature}"
 
-    def _cursor_page(self, cursor: str, limit: int, fingerprint: str) -> dict:
+    async def _cursor_page(self, cursor: str, limit: int, fingerprint: str) -> dict:
         """Read a verified page from a live snapshot without rescanning upstream."""
         try:
             snapshot_id, raw_offset, signature = cursor.rsplit(":", 2)
@@ -158,9 +158,11 @@ class MangaService:
         if not hmac.compare_digest(signature, expected):
             raise ValueError("Invalid snapshot cursor")
         page = items[offset : offset + limit]
-        next_cursor = None
+        page = await self._fetch_statistics(page)
         next_offset = offset + len(page)
-        if next_offset < len(items):
+        has_more = next_offset < len(items)
+        next_cursor = None
+        if has_more:
             token = self._cursor_token(snapshot_id, next_offset, fingerprint)
             if token:
                 next_cursor = token
@@ -169,7 +171,7 @@ class MangaService:
             "limit": limit,
             "offset": offset,
             "total": len(items),
-            "has_more": next_cursor is not None,
+            "has_more": has_more,
             "next_cursor": next_cursor,
         }
 
@@ -262,7 +264,7 @@ class MangaService:
                 f"search:{query}:{user_age}:{content_rating}:{sorted(demographic)}"
             )
             if cursor is not None:
-                return self._cursor_page(cursor, limit, fingerprint)
+                return await self._cursor_page(cursor, limit, fingerprint)
             named = [d for d in demographic if d != "unspecified"]
             fetches: list = []
             if named:
@@ -294,8 +296,9 @@ class MangaService:
                 demographic,
                 user_age,
             )
-            items = await self._fetch_statistics(items)
-            return self._snapshot_page(items, limit, offset, fingerprint)
+            result = self._snapshot_page(items, limit, offset, fingerprint)
+            result["data"] = await self._fetch_statistics(result["data"])
+            return result
         if cursor is not None:
             raise ValueError("Cursor does not match this request")
         cr_key = content_rating or "default"
@@ -364,7 +367,7 @@ class MangaService:
         if demographic and "unspecified" in demographic:
             fingerprint = f"list:{title}:{status}:{order}:{genre}:{user_age}:{content_rating}:{sorted(demographic)}"
             if cursor is not None:
-                return self._cursor_page(cursor, limit, fingerprint)
+                return await self._cursor_page(cursor, limit, fingerprint)
             included_tags = None
             if genre:
                 tag_uuid = GENRE_TAG_UUIDS.get(genre.lower())
@@ -408,11 +411,9 @@ class MangaService:
                 user_age,
                 order=order,
             )
-            items = await self._fetch_statistics(items)
-            if order in ("popular", "rating"):
-                key = "popularity" if order == "popular" else "score"
-                items.sort(key=lambda m: m.get(key, 0) or 0, reverse=True)
-            return self._snapshot_page(items, limit, offset, fingerprint)
+            result = self._snapshot_page(items, limit, offset, fingerprint)
+            result["data"] = await self._fetch_statistics(result["data"])
+            return result
         if cursor is not None:
             raise ValueError("Cursor does not match this request")
         cr_key = content_rating or "default"

@@ -18,6 +18,11 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
 
     # Demographic
     demographic = attributes.get("publicationDemographic")
+    if demographic == "none":
+        demographic = None
+
+    # Latest upload
+    latest_uploaded_chapter = attributes.get("latestUploadedChapter")
 
     # Status
     status = attributes.get("status")
@@ -50,6 +55,7 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "description": description,
         "coverUrl": cover_url,
         "demographic": demographic,
+        "latestUploadedChapter": latest_uploaded_chapter,
         "status": status,
         "contentRating": content_rating,
         "genres": genre_names,

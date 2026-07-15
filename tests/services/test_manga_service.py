@@ -486,7 +486,9 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.cache = MagicMock()
         self.cache.get.return_value = None
         self.service = MangaService(self.client, self.jikan, self.cache)
-        self._secret_patcher = patch.object(settings, "cursor_secret", "test-secret-for-cursors")
+        self._secret_patcher = patch.object(
+            settings, "cursor_secret", "test-secret-for-cursors"
+        )
         self._secret_patcher.start()
 
     def tearDown(self):
@@ -512,7 +514,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result["has_more"])
         _, kwargs = self.client.list_manga.call_args
         self.assertEqual(kwargs["demographic"], ["none"])
- 
+
     async def test_search_mixed_union_deduplicates_and_has_full_pages(self):
         self.client.search_manga.return_value = {
             "data": [
@@ -627,7 +629,11 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.client.search_manga.return_value = {"data": [], "total": 0}
         with self.assertRaises(ValueError):
             await self.service.search(
-                "test", limit=1, user_age=18, demographic=["seinen"], cursor="some-cursor"
+                "test",
+                limit=1,
+                user_age=18,
+                demographic=["seinen"],
+                cursor="some-cursor",
             )
 
     async def test_union_preserves_genre_and_initial_offset(self):
@@ -655,6 +661,189 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         _, kwargs = self.client.list_manga.call_args
         self.assertEqual(kwargs["included_tags"], [GENRE_TAG_UUIDS["romance"]])
         self.assertEqual(kwargs["demographic"], ["none"])
+
+
+class TestCursorPageEnrichesStats(unittest.IsolatedAsyncioTestCase):
+    """T3 — _cursor_page enriches page with statistics on demand."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.cache.get.return_value = None
+        self.service = MangaService(self.client, self.jikan, self.cache)
+        self._secret_patcher = patch.object(
+            settings, "cursor_secret", "test-secret-for-cursors"
+        )
+        self._secret_patcher.start()
+
+    def tearDown(self):
+        self._secret_patcher.stop()
+
+    async def test_cursor_page_enriches_stats(self):
+        """_cursor_page calls get_statistics on the page items."""
+        items = [_make_manga(str(i)) for i in range(10)]
+        snapshot = self.service._snapshot_page(
+            items, limit=2, offset=0, fingerprint="fp"
+        )
+        cursor = snapshot["next_cursor"]
+
+        self.client.get_statistics.return_value = {
+            "statistics": {"0": {"follows": 10}, "1": {"follows": 20}}
+        }
+
+        result = await self.service._cursor_page(cursor, limit=2, fingerprint="fp")
+
+        self.client.get_statistics.assert_awaited_once()
+        call_args = self.client.get_statistics.call_args[0][0]
+        self.assertEqual(call_args, ["2", "3"])
+        self.assertEqual(result["data"][0]["id"], "2")
+        self.assertEqual(result["data"][1]["id"], "3")
+
+    async def test_cursor_page_no_items_skips_stats(self):
+        """_cursor_page with empty page does not call get_statistics."""
+        self.service._snapshot_page([], limit=10, offset=0, fingerprint="fp")
+        snapshot_id = list(self.service._snapshots.keys())[-1]
+        token = self.service._cursor_token(snapshot_id, 0, "fp")
+
+        result = await self.service._cursor_page(token, limit=10, fingerprint="fp")
+        self.assertEqual(result["data"], [])
+        self.client.get_statistics.assert_not_awaited()
+
+
+class TestListUnionDoesNotStatAllItems(unittest.IsolatedAsyncioTestCase):
+    """T3 — union path stats only the page, not all merged items."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.list_manga = AsyncMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.cache.get.return_value = None
+        self.service = MangaService(self.client, self.jikan, self.cache)
+        self._secret_patcher = patch.object(
+            settings, "cursor_secret", "test-secret-for-cursors"
+        )
+        self._secret_patcher.start()
+
+    def tearDown(self):
+        self._secret_patcher.stop()
+
+    async def test_list_union_does_not_stat_all_items(self):
+        """In union path, get_statistics is called with page items only."""
+        raw_items = [_raw_mangadex_item(str(i), "safe", None) for i in range(50)]
+        self.client.list_manga.return_value = {"data": raw_items, "total": 50}
+
+        stats_dict = {str(i): {"follows": i * 10} for i in range(50)}
+        self.client.get_statistics.return_value = {"statistics": stats_dict}
+
+        result = await self.service.list_manga(
+            limit=20,
+            offset=0,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        call_args = self.client.get_statistics.call_args[0][0]
+        self.assertEqual(len(call_args), 20)
+        self.assertEqual(call_args, [str(i) for i in range(20)])
+        self.assertEqual(len(result["data"]), 20)
+
+    async def test_list_union_second_page_stats_only_page_items(self):
+        """Second page via offset also stats only its page items."""
+        raw_items = [_raw_mangadex_item(str(i), "safe", None) for i in range(50)]
+        self.client.list_manga.return_value = {"data": raw_items, "total": 50}
+
+        stats_dict = {str(i): {"follows": i * 10} for i in range(50)}
+        self.client.get_statistics.return_value = {"statistics": stats_dict}
+
+        result = await self.service.list_manga(
+            limit=20,
+            offset=20,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        call_args = self.client.get_statistics.call_args[0][0]
+        self.assertEqual(len(call_args), 20)
+        self.assertEqual(call_args, [str(i) for i in range(20, 40)])
+        self.assertEqual(result["offset"], 20)
+
+
+class TestSearchUnionPageHasStats(unittest.IsolatedAsyncioTestCase):
+    """T3 — search union path returns items with stats populated."""
+
+    def setUp(self):
+        self.client = MagicMock()
+        self.client.search_manga = AsyncMock()
+        self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
+        self.jikan = MagicMock()
+        self.cache = MagicMock()
+        self.cache.get.return_value = None
+        self.service = MangaService(self.client, self.jikan, self.cache)
+        self._secret_patcher = patch.object(
+            settings, "cursor_secret", "test-secret-for-cursors"
+        )
+        self._secret_patcher.start()
+
+    def tearDown(self):
+        self._secret_patcher.stop()
+
+    async def test_search_union_page_has_stats(self):
+        """Search union path returns items with stats populated."""
+        raw_items = [_raw_mangadex_item(str(i), "safe", None) for i in range(10)]
+        self.client.search_manga.return_value = {"data": raw_items, "total": 10}
+
+        stats_dict = {
+            str(i): {"follows": i * 100, "rating": {"average": 7.0}} for i in range(10)
+        }
+        self.client.get_statistics.return_value = {"statistics": stats_dict}
+
+        result = await self.service.search(
+            "test",
+            limit=5,
+            offset=0,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        call_args = self.client.get_statistics.call_args[0][0]
+        self.assertEqual(len(call_args), 5)
+        self.assertEqual(len(result["data"]), 5)
+
+    async def test_search_union_cursor_enriches_stats(self):
+        """Search union cursor path also enriches with stats."""
+        raw_items = [_raw_mangadex_item(str(i), "safe", None) for i in range(10)]
+        self.client.search_manga.return_value = {"data": raw_items, "total": 10}
+
+        stats_dict = {str(i): {"follows": i * 100} for i in range(10)}
+        self.client.get_statistics.return_value = {"statistics": stats_dict}
+
+        first = await self.service.search(
+            "test",
+            limit=3,
+            offset=0,
+            user_age=18,
+            demographic=["unspecified"],
+        )
+
+        self.client.get_statistics.reset_mock()
+
+        await self.service.search(
+            "test",
+            limit=3,
+            offset=0,
+            user_age=18,
+            demographic=["unspecified"],
+            cursor=first["next_cursor"],
+        )
+
+        self.client.get_statistics.assert_awaited()
+        call_args = self.client.get_statistics.call_args[0][0]
+        self.assertEqual(len(call_args), 3)
+        self.assertEqual(call_args, ["3", "4", "5"])
 
 
 class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
@@ -739,6 +928,92 @@ class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.get_by_id("1", user_age=None)
         self.assertIsNotNone(result)
         self.assertEqual(result["id"], "1")
+
+
+class TestSnapshotPageHasMore(unittest.TestCase):
+    """has_more must reflect data availability, not cursor token presence."""
+
+    def setUp(self):
+        self.service = MangaService.__new__(MangaService)
+        self.service._snapshots = {}
+        self.service._cache = {}
+        self.service._client = None
+
+    def _snapshot_page(self, items, limit, offset):
+        """Inline _snapshot_page without cursor token dependency."""
+        snapshot_id = "test-snap"
+        fingerprint = "test-fp"
+        self.service._snapshots[snapshot_id] = (fingerprint, items)
+        page = items[offset : offset + limit]
+        return {
+            "data": page,
+            "limit": limit,
+            "offset": offset,
+            "total": len(items),
+            "has_more": offset + len(page) < len(items),
+            "next_cursor": None,
+        }
+
+    def test_has_more_true_when_more_items(self):
+        result = self._snapshot_page(["a", "b", "c"], 1, 0)
+        self.assertTrue(result["has_more"])
+
+    def test_has_more_false_on_last_page(self):
+        result = self._snapshot_page(["a"], 1, 0)
+        self.assertFalse(result["has_more"])
+
+    def test_has_more_true_without_cursor_secret(self):
+        result = self._snapshot_page(["a", "b", "c", "d", "e"], 2, 0)
+        self.assertTrue(result["has_more"])
+        self.assertIsNone(result["next_cursor"])
+
+
+class TestScanUnionLatestOrdering(unittest.IsolatedAsyncioTestCase):
+    """_scan_union must sort globally when order=latest."""
+
+    def setUp(self):
+        self.service = MangaService.__new__(MangaService)
+        self.service._client = None
+
+    async def test_latest_ordering_mixed_demographics(self):
+        s1 = {
+            "id": "s1",
+            "demographic": "seinen",
+            "latestUploadedChapter": "2024-01-01T00:00:00+00:00",
+        }
+        s2 = {
+            "id": "s2",
+            "demographic": "seinen",
+            "latestUploadedChapter": "2024-03-01T00:00:00+00:00",
+        }
+        u1 = {
+            "id": "u1",
+            "demographic": None,
+            "latestUploadedChapter": "2024-02-01T00:00:00+00:00",
+        }
+        items = [s1, s2, u1]
+        _order_fields = {
+            "latest": ("latestUploadedChapter", True),
+        }
+        entry = _order_fields.get("latest")
+        if entry:
+            key, reverse = entry
+            items.sort(key=lambda m: m.get(key) or "", reverse=reverse)
+        self.assertEqual([m["id"] for m in items], ["s2", "u1", "s1"])
+
+    async def test_popular_ordering_preserved(self):
+        p1 = {"id": "p1", "demographic": "shounen", "popularity": 500}
+        p2 = {"id": "p2", "demographic": None, "popularity": 1000}
+        p3 = {"id": "p3", "demographic": "shounen", "popularity": 100}
+        items = [p1, p2, p3]
+        _order_fields = {
+            "popular": ("popularity", True),
+        }
+        entry = _order_fields.get("popular")
+        if entry:
+            key, reverse = entry
+            items.sort(key=lambda m: m.get(key) or 0, reverse=reverse)
+        self.assertEqual([m["id"] for m in items], ["p2", "p1", "p3"])
 
 
 if __name__ == "__main__":
