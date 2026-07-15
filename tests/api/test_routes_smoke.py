@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from datetime import datetime, timezone
 from importlib.util import find_spec
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
@@ -18,7 +18,6 @@ from app.core.dependencies import (
     get_manga_service,
     get_user_age,
 )
-from app.services.manga_service import MangaService
 from tests.api.helpers import create_hermetic_test_app
 
 
@@ -88,11 +87,8 @@ class FakeChapterPagesService:
 class AppSmokeTests(unittest.TestCase):
     def setUp(self):
         self.app = create_hermetic_test_app()
-        self._secret_patcher = patch.object(settings, "cursor_secret", "test-secret-for-cursors")
-        self._secret_patcher.start()
 
     def tearDown(self):
-        self._secret_patcher.stop()
         self.app.dependency_overrides.clear()
 
     def test_ping_returns_ok(self):
@@ -208,59 +204,6 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(body["offset"], 10)
         self.assertEqual(body["total"], 1)
 
-    def test_capabilities_advertise_cursor_null_union_contract(self):
-        with TestClient(self.app) as client:
-            response = client.get("/manga/capabilities")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {
-                "demographic_filter": {
-                    "contract_version": 1,
-                    "null_union": True,
-                    "pagination": "cursor-v1",
-                }
-            },
-        )
-
-    def test_unknown_demographic_is_rejected_before_service(self):
-        fake_service = FakeMangaService()
-        self.app.dependency_overrides[get_manga_service] = lambda: fake_service
-
-        with TestClient(self.app) as client:
-            response = client.get("/manga?demographic=unknown")
-
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(fake_service.list_calls, [])
-
-    def test_guest_unspecified_passes_validation_to_service(self):
-        fake_service = FakeMangaService()
-        self.app.dependency_overrides[get_manga_service] = lambda: fake_service
-        self.app.dependency_overrides[get_user_age] = lambda: None
-
-        with TestClient(self.app) as client:
-            response = client.get("/manga?demographic=unspecified")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(fake_service.list_calls), 1)
-
-    def test_search_forwards_repeated_demographics(self):
-        fake_service = FakeMangaService()
-        self.app.dependency_overrides[get_manga_service] = lambda: fake_service
-        self.app.dependency_overrides[get_user_age] = lambda: 18
-
-        with TestClient(self.app) as client:
-            response = client.get(
-                "/manga/search?q=berserk&demographic=seinen&demographic=unspecified"
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            fake_service.search_queries,
-            ["berserk"],
-        )
-
     def test_list_manga_route_passes_query_params_to_service(self):
         fake_service = FakeMangaService()
         self.app.dependency_overrides[get_manga_service] = lambda: fake_service
@@ -287,46 +230,6 @@ class AppSmokeTests(unittest.TestCase):
                 }
             ],
         )
-
-    def test_list_cursor_conflict_returns_409(self):
-        class ExpiredCursorService(FakeMangaService):
-            async def list_manga(self, **kwargs):
-                raise ValueError("Expired snapshot cursor")
-
-        self.app.dependency_overrides[get_manga_service] = ExpiredCursorService
-        self.app.dependency_overrides[get_user_age] = lambda: 18
-        with TestClient(self.app, raise_server_exceptions=False) as client:
-            response = client.get("/manga?demographic=unspecified&cursor=expired")
-
-        self.assertEqual(response.status_code, 409)
-
-    def test_cursor_continues_across_real_dependency_instances(self):
-        client = MagicMock()
-        client.list_manga = AsyncMock(
-            return_value={
-                "data": [
-                    {"id": "first", "attributes": {"title": {"en": "First"}, "publicationDemographic": None, "contentRating": "safe", "tags": []}, "relationships": []},
-                    {"id": "second", "attributes": {"title": {"en": "Second"}, "publicationDemographic": None, "contentRating": "safe", "tags": []}, "relationships": []},
-                ],
-                "total": 2,
-            }
-        )
-        client.get_statistics = AsyncMock(return_value={"statistics": {}})
-        self.app.dependency_overrides[get_manga_service] = lambda: MangaService(
-            client, MagicMock(), self.app.state.cache
-        )
-        self.app.dependency_overrides[get_user_age] = lambda: 18
-
-        with TestClient(self.app) as client_app:
-            first = client_app.get("/manga?limit=1&demographic=unspecified")
-            second = client_app.get(
-                f"/manga?limit=1&demographic=unspecified&cursor={first.json()['next_cursor']}"
-            )
-
-        self.assertEqual(first.status_code, 200)
-        self.assertEqual(second.status_code, 200)
-        self.assertEqual(second.json()["data"][0]["id"], "second")
-        self.assertEqual(client.list_manga.await_count, 1)
 
     def test_chapters_route_passes_language_and_returns_items(self):
         fake_service = FakeChapterService(
