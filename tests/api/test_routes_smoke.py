@@ -88,7 +88,9 @@ class FakeChapterPagesService:
 class AppSmokeTests(unittest.TestCase):
     def setUp(self):
         self.app = create_hermetic_test_app()
-        self._secret_patcher = patch.object(settings, "cursor_secret", "test-secret-for-cursors")
+        self._secret_patcher = patch.object(
+            settings, "cursor_secret", "test-secret-for-cursors"
+        )
         self._secret_patcher.start()
 
     def tearDown(self):
@@ -146,6 +148,30 @@ class AppSmokeTests(unittest.TestCase):
                 str(client.app.state.jikan_http.base_url),
                 "https://api.jikan.moe/v4/",
             )
+
+    def test_tags_uses_shared_mangadex_client(self):
+        mangadex_http = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {
+            "data": [
+                {
+                    "id": "tag-1",
+                    "attributes": {"name": {"en": "Action"}, "group": "genre"},
+                }
+            ]
+        }
+        mangadex_http.get = AsyncMock(return_value=response)
+
+        with TestClient(self.app) as client:
+            client.app.state.mangadex_http = mangadex_http
+            route_response = client.get("/manga/tags")
+
+        self.assertEqual(route_response.status_code, 200)
+        mangadex_http.get.assert_awaited_once_with("/manga/tag")
+        self.assertEqual(
+            route_response.json()["genres"],
+            [{"id": "tag-1", "name": "Action"}],
+        )
 
     def test_test_lifespan_ignores_configured_database_settings(self):
         original_database_url = settings.database_url
@@ -305,8 +331,26 @@ class AppSmokeTests(unittest.TestCase):
         client.list_manga = AsyncMock(
             return_value={
                 "data": [
-                    {"id": "first", "attributes": {"title": {"en": "First"}, "publicationDemographic": None, "contentRating": "safe", "tags": []}, "relationships": []},
-                    {"id": "second", "attributes": {"title": {"en": "Second"}, "publicationDemographic": None, "contentRating": "safe", "tags": []}, "relationships": []},
+                    {
+                        "id": "first",
+                        "attributes": {
+                            "title": {"en": "First"},
+                            "publicationDemographic": None,
+                            "contentRating": "safe",
+                            "tags": [],
+                        },
+                        "relationships": [],
+                    },
+                    {
+                        "id": "second",
+                        "attributes": {
+                            "title": {"en": "Second"},
+                            "publicationDemographic": None,
+                            "contentRating": "safe",
+                            "tags": [],
+                        },
+                        "relationships": [],
+                    },
                 ],
                 "total": 2,
             }
