@@ -232,11 +232,18 @@ class AuthOnlyDependencyTests(unittest.TestCase):
         asyncio.run(self.db.close())
 
     def test_verified_auth_does_not_create_user_row(self):
-        """DELETE /users/me via ``get_current_user_verified`` must NOT create a local user."""
-
-        with patch(
-            "app.core.firebase_auth.firebase_auth_sdk.verify_id_token",
-            return_value=_FAKE_DECODED_TOKEN,
+        """DELETE /users/me via ``get_current_user_verified`` must NOT call
+        ``get_or_create_user`` or leave a user row behind."""
+        with (
+            patch(
+                "app.core.firebase_auth.firebase_auth_sdk.verify_id_token",
+                return_value=_FAKE_DECODED_TOKEN,
+            ),
+            patch(
+                "app.services.user_service.UserService.get_or_create_user",
+                autospec=True,
+            ) as mock_get_or_create,
+            patch("app.services.user_service.firebase_admin._apps", []),
         ):
             with TestClient(self.app) as client:
                 response = client.delete(
@@ -246,7 +253,10 @@ class AuthOnlyDependencyTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 204)
 
-        # Verify NO user row was created by the auth dependency alone.
+        # This is the real regression guard — must NOT call get_or_create_user.
+        mock_get_or_create.assert_not_called()
+
+        # Verify no user row exists in the DB (belt-and-suspenders).
         user = asyncio.run(
             self.db.fetchone(
                 "SELECT firebase_uid FROM users WHERE firebase_uid = ?",
