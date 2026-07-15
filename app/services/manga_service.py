@@ -62,7 +62,7 @@ class MangaService:
         demographics: list[str],
         user_age: int | None,
         order: str | None = None,
-        max_offset: int = 300,
+        max_offset: int = 1000,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page.
 
@@ -409,6 +409,9 @@ class MangaService:
                 order=order,
             )
             items = await self._fetch_statistics(items)
+            if order in ("popular", "rating"):
+                key = "popularity" if order == "popular" else "score"
+                items.sort(key=lambda m: m.get(key, 0) or 0, reverse=True)
             return self._snapshot_page(items, limit, offset, fingerprint)
         if cursor is not None:
             raise ValueError("Cursor does not match this request")
