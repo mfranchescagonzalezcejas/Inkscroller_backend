@@ -213,5 +213,78 @@ class FirebaseTokenVerificationPathTests(unittest.TestCase):
         self.assertEqual(response.json()["error"], "authentication_error")
 
 
+# ---------------------------------------------------------------------------
+# Auth-only dependency (no local bootstrap)
+# ---------------------------------------------------------------------------
+
+
+class AuthOnlyDependencyTests(unittest.TestCase):
+    """Proves ``get_current_user_verified`` validates Firebase token without
+    bootstrapping a local user row."""
+
+    def setUp(self):
+        self.app = create_hermetic_test_app()
+        self.db = asyncio.run(_make_test_db())
+        self.app.dependency_overrides[get_db] = lambda: self.db
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        asyncio.run(self.db.close())
+
+    def test_verified_auth_does_not_create_user_row(self):
+        """DELETE /users/me via ``get_current_user_verified`` must NOT call
+        ``get_or_create_user`` or leave a user row behind."""
+        with (
+            patch(
+                "app.core.firebase_auth.firebase_auth_sdk.verify_id_token",
+                return_value=_FAKE_DECODED_TOKEN,
+            ),
+            patch(
+                "app.services.user_service.UserService.get_or_create_user",
+                autospec=True,
+            ) as mock_get_or_create,
+            patch("app.services.user_service.firebase_admin._apps", []),
+        ):
+            with TestClient(self.app) as client:
+                response = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer valid-token"},
+                )
+
+        self.assertEqual(response.status_code, 204)
+
+        # This is the real regression guard — must NOT call get_or_create_user.
+        mock_get_or_create.assert_not_called()
+
+        # Verify no user row exists in the DB (belt-and-suspenders).
+        user = asyncio.run(
+            self.db.fetchone(
+                "SELECT firebase_uid FROM users WHERE firebase_uid = ?",
+                _FAKE_DECODED_TOKEN["uid"],
+            )
+        )
+        self.assertIsNone(
+            user,
+            "get_current_user_verified must NOT create a local user row",
+        )
+
+    def test_verified_auth_still_rejects_expired_token(self):
+        """Auth-only dependency still validates the token — expired → 401."""
+        from firebase_admin.auth import ExpiredIdTokenError
+
+        with patch(
+            "app.core.firebase_auth.firebase_auth_sdk.verify_id_token",
+            side_effect=ExpiredIdTokenError("expired", cause=None),
+        ):
+            with TestClient(self.app) as client:
+                response = client.delete(
+                    "/users/me",
+                    headers={"Authorization": "Bearer expired-token"},
+                )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["error"], "authentication_error")
+
+
 if __name__ == "__main__":
     unittest.main()

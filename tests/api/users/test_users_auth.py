@@ -30,6 +30,7 @@ from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import (
     get_current_user,
+    get_current_user_verified,
     get_db,
     get_manga_service,
     get_user_age,
@@ -1042,7 +1043,7 @@ class UserAccountDeletionTests(unittest.TestCase):
         self.app = create_hermetic_test_app()
         self.db = asyncio.run(_make_test_db())
         self.app.dependency_overrides[get_db] = lambda: self.db
-        self.app.dependency_overrides[get_current_user] = self._fake_auth
+        self.app.dependency_overrides[get_current_user_verified] = self._fake_auth
 
         # Bootstrap user + library entry + preferences.
         svc = UserService(self.db)
@@ -1222,7 +1223,7 @@ class UserAccountDeletionTests(unittest.TestCase):
 
     def test_delete_me_unauthenticated(self):
         # Temporarily remove the auth override so real auth is enforced.
-        self.app.dependency_overrides.pop(get_current_user, None)
+        self.app.dependency_overrides.pop(get_current_user_verified, None)
         with TestClient(self.app) as client:
             response = client.delete("/users/me")
 
