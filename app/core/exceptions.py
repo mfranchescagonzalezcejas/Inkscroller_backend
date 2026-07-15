@@ -6,6 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from httpx import ConnectError, HTTPStatusError, TimeoutException
 
+from app.core.config import settings
+from app.core.security_headers import get_security_headers
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +71,9 @@ async def handle_upstream_service_error(
 
 async def handle_unhandled(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
-    return _error_response(500, "internal_error", "An unexpected error occurred.")
+    response = _error_response(500, "internal_error", "An unexpected error occurred.")
+    response.headers.update(get_security_headers(settings.is_production_like()))
+    return response
 
 
 class AuthError(Exception):

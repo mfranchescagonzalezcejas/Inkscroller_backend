@@ -64,6 +64,12 @@ class Settings:
         self.cache_ttl_seconds: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
         self.readyz_timeout_seconds: int = max(1, int(os.getenv("READYZ_TIMEOUT", "5")))
 
+        # Request resource limits
+        self.request_timeout_seconds: int = int(
+            os.getenv("REQUEST_TIMEOUT_SECONDS", "30")
+        )
+        self.max_request_body_mb: int = int(os.getenv("MAX_REQUEST_BODY_MB", "5"))
+
         self.cors_allow_credentials: bool = True
         self.cors_origins: list[str] = _parse_csv(
             os.getenv("CORS_ORIGINS", ",".join(DEFAULT_CORS_ORIGINS))
