@@ -557,5 +557,7 @@ class MangaService:
             return None  # guest: only safe content
         if not can_access_content(result.get("contentRating"), user_age):
             return None
+        if not can_access_demographic(result.get("demographic"), user_age):
+            return None
 
         return result
