@@ -101,7 +101,12 @@ class MangaService:
             entry = _order_fields.get(order)
             if entry:
                 key, reverse = entry
-                items.sort(key=lambda m: m.get(key) or 0, reverse=reverse)
+                # latestUploadedChapter is a nullable string — use "" not 0
+                # to avoid TypeError comparing int vs str in Python 3
+                if key == "latestUploadedChapter":
+                    items.sort(key=lambda m: m.get(key) or "", reverse=reverse)
+                else:
+                    items.sort(key=lambda m: m.get(key) or 0, reverse=reverse)
         return items
 
     @staticmethod
@@ -411,8 +416,15 @@ class MangaService:
                 user_age,
                 order=order,
             )
-            result = self._snapshot_page(items, limit, offset, fingerprint)
-            result["data"] = await self._fetch_statistics(result["data"])
+            # ponytail: popular/rating need full stats for correct global sort
+            if order in ("popular", "rating"):
+                items = await self._fetch_statistics(items)
+                key = "popularity" if order == "popular" else "score"
+                items.sort(key=lambda m: m.get(key, 0) or 0, reverse=True)
+                result = self._snapshot_page(items, limit, offset, fingerprint)
+            else:
+                result = self._snapshot_page(items, limit, offset, fingerprint)
+                result["data"] = await self._fetch_statistics(result["data"])
             return result
         if cursor is not None:
             raise ValueError("Cursor does not match this request")
