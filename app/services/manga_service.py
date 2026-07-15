@@ -264,6 +264,22 @@ class MangaService:
         demographic: list[str] | None = None,
         cursor: str | None = None,
     ) -> dict:
+        """Search manga by title query through MangaDex.
+
+        Args:
+            query: Title search string.
+            limit: Max results per page (default 10, max 100).
+            offset: Pagination offset (default 0).
+            user_age: Authenticated user age for content gating, or ``None`` for guests.
+            content_rating: Explicit content rating override (safe/suggestive/all).
+            demographic: Demographic filter list. Use ``["unspecified"]`` to
+                include titles without a demographic (requires 18+).
+            cursor: Cursor token for union-scan pagination.
+
+        Returns:
+            Paginated result dict with ``data``, ``limit``, ``offset``,
+            ``total``, ``has_more``, and optionally ``next_cursor``.
+        """
         if demographic and "unspecified" in demographic:
             fingerprint = (
                 f"search:{query}:{user_age}:{content_rating}:{sorted(demographic)}"
@@ -365,10 +381,31 @@ class MangaService:
         status: str | None = None,
         order: str | None = None,
         genre: str | None = None,
-        user_age: int | None = None,
         content_rating: str | None = None,
+        user_age: int | None = None,
         cursor: str | None = None,
     ) -> dict:
+        """List manga from the MangaDex catalogue with filters.
+
+        Supports demographic union scans (named + ``unspecified``) via
+        cursor-based pagination. Sorts by ``popular``, ``rating``,
+        ``title``, or ``latest`` (uploaded chapter).
+
+        Args:
+            limit: Results per page (default 20).
+            offset: Pagination offset (default 0).
+            title: Filter by title substring.
+            demographic: Demographic filter list.
+            status: Publication status filter.
+            order: Sort order key.
+            genre: Genre tag filter.
+            content_rating: Content rating override.
+            user_age: User age for content gating.
+            cursor: Cursor token for union pagination.
+
+        Returns:
+            Paginated result dict.
+        """
         if demographic and "unspecified" in demographic:
             fingerprint = f"list:{title}:{status}:{order}:{genre}:{user_age}:{content_rating}:{sorted(demographic)}"
             if cursor is not None:
@@ -499,6 +536,20 @@ class MangaService:
         user_age: int | None = None,
         skip_age_filter: bool = False,
     ) -> dict | None:
+        """Get a single manga by MangaDex ID with optional Jikan enrichment.
+
+        Results are cached for the configured TTL. Age gating is applied
+        on every read so a prior ``skip_age_filter`` call cannot poison
+        the shared cache.
+
+        Args:
+            manga_id: MangaDex UUID.
+            user_age: User age for content/demographic gating.
+            skip_age_filter: Bypass age checks (internal use only).
+
+        Returns:
+            Mapped manga dict, or ``None`` if age-restricted or not found.
+        """
         cache_key = f"manga:{manga_id}"
         cached = self._cache.get(cache_key)
 
