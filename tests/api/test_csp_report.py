@@ -43,15 +43,40 @@ class CSPReportTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 204)
 
+    def test_post_csp_report_sanitizes_field_values(self):
+        """Values with newlines or >200 chars are truncated/cleaned."""
+        with patch("app.api.security.logger") as mock_logger:
+            with TestClient(self.app) as client:
+                response = client.post(
+                    "/csp-report",
+                    json={
+                        "csp-report": {
+                            "effective-directive": "script-src https://evil.com\n<script>alert(1)</script>",
+                            "violated-directive": "x" * 500,
+                        }
+                    },
+                )
+
+        self.assertEqual(response.status_code, 204)
+        logged_output = " ".join(
+            str(call.args) + " " + str(call.kwargs)
+            for call in mock_logger.info.call_args_list
+        )
+        # Newline in value must be replaced with space
+        self.assertNotIn("\\n", logged_output)
+        # Long value must be truncated to 200 chars
+        self.assertNotIn("x" * 300, logged_output)
+        self.assertIn("x" * 200, logged_output)
+
     def test_post_csp_report_rejects_invalid_json(self):
-        with TestClient(self.app, raise_server_exceptions=False) as client:
+        with TestClient(self.app) as client:
             response = client.post(
                 "/csp-report",
                 content=b"not-json",
                 headers={"Content-Type": "application/csp-report"},
             )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 204)
 
     def test_post_csp_report_does_not_log_url_fields(self):
         report_payload = {

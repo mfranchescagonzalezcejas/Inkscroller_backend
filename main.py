@@ -259,26 +259,15 @@ def _cors_headers(origin: str | None) -> dict[str, str]:
     if not origin:
         return {}
     allowed = settings.cors_origins
-    if "*" in allowed or origin in allowed:
-        return {
-            "Access-Control-Allow-Origin": origin,
-            "Vary": "Origin",
-        }
-    if settings.is_production_like() and settings.cors_allow_credentials:
-        # Production with credentials — only explicit origins
-        if origin in allowed:
-            return {
-                "Access-Control-Allow-Origin": origin,
-                "Vary": "Origin",
-                "Access-Control-Allow-Credentials": "true",
-            }
+    if origin not in allowed and "*" not in allowed:
         return {}
-    if not settings.is_production_like():
-        return {
-            "Access-Control-Allow-Origin": origin,
-            "Vary": "Origin",
-        }
-    return {}
+    headers: dict[str, str] = {
+        "Access-Control-Allow-Origin": origin,
+        "Vary": "Origin",
+    }
+    if settings.cors_allow_credentials and "*" not in allowed:
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return headers
 
 
 async def _error_413(scope: Scope, receive: Receive, send: Send) -> None:

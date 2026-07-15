@@ -277,6 +277,35 @@ class CORSOnErrorResponsesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 413)
         self.assertNotIn("access-control-allow-origin", response.headers)
 
+    @patch.object(main.settings, "cors_allow_credentials", True)
+    def test_413_response_includes_credentials_for_specific_origin(self):
+        """Credentials header is added only for specific (non-wildcard) origins."""
+        with patch.dict(
+            os.environ,
+            {"CORS_ORIGINS": "https://inkscroller-app.web.app"},
+            clear=True,
+        ):
+            from app.core.config import Settings
+
+            local_settings = Settings()
+        with patch.object(main.settings, "cors_origins", local_settings.cors_origins):
+            origin = "https://inkscroller-app.web.app"
+            body = b'{"csp-report":{"padding":"' + b"x" * (5 * 1024 * 1024 + 1) + b'"}}'
+            # Recreate app with updated cors_origins for header matching
+            app = create_hermetic_test_app()
+            with TestClient(app) as client:
+                response = client.post(
+                    "/csp-report",
+                    content=body,
+                    headers={"Origin": origin},
+                )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+        self.assertEqual(
+            response.headers.get("access-control-allow-credentials"), "true"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
