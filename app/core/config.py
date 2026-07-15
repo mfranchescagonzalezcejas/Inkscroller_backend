@@ -51,6 +51,10 @@ class Settings:
         self.mangadex_base_url: str = os.getenv(
             "MANGADEX_BASE_URL", "https://api.mangadex.org"
         )
+        self.mangadex_worker_url: str = os.getenv(
+            "MANGADEX_WORKER_URL",
+            "https://inkscroller-mangadex.mercedes-account.workers.dev",
+        )
         self.jikan_base_url: str = os.getenv(
             "JIKAN_BASE_URL", "https://api.jikan.moe/v4"
         )

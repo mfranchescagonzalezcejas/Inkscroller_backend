@@ -61,8 +61,11 @@ async def get_current_user(
 
 
 def get_manga_service(request: Request) -> MangaService:
+    worker_http = getattr(request.app.state, "mangadex_worker_http", None)
+    worker_client = MangaDexClient(worker_http) if worker_http else None
     return MangaService(
         client=MangaDexClient(request.app.state.mangadex_http),
+        worker_client=worker_client,
         jikan=JikanClient(request.app.state.jikan_http),
         cache=get_shared_cache(request),
     )

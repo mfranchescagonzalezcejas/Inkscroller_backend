@@ -23,8 +23,10 @@ class MangaService:
         client: MangaDexClient,
         jikan: JikanClient,
         cache: SimpleCache,
+        worker_client: MangaDexClient | None = None,
     ) -> None:
         self._client = client
+        self._worker_client = worker_client
         self._jikan = jikan
         self._cache = cache
         self._snapshots: dict[str, tuple[str, list[dict]]] = {}
@@ -70,14 +72,13 @@ class MangaService:
             offset = 0
             while True:
                 payload = await fetch(offset)
-                raw_items = (
-                    payload.get("data", []) if isinstance(payload, dict) else []
-                )
+                raw_items = payload.get("data", []) if isinstance(payload, dict) else []
                 mapped = await self._map_and_filter(raw_items, user_age)
                 for manga in mapped:
-                    if self._matches_demographic(
-                        manga, demographics
-                    ) and manga["id"] not in merged:
+                    if (
+                        self._matches_demographic(manga, demographics)
+                        and manga["id"] not in merged
+                    ):
                         merged[manga["id"]] = manga
                 offset += len(raw_items)
                 if (
@@ -246,8 +247,9 @@ class MangaService:
                         demographic=named,
                     )
                 )
+            worker = self._worker_client or self._client
             fetches.append(
-                lambda page_offset: self._client.search_manga(
+                lambda page_offset: worker.search_manga(
                     query=query,
                     limit=100,
                     offset=page_offset,
@@ -354,8 +356,9 @@ class MangaService:
                         ),
                     )
                 )
+            worker = self._worker_client or self._client
             fetches.append(
-                lambda page_offset: self._client.list_manga(
+                lambda page_offset: worker.list_manga(
                     limit=100,
                     offset=page_offset,
                     title=title,

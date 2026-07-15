@@ -29,6 +29,7 @@ def build_lifespan(
     async def app_lifespan(app: FastAPI):
         db = None
         mangadex_http = None
+        mangadex_worker_http = None
         jikan_http = None
 
         try:
@@ -50,12 +51,18 @@ def build_lifespan(
                 base_url=settings.jikan_base_url,
                 timeout=httpx.Timeout(10.0),
             )
+            mangadex_worker_http = app.state.mangadex_worker_http = httpx.AsyncClient(
+                base_url=settings.mangadex_worker_url,
+                timeout=httpx.Timeout(10.0),
+            )
             app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
 
             yield
         finally:
             if mangadex_http is not None:
                 await mangadex_http.aclose()
+            if mangadex_worker_http is not None:
+                await mangadex_worker_http.aclose()
             if jikan_http is not None:
                 await jikan_http.aclose()
             if db is not None:
