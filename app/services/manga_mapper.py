@@ -1,3 +1,5 @@
+"""Map raw MangaDex manga API items to internal dict format and apply statistics."""
+
 from __future__ import annotations
 from typing import Any
 
@@ -5,6 +7,12 @@ COVER_BASE_URL = "https://uploads.mangadex.org/covers"
 
 
 def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
+    """Map a raw MangaDex API item to a standardised manga dict.
+
+    Extracts title, description, demographic, status, cover URL, content
+    rating, and genre tags. Statistics fields are left as ``None`` and
+    filled later by :func:`apply_statistics`.
+    """
     attributes = item.get("attributes", {})
     relationships = item.get("relationships", [])
 

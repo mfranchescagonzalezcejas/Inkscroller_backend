@@ -1,8 +1,11 @@
+"""Map raw MangaDex chapter API items to internal dict format."""
+
 from datetime import datetime
 from typing import Any
 
 
 def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
+    """Map a raw MangaDex chapter item to the internal chapter dict format."""
     attr = item.get("attributes", {})
 
     pages = attr.get("pages", 0)
@@ -26,6 +29,7 @@ def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_scanlation_group_name(item: dict[str, Any]) -> str | None:
+    """Extract the scanlation group name from a raw MangaDex chapter item's relationships."""
     relationships = item.get("relationships", [])
     for relationship in relationships:
         if relationship.get("type") != "scanlation_group":

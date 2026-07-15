@@ -18,7 +18,7 @@ DEFAULT_MAX_DELAY = 5.0  # seconds
 
 
 def _is_retryable(exc: Exception) -> bool:
-    """Determine if an exception is worth retrying."""
+    """Check whether the exception is a transient error worth retrying."""
     if isinstance(exc, (TimeoutException, ConnectError)):
         return True
     if isinstance(exc, HTTPStatusError):
@@ -31,9 +31,9 @@ def with_retry(
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
 ) -> Callable:
-    """Decorator that retries async functions with exponential backoff.
+    """Retry an async function with exponential backoff on transient errors.
 
-    Only retries on transient errors (timeouts, connection errors, 429/5xx).
+    Only retries on timeouts, connection errors, and 429/5xx HTTP status codes.
     """
 
     def decorator(func: Callable) -> Callable:

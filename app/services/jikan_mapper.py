@@ -1,7 +1,10 @@
+"""Map Jikan API response data to internal manga enrichment dict format."""
+
 from typing import Any
 
 
 def map_jikan_detail(payload: dict[str, Any]) -> dict[str, Any]:
+    """Map a Jikan API manga response into the internal enrichment dict format."""
     manga = payload.get("data", {})
 
     demographics = manga.get("demographics") or []

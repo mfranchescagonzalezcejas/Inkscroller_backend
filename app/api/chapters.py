@@ -1,3 +1,5 @@
+"""Chapter and chapter-page route handlers with age-gated access."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
 from app.core.dependencies import (

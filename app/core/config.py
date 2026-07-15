@@ -1,3 +1,5 @@
+"""Application configuration loaded from environment variables."""
+
 import logging
 import os
 
@@ -17,14 +19,17 @@ PRODUCTION_LIKE_ENVIRONMENTS = {"production", "prod", "staging", "stage"}
 
 
 def _parse_csv(value: str) -> list[str]:
+    """Split a comma-separated string into a trimmed list, skipping empty items."""
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def _parse_bool(value: str) -> bool:
+    """Parse common truthy string representations to a boolean."""
     return value.lower() in {"1", "true", "yes", "on"}
 
 
 def _runtime_environment() -> str:
+    """Detect the runtime environment from ENVIRONMENT / RAILWAY_ENVIRONMENT_NAME / RAILWAY_ENVIRONMENT."""
     environment_values = [
         os.getenv("ENVIRONMENT"),
         os.getenv("RAILWAY_ENVIRONMENT_NAME"),
@@ -42,7 +47,10 @@ def _runtime_environment() -> str:
 
 
 class Settings:
+    """Application settings loaded from environment variables with sensible defaults."""
+
     def __init__(self):
+        """Load all settings from environment variables, falling back to defaults."""
         self.app_name: str = "Inkscroller API"
         self.version: str = "0.1.0"
         self.debug: bool = _parse_bool(os.getenv("DEBUG", "false"))
@@ -107,9 +115,11 @@ class Settings:
         self.db_name: str = os.getenv("DB_NAME", "inkscroller")
 
     def is_production_like(self) -> bool:
+        """Check whether the current environment is production-like (prod/staging)."""
         return self.environment in PRODUCTION_LIKE_ENVIRONMENTS
 
     def validate_cors_configuration(self) -> None:
+        """Raise ``RuntimeError`` if the CORS config is unsafe for production-like environments."""
         if self.is_production_like() and not self.cors_origins:
             raise RuntimeError(
                 "Unsafe CORS configuration: CORS_ORIGINS must include at least one "

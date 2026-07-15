@@ -1,8 +1,12 @@
+"""Pydantic model for the home-page chapter feed entries."""
+
 from datetime import datetime
 from pydantic import BaseModel
 
 
 class HomeChapter(BaseModel):
+    """A chapter entry displayed on the home page, enriched with manga title and cover URL."""
+
     chapterId: str
     mangaId: str
     mangaTitle: str

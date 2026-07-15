@@ -1,3 +1,5 @@
+"""Manga catalogue route handlers with search, list, detail, and age-gated access."""
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
@@ -38,8 +40,7 @@ async def manga_capabilities() -> dict:
 
 @router.get("/tags")
 async def list_tags(request: Request) -> dict:
-    """
-    Returns all available tags from MangaDex, grouped by type.
+    """Return all available tags from MangaDex, grouped by type.
 
     Groups: genre, theme, format, content
     Each tag has: id (UUID), name (en), group
@@ -106,7 +107,7 @@ async def list_tags(request: Request) -> dict:
 
 
 def _fallback_tags() -> list[dict]:
-    """Fallback if MangaDex API is unreachable."""
+    """Return fallback genre tags when the MangaDex tag API is unreachable."""
     return [
         {"id": "423e2eae-a7a2-4a8b-ac03-a8351462d71d", "name": "Romance"},
         {"id": "391b0423-d847-456f-aff0-8b0cfc03066b", "name": "Action"},
@@ -115,7 +116,7 @@ def _fallback_tags() -> list[dict]:
 
 @router.get("/genres")
 async def list_genres() -> dict:
-    """Returns available genre tags for filtering (legacy endpoint)."""
+    """Return available genre tags for filtering (legacy endpoint)."""
     return {"genres": list(GENRE_TAG_UUIDS.keys())}
 
 

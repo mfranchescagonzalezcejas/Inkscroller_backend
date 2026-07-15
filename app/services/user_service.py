@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
+    """Return the current UTC datetime as an ISO-8601 string."""
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -43,6 +44,7 @@ def _mask_uid(uid: str) -> str:
 
 
 def _is_unique_constraint_violation(exc: Exception) -> bool:
+    """Check whether the exception represents a SQL unique-constraint violation across DB backends."""
     if isinstance(exc, sqlite3.IntegrityError):
         return "unique" in str(exc).lower()
 
@@ -56,12 +58,14 @@ def _is_unique_constraint_violation(exc: Exception) -> bool:
 def _serialize_birth_date_for_db(
     value: object | None, db: DatabaseAdapter
 ) -> object | None:
+    """Serialize a ``date`` to ISO string for SQLite; pass through for other backends."""
     if isinstance(value, date) and isinstance(db, SqliteAdapter):
         return value.isoformat()
     return value
 
 
 def _model_field_was_provided(model: UpdateUserProfileRequest, field_name: str) -> bool:
+    """Check if a Pydantic v2 model field was explicitly provided (not omitted) in the request."""
     fields_set = getattr(model, "model_fields_set", None)
     if fields_set is None:
         fields_set = getattr(model, "__fields_set__", set())
@@ -72,6 +76,7 @@ class UserService:
     """Handles local user bootstrap and preferences persistence."""
 
     def __init__(self, db: DatabaseAdapter) -> None:
+        """Initialise with a database adapter for local user and preferences storage."""
         self._db = db
 
     async def get_or_create_user(self, payload: FirebaseTokenPayload) -> UserProfile:

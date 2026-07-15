@@ -1,3 +1,5 @@
+"""Pydantic models for manga data and library metadata."""
+
 from pydantic import BaseModel
 from typing import List, Optional
 
