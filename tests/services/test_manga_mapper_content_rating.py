@@ -56,6 +56,51 @@ class MangaMapperContentRatingTests(unittest.TestCase):
         result = map_mangadex_manga(item)
         self.assertEqual(result["contentRating"], "erotica")
 
+    def test_normalize_none_demographic(self):
+        """'none' string is normalized to Python None."""
+        item = {
+            "id": "manga-010",
+            "attributes": {
+                "title": {"en": "No Demo"},
+                "publicationDemographic": "none",
+                "contentRating": "safe",
+                "tags": [],
+            },
+            "relationships": [],
+        }
+        result = map_mangadex_manga(item)
+        self.assertIsNone(result["demographic"])
+
+    def test_keeps_valid_demographic(self):
+        """Valid demographic values are passed through unchanged."""
+        item = {
+            "id": "manga-011",
+            "attributes": {
+                "title": {"en": "Shounen"},
+                "publicationDemographic": "shounen",
+                "contentRating": "safe",
+                "tags": [],
+            },
+            "relationships": [],
+        }
+        result = map_mangadex_manga(item)
+        self.assertEqual(result["demographic"], "shounen")
+
+    def test_keeps_none_demographic(self):
+        """JSON null stays Python None."""
+        item = {
+            "id": "manga-012",
+            "attributes": {
+                "title": {"en": "Null Demo"},
+                "publicationDemographic": None,
+                "contentRating": "safe",
+                "tags": [],
+            },
+            "relationships": [],
+        }
+        result = map_mangadex_manga(item)
+        self.assertIsNone(result["demographic"])
+
     def test_map_mangadex_content_rating_pornographic(self):
         item = {
             "id": "manga-005",

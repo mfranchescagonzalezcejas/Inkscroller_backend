@@ -61,6 +61,7 @@ class ReadingPreferences(BaseModel):
     default_reader_mode: str = "vertical"
     default_language: str = "en"
     content_rating_filter: str | None = None
+    demographic_filter: list[str] | None = None
     updated_at: str
 
 
@@ -70,6 +71,7 @@ class UpdatePreferencesRequest(BaseModel):
     default_reader_mode: str | None = None
     default_language: str | None = None
     content_rating_filter: str | None = None
+    demographic_filter: list[str] | None = None
 
 
 class UpdateLibraryStatusRequest(BaseModel):
