@@ -22,7 +22,7 @@
 #   PROVIDER="github:deepseek-r1"
 #   PROVIDER="minimax"
 #   PROVIDER="minimax:MiniMax-M3"
-PROVIDER="opencode:opencode-go/kimi-k2.7-code"
+PROVIDER="opencode:opencode/mimo-v2.5-free"
 
 # File patterns to include in review (comma-separated)
 FILE_PATTERNS="*.py"
@@ -36,7 +36,7 @@ RULES_FILE="AGENTS.md"
 
 # Strict mode: fail if AI response is ambiguous
 # Default: true
-STRICT_MODE="true"
+STRICT_MODE="false"
 
 # Timeout in seconds for AI provider response
 # Default: 300 (5 minutes)

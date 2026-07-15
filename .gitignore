@@ -42,6 +42,9 @@ htmlcov/
 .codegraph/
 .cursor/
 
+# SDD planning artifacts (already tracked — this prevents accidental re-add)
+openspec/
+
 # Local SQLite runtime artifacts
 *.db
 *.db-shm

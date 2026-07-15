@@ -178,13 +178,13 @@ class TestNoBinaryCaching(unittest.TestCase):
         self.assertIsInstance(first["data"][0].get("coverUrl"), str)
         self._assert_no_binary_content(first)
 
-        cached = cache.get("search:query:1:0:age:none:cr:default")
+        cached = cache.get("search:query:1:0:age:none:cr:default:demo:none")
         self.assertEqual(cached, first)
         self._assert_no_binary_content(cached)
 
         # Different offset → different cache key (no collision)
         third = asyncio.run(service.search("query", limit=1, offset=1))
-        cached_page2 = cache.get("search:query:1:1:age:none:cr:default")
+        cached_page2 = cache.get("search:query:1:1:age:none:cr:default:demo:none")
         self.assertEqual(cached_page2, third)
         self.assertIsNot(cached, cached_page2)
         self._assert_no_binary_content(cached_page2)

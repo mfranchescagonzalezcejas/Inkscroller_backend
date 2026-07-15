@@ -282,3 +282,13 @@ Para consultas legales o solicitudes de takedown, ver [`docs/legal/api-complianc
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+# Manga demographic filtering contract
+
+`GET /manga/capabilities` advertises the supported demographic-filter contract:
+`{"demographic_filter":{"contract_version":1,"null_union":true,"pagination":"cursor-v1"}}`.
+
+`unspecified` is a local API token for the union of titles with a null or
+missing source demographic; it is never forwarded to MangaDex. It requires an
+authenticated user aged 18 or older. Queries including it use cursor
+pagination. A missing, expired, tampered, or mismatched cursor returns HTTP
+409; clients must restart from the first page.
