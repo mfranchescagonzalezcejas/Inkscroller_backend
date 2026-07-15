@@ -59,7 +59,7 @@ class MangaService:
         fetches: list,
         demographics: list[str],
         user_age: int | None,
-        max_offset: int = 1000,
+        max_offset: int = 300,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page.
 
