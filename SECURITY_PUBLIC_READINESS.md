@@ -1,8 +1,8 @@
 # Security Public Readiness — InkScroller Backend
 
-> Documento de referencia para mantener el repositorio público de forma segura y auditable en el tiempo.
+> Reference document for keeping the public repository secure and auditable over time.
 >
-> **Modelo actual:** GitLab es la fuente de trabajo/MR, GitHub es mirror público y Railway despliega desde el mirror.
+> **Current model:** GitLab is the work/MR source, GitHub is the public mirror, and Railway deploys from the mirror.
 
 ---
 
