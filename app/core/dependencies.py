@@ -16,6 +16,7 @@ from app.core.firebase_auth import (
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
 from app.services.manga_service import MangaService
+from app.services.tag_service import TagService
 from app.services.user_service import UserService
 from app.sources.jikan_client import JikanClient
 from app.sources.mangadex_client import MangaDexClient
@@ -93,6 +94,14 @@ def get_manga_service(request: Request) -> MangaService:
         client=MangaDexClient(request.app.state.mangadex_http),
         worker_client=worker_client,
         jikan=JikanClient(request.app.state.jikan_http),
+        cache=get_shared_cache(request),
+    )
+
+
+def get_tag_service(request: Request) -> TagService:
+    """Build a :class:`TagService` with the shared MangaDex client and cache for the current request."""
+    return TagService(
+        client=MangaDexClient(request.app.state.mangadex_http),
         cache=get_shared_cache(request),
     )
 

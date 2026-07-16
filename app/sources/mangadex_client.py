@@ -131,6 +131,21 @@ class MangaDexClient:
         response.raise_for_status()
         return response.json()
 
+    @with_retry(max_retries=1)
+    async def get_tags(self) -> dict[str, Any]:
+        """Fetch all available manga tags from MangaDex.
+
+        Single retry balances two constraints:
+        - Without retry a transient 429/5xx immediately poisons the
+          shared cache with the hardcoded fallback (no themes/formats/
+          content) for the full cache TTL.
+        - The default 3-retry budget (~33s) exceeds the app-level 30s
+          request timeout, producing a 504 before the fallback.
+        """
+        response = await self.client.get("/manga/tag")
+        response.raise_for_status()
+        return response.json()
+
     @with_retry()
     async def list_manga(
         self,
