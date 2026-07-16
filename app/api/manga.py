@@ -1,14 +1,13 @@
 """Manga catalogue route handlers with search, list, detail, and age-gated access."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
 from app.core.config import settings
-from app.core.dependencies import get_manga_service, get_user_age
+from app.core.dependencies import get_manga_service, get_tag_service, get_user_age
 from app.core.manga_tags import GENRE_TAG_UUIDS
-from app.core.cache import SimpleCache
 from app.models.manga import Manga
 from app.services.manga_service import MangaService
+from app.services.tag_service import TagService
 
 router = APIRouter(prefix="/manga", tags=["Manga"])
 _SUPPORTED_DEMOGRAPHICS = {"shounen", "shoujo", "seinen", "josei", "unspecified"}
@@ -39,79 +38,13 @@ async def manga_capabilities() -> dict:
 
 
 @router.get("/tags")
-async def list_tags(request: Request) -> dict:
+async def list_tags(service: TagService = Depends(get_tag_service)) -> dict:
     """Return all available tags from MangaDex, grouped by type.
 
     Groups: genre, theme, format, content
-    Each tag has: id (UUID), name (en), group
-
-    Cached for 1 hour to avoid hitting MangaDex API on every request.
+    Each tag has: id (UUID), name (en)
     """
-    cache: SimpleCache = request.app.state.cache
-    cache_key = "mangadex:tags"
-
-    # Check cache first
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        client: httpx.AsyncClient = request.app.state.mangadex_http
-        response = await client.get("/manga/tag")
-        response.raise_for_status()
-        data = response.json()
-    except Exception:
-        # Fallback to hardcoded tags if MangaDex is unreachable
-        fallback = {
-            "genres": _fallback_tags(),
-            "themes": [],
-            "formats": [],
-            "content": [],
-        }
-        cache.set(cache_key, fallback)
-        return fallback
-
-    collection = data.get("data", [])
-
-    # Group tags by their group attribute
-    grouped = {
-        "genres": [],
-        "themes": [],
-        "formats": [],
-        "content": [],
-    }
-
-    for tag in collection:
-        attrs = tag.get("attributes", {})
-        name = attrs.get("name", {}).get("en", "")
-        group = attrs.get("group", "")
-
-        tag_info = {
-            "id": tag["id"],
-            "name": name,
-        }
-
-        if group == "genre":
-            grouped["genres"].append(tag_info)
-        elif group == "theme":
-            grouped["themes"].append(tag_info)
-        elif group == "format":
-            grouped["formats"].append(tag_info)
-        elif group == "content":
-            grouped["content"].append(tag_info)
-
-    # Cache for 1 hour (3600 seconds) - tags don't change often
-    cache.set(cache_key, grouped)
-
-    return grouped
-
-
-def _fallback_tags() -> list[dict]:
-    """Return fallback genre tags when the MangaDex tag API is unreachable."""
-    return [
-        {"id": "423e2eae-a7a2-4a8b-ac03-a8351462d71d", "name": "Romance"},
-        {"id": "391b0423-d847-456f-aff0-8b0cfc03066b", "name": "Action"},
-    ]
+    return await service.get_tags()
 
 
 @router.get("/genres")

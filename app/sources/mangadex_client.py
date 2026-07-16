@@ -131,6 +131,16 @@ class MangaDexClient:
         response.raise_for_status()
         return response.json()
 
+    async def get_tags(self) -> dict[str, Any]:
+        """Fetch all available manga tags from MangaDex.
+
+        No retry — the caller (``TagService``) falls back to hardcoded
+        genres on any failure, so retrying only delays the response.
+        """
+        response = await self.client.get("/manga/tag")
+        response.raise_for_status()
+        return response.json()
+
     @with_retry()
     async def list_manga(
         self,

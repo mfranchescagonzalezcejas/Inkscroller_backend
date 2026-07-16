@@ -16,9 +16,12 @@ from app.core.dependencies import (
     get_chapter_pages_service,
     get_chapter_service,
     get_manga_service,
+    get_tag_service,
     get_user_age,
 )
 from app.services.manga_service import MangaService
+from app.services.tag_service import TagService
+from app.sources.mangadex_client import MangaDexClient
 from tests.api.helpers import create_hermetic_test_app
 
 
@@ -163,7 +166,11 @@ class AppSmokeTests(unittest.TestCase):
         mangadex_http.get = AsyncMock(return_value=response)
 
         with TestClient(self.app) as client:
+            cache = client.app.state.cache
             client.app.state.mangadex_http = mangadex_http
+            self.app.dependency_overrides[get_tag_service] = lambda: TagService(
+                MangaDexClient(mangadex_http), cache
+            )
             route_response = client.get("/manga/tags")
 
         self.assertEqual(route_response.status_code, 200)
