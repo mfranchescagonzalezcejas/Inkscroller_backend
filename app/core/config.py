@@ -52,7 +52,14 @@ class Settings:
     def __init__(self) -> None:
         """Load all settings from environment variables, falling back to defaults."""
         self.app_name: str = "Inkscroller API"
-        self.version: str = "0.1.0"
+        self.app_description: str = (
+            "Backend API for InkScroller, a full-stack manga reading platform. "
+            "Proxies and enriches data from MangaDex (catalogue, chapters, pages) "
+            "and Jikan/MyAnimeList (metadata enrichment). "
+            "Features Firebase authentication, age-gated content access, "
+            "user preferences, personal manga libraries, and demographic filtering."
+        )
+        self.version: str = "1.0.0"
         self.debug: bool = _parse_bool(os.getenv("DEBUG", "false"))
         self.environment: str = _runtime_environment()
 

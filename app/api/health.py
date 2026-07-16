@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.db_adapter import DatabaseAdapter
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(tags=["Health"])
 
 
 @router.get("/ping")
