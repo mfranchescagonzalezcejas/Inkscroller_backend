@@ -134,10 +134,11 @@ class ChapterService:
         for manga in manga_items:
             manga_id = manga.get("id")
             attributes = manga.get("attributes", {})
+            demographic = attributes.get("publicationDemographic")
+            if demographic == "none":
+                demographic = None
             if not (
-                can_access_demographic(
-                    attributes.get("publicationDemographic"), user_age
-                )
+                can_access_demographic(demographic, user_age)
                 and can_access_content(attributes.get("contentRating"), user_age)
             ):
                 continue
