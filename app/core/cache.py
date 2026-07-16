@@ -7,9 +7,10 @@ from typing import Any
 class SimpleCache:
     """In-memory dict-based cache with TTL expiry per entry."""
 
-    def __init__(self, ttl_seconds: int = 300):
-        """Initialise with a default TTL in seconds (default 300)."""
+    def __init__(self, ttl_seconds: int = 300, maxsize: int = 1000):
+        """Initialise with a default TTL in seconds and maximum entry count."""
         self.ttl = ttl_seconds
+        self.maxsize = maxsize
         self._store: dict[str, tuple[float, Any]] = {}
 
     def get(self, key: str) -> Any | None:
@@ -29,3 +30,11 @@ class SimpleCache:
         """Store ``value`` under ``key`` with the configured TTL."""
         expires_at = time.time() + self.ttl
         self._store[key] = (expires_at, value)
+        if len(self._store) > self.maxsize:
+            oldest_key = next(iter(self._store))
+            now = time.time()
+            for cache_key, (cached_expires_at, _) in self._store.items():
+                if now > cached_expires_at:
+                    oldest_key = cache_key
+                    break
+            del self._store[oldest_key]

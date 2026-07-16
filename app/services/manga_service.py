@@ -353,7 +353,6 @@ class MangaService:
             search_kwargs["demographic"] = demographic
         payload = await self._client.search_manga(**search_kwargs)
         items = payload.get("data", []) if isinstance(payload, dict) else []
-        total_count = payload.get("total", len(items))
         mapped: list[dict] = [map_mangadex_manga(item) for item in items]
 
         # Fetch statistics (ratings/scores) for search results
@@ -377,7 +376,7 @@ class MangaService:
             "data": filtered,
             "limit": limit,
             "offset": offset,
-            "total": total_count,
+            "total": len(filtered),
         }
 
         self._cache.set(cache_key, response)
@@ -507,9 +506,6 @@ class MangaService:
 
         items = payload.get("data", [])
 
-        # Capture upstream total BEFORE filtering so pagination metadata
-        # reflects the actual dataset size, not just the current page.
-        total_count = payload.get("total", len(items))
         mapped: list[dict] = [map_mangadex_manga(item) for item in items]
 
         # Always fetch statistics to get rating for all manga lists
@@ -535,7 +531,7 @@ class MangaService:
             "data": filtered,
             "limit": limit,
             "offset": offset,
-            "total": total_count,
+            "total": len(filtered),
         }
 
         self._cache.set(cache_key, response)
@@ -573,7 +569,9 @@ class MangaService:
                 return cast("dict", cached)
             if user_age is None and cached.get("contentRating") != "safe":
                 return None  # guest: only safe content
-            if can_access_content(cached.get("contentRating"), user_age):
+            if can_access_content(
+                cached.get("contentRating"), user_age
+            ) and can_access_demographic(cached.get("demographic"), user_age):
                 return cast("dict", cached)
             return None
 
@@ -597,10 +595,10 @@ class MangaService:
                 if jikan_data is not None:
                     for key, value in jikan_data.items():
                         # Solo rellenamos si MangaDex no tenía el dato
-                        if result.get(key) in (None, [], "") and value not in (
-                            None,
-                            [],
-                            "",
+                        if (
+                            key not in {"demographic", "contentRating"}
+                            and result.get(key) in (None, [], "")
+                            and value not in (None, [], "")
                         ):
                             result[key] = value
             except Exception:

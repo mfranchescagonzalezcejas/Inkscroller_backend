@@ -25,11 +25,14 @@ async def get_latest_home_chapters(
     limit: int = 10,
     lang: str = "en",
     chapter_service: ChapterService = Depends(get_chapter_service),
+    user_age: int | None = Depends(get_user_age),
 ) -> list[HomeChapter]:
     """Return the latest chapters across all manga for the home feed."""
     return cast(
         "list[HomeChapter]",
-        await chapter_service.get_latest_home_chapters(language=lang, limit=limit),
+        await chapter_service.get_latest_home_chapters(
+            language=lang, limit=limit, user_age=user_age
+        ),
     )
 
 

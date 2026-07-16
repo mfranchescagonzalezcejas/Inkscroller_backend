@@ -87,6 +87,7 @@ class FakeChapterService:
     def __init__(self, chapters: list[dict] | None = None):
         self._chapters = chapters or []
         self._chapter_manga_map: dict[str, str] = {}
+        self.latest_user_age: int | None = None
 
     def set_chapter_manga_map(self, mapping: dict[str, str]):
         self._chapter_manga_map = mapping
@@ -97,10 +98,37 @@ class FakeChapterService:
     async def get_manga_id_for_chapter(self, chapter_id: str) -> str | None:
         return self._chapter_manga_map.get(chapter_id)
 
+    async def get_latest_home_chapters(
+        self, language: str = "en", limit: int = 10, user_age: int | None = None
+    ) -> list[dict]:
+        self.latest_user_age = user_age
+        return []
+
 
 # ---------------------------------------------------------------------------
 # Test Suites
 # ---------------------------------------------------------------------------
+
+
+class TestLatestHomeChaptersAgeRestriction(unittest.TestCase):
+    """GET /chapters/latest forwards the caller age to the service."""
+
+    def setUp(self):
+        self.app = create_hermetic_test_app()
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+
+    def test_latest_chapters_passes_user_age_to_service(self):
+        chapter_service = FakeChapterService()
+        self.app.dependency_overrides[get_chapter_service] = lambda: chapter_service
+        self.app.dependency_overrides[get_user_age] = lambda: 12
+
+        with TestClient(self.app) as client:
+            response = client.get("/chapters/latest")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(chapter_service.latest_user_age, 12)
 
 
 class TestChaptersAgeRestriction(unittest.TestCase):
