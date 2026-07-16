@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+from app.core.age import can_access_content, can_access_demographic
 from app.core.cache import SimpleCache
 from app.services.chapter_mapper import map_mangadex_chapter
 from app.services.manga_mapper import COVER_BASE_URL
@@ -49,12 +50,21 @@ class ChapterService:
         if cached is not None:
             return cached
 
-        payload = await self._client.get_chapters(
-            manga_id=manga_id,
-            language=language,
-        )
+        items: list[dict] = []
+        offset = 0
+        while True:
+            payload = await self._client.get_chapters(
+                manga_id=manga_id,
+                language=language,
+                limit=100,
+                offset=offset,
+            )
+            page_items = payload.get("data", [])
+            items.extend(page_items)
+            if not page_items or offset + 100 >= payload.get("total", len(items)):
+                break
+            offset += 100
 
-        items = payload.get("data", [])
         result = [
             map_mangadex_chapter(item)
             for item in items
@@ -71,9 +81,11 @@ class ChapterService:
         self,
         language: str = "en",
         limit: int = 10,
+        user_age: int | None = None,
     ) -> list[dict]:
         """Return the latest chapters for the home feed, deduplicated (max 2 per manga)."""
-        cache_key = f"chapters:latest:home:v4:{language}:{limit}"
+        age_key = "none" if user_age is None else str(user_age)
+        cache_key = f"chapters:latest:home:v4:{language}:{limit}:age:{age_key}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -122,6 +134,14 @@ class ChapterService:
         for manga in manga_items:
             manga_id = manga.get("id")
             attributes = manga.get("attributes", {})
+            demographic = attributes.get("publicationDemographic")
+            if demographic == "none":
+                demographic = None
+            if not (
+                can_access_demographic(demographic, user_age)
+                and can_access_content(attributes.get("contentRating"), user_age)
+            ):
+                continue
             titles = attributes.get("title", {})
             title = titles.get("en") or next(iter(titles.values()), "Unknown")
 

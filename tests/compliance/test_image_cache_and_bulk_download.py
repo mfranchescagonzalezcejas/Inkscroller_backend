@@ -219,7 +219,9 @@ class TestNoBinaryCaching(unittest.TestCase):
         first = asyncio.run(service.get_chapters("manga-1", language="en"))
         second = asyncio.run(service.get_chapters("manga-1", language="en"))
 
-        client.get_chapters.assert_awaited_once_with(manga_id="manga-1", language="en")
+        client.get_chapters.assert_awaited_once_with(
+            manga_id="manga-1", language="en", limit=100, offset=0
+        )
         self.assertEqual(first, second)
         self.assertTrue(first)
         self.assertIsInstance(first[0].get("readable"), bool)

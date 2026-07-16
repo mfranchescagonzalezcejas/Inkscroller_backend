@@ -13,6 +13,7 @@ Strategy:
 """
 
 import asyncio
+import json
 import os
 import sqlite3
 import tempfile
@@ -708,6 +709,39 @@ class LibraryEndpointTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 204)
+
+    def test_add_to_library_stores_fetched_metadata(self):
+        fetched_manga = {
+            **_FAKE_MANGA,
+            "title": "Authoritative Title",
+            "coverUrl": "https://cdn.example/cover.jpg",
+            "authors": ["Author One"],
+        }
+        fake_manga_service = AsyncMock()
+        fake_manga_service.get_by_id = AsyncMock(return_value=fetched_manga)
+        self.app.dependency_overrides[get_manga_service] = lambda: fake_manga_service
+
+        with TestClient(self.app) as client:
+            response = client.post(
+                "/users/me/library/manga-abc-123",
+                json={
+                    "title": "Client Title",
+                    "cover_url": "https://client.example/cover.jpg",
+                    "authors": ["Client Author"],
+                },
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 204)
+        row = asyncio.run(
+            self.db.fetchone(
+                "SELECT title, cover_url, authors FROM user_library WHERE manga_id = ?",
+                "manga-abc-123",
+            )
+        )
+        self.assertEqual(row["title"], "Authoritative Title")
+        self.assertEqual(row["cover_url"], "https://cdn.example/cover.jpg")
+        self.assertEqual(json.loads(row["authors"]), ["Author One"])
 
     def test_add_same_manga_twice_is_idempotent(self):
         with TestClient(self.app) as client:

@@ -122,17 +122,16 @@ async def add_to_library(
     manga_service: MangaService = Depends(get_manga_service),
 ) -> None:
     """Save a manga to the authenticated user's library, caching its metadata."""
-    # Fetch manga data to get content_rating
+    # Persist metadata from the authoritative MangaDex response.
     manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
-    content_rating = manga.get("contentRating") if manga else None
 
     await user_service.add_to_library(
         current_user.uid,
         manga_id,
-        title=body.title,
-        cover_url=body.cover_url,
-        authors=body.authors,
-        content_rating=content_rating,
+        title=manga.get("title") if manga else None,
+        cover_url=manga.get("coverUrl") if manga else None,
+        authors=manga.get("authors") if manga else None,
+        content_rating=manga.get("contentRating") if manga else None,
     )
 
 

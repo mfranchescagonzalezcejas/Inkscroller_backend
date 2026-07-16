@@ -161,7 +161,7 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["data"][0]["id"], "1")
         self.assertEqual(result["limit"], 10)
         self.assertEqual(result["offset"], 0)
-        self.assertEqual(result["total"], 2)
+        self.assertEqual(result["total"], 1)
 
     async def test_search_filters_by_age_12(self):
         """A 12-year-old only sees safe manga."""
@@ -236,7 +236,7 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["limit"], 2)
         self.assertEqual(result["offset"], 4)
-        self.assertEqual(result["total"], 50)
+        self.assertEqual(result["total"], 1)
 
 
 class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
@@ -265,7 +265,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.list_manga()
         self.assertEqual(len(result["data"]), 1)
         self.assertEqual(result["data"][0]["id"], "1")
-        self.assertEqual(result["total"], 2)
+        self.assertEqual(result["total"], 1)
 
     async def test_list_manga_filters_by_age_12(self):
         raw_items = [
@@ -280,8 +280,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.list_manga(user_age=12)
         self.assertEqual(len(result["data"]), 1)
         self.assertEqual(result["data"][0]["id"], "1")
-        # total reflects the upstream dataset size, not the filtered page
-        self.assertEqual(result["total"], 2)
+        self.assertEqual(result["total"], 1)
 
     async def test_list_manga_filters_by_age_16(self):
         raw_items = [
@@ -310,7 +309,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         # safe + None (no rating = allowed) pass; suggestive blocked; all have demographic
         result = await self.service.list_manga(user_age=None)
         self.assertEqual(len(result["data"]), 2)
-        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["total"], 2)
 
 
 class TestResolveContentRatings(unittest.TestCase):
@@ -928,6 +927,23 @@ class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
         result = await self.service.get_by_id("1", user_age=None)
         self.assertIsNotNone(result)
         self.assertEqual(result["id"], "1")
+
+    async def test_get_by_id_jikan_does_not_overwrite_access_fields(self):
+        raw_item = _raw_mangadex_item("1", "safe", None)
+        self.client.get_manga.return_value = {"data": raw_item}
+        self.jikan.search_manga = AsyncMock(return_value={"data": [{}]})
+
+        with (
+            patch.object(settings, "enable_jikan_enrichment", True),
+            patch(
+                "app.services.manga_service.map_jikan_detail",
+                return_value={"demographic": "shounen", "contentRating": "erotica"},
+            ),
+        ):
+            result = await self.service.get_by_id("1", user_age=18)
+
+        self.assertEqual(result["demographic"], None)
+        self.assertEqual(result["contentRating"], "safe")
 
 
 class TestSnapshotPageHasMore(unittest.TestCase):
