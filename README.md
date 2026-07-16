@@ -3,11 +3,67 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-279_✔️-brightgreen?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+
+**InkScroller** is a full-stack manga reading platform. This repository contains the **backend API** — a FastAPI service that proxies and enriches data from [MangaDex](https://mangadex.org) and [Jikan/MyAnimeList](https://jikan.moe), with Firebase authentication, age-gated content access, user preferences, and personal manga libraries.
+
+> **TFM — Máster en Desarrollo de Aplicaciones Web y Móviles**
+> *Entrega: 20 de julio de 2026*
+>
+> **Repositorio frontend:** [mfranchescagonzalezcejas/inkscroller_frontend](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend)
 
 ---
 
-## Features
+## 📋 Índice
+
+- [Deployment](#deployment)
+- [Test Credentials](#test-credentials)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [API Reference](#api-reference)
+- [Age Gating](#age-gating--content-rating-thresholds)
+- [Running Locally](#running-locally)
+- [Project Structure](#project-structure)
+- [Quality Gates](#quality-gates)
+- [Slides & Video](#slides--video)
+- [Atribución y Disclaimer](#atribución-y-disclaimer)
+- [License](#license)
+
+---
+
+## 🚀 Deployment
+
+**Production API:** [`https://api.inkscroller.devdigi.dev`](https://api.inkscroller.devdigi.dev)
+
+| Environment | URL | Health Check |
+|------------|-----|-------------|
+| **Production** | `https://api.inkscroller.devdigi.dev` | [`/ping`](https://api.inkscroller.devdigi.dev/ping) → `{"ok": true}` |
+| Development | `https://api.dev.inkscroller.devdigi.dev` | [`/ping`](https://api.dev.inkscroller.devdigi.dev/ping) |
+| Staging | `https://api.stg.inkscroller.devdigi.dev` | [`/ping`](https://api.stg.inkscroller.devdigi.dev/ping) |
+
+**API Documentation (ReDoc):** [`https://api.inkscroller.devdigi.dev/redoc`](https://api.inkscroller.devdigi.dev/redoc)
+
+**Swagger UI:** [`https://api.inkscroller.devdigi.dev/docs`](https://api.inkscroller.devdigi.dev/docs)
+
+> Full deployment guide (Railway environments, Firebase secrets, PostgreSQL): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+
+---
+
+## 👤 Test Credentials
+
+| Field | Value |
+|-------|-------|
+| **Email** | `demo@inkscroller.app` |
+| **Password** | `Demo123!` |
+| **Age** | 22 (access to all content ratings) |
+| **Role** | Usuario de prueba para evaluar todas las funcionalidades |
+
+> Este usuario está registrado en Firebase Authentication y tiene una edad verificada de 22 años, lo que permite probar el acceso a contenido de todas las clasificaciones (safe, suggestive, erotica, pornographic).
+
+---
+
+## ✨ Features
 
 | Area | Description |
 |------|-------------|
@@ -18,18 +74,22 @@
 | **Page URLs** | MangaDex@Home image URLs for any chapter |
 | **Auth** | Firebase ID token verification on protected endpoints |
 | **User profile** | Auto-created user row on first authenticated request (`/users/me`) |
-| **Preferences** | Reading preferences per user (`defaultReaderMode`, `defaultLanguage`) |
+| **Preferences** | Reading preferences per user (`defaultReaderMode`, `defaultLanguage`, `demographic_filter`, `content_rating_filter`) |
+| **Demographic filter** | Multi-value demographic filtering with `unspecified` union support |
 | **Caching** | In-memory 5-minute TTL cache on all service calls |
-| **Health check** | Liveness probe at `/ping` |
+| **Health check** | Liveness probe at `/ping` and readiness at `/ready` |
 | **Profile metadata** | `username` and `birth_date` on authenticated user profile |
 | **Account deletion** | Full account and data deletion (`DELETE /users/me`) |
 | **Library** | Personal manga library with CRUD, content-rating storage, and age-based filtering |
-| **Age-gated content** | Content access enforcement by age (safe/suggestive/erotica/pornographic) |
+| **Age-gated content** | Content access enforcement by age (safe/suggestive/erotica/pornographic) + demographic gating |
 | **Home feed** | Latest chapters endpoint for the home screen (`/chapters/latest`) |
+| **Security headers** | X-Content-Type-Options, X-Frame-Options, HSTS, CSP reporting |
+| **Quality gates** | Pre-commit hooks (ruff lint, format) + pre-push (mypy, tests) + GGA AI review |
+| **Cursor pagination** | Tamper-proof cursor-based pagination for demographic union scans |
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -40,48 +100,71 @@
 | Auth | Firebase Admin SDK |
 | Persistence | PostgreSQL on Railway (`DATABASE_URL`) / SQLite local fallback |
 | Runtime | Python 3.12 |
-| Deploy | Railway (dev / staging / production) |
+| Testing | unittest (279 tests) |
+| Linting | Ruff 0.15.9 |
+| Type checking | mypy |
+| Deploy | Railway (production / dev / staging) |
+| Container | Docker multi-stage build |
 
 ---
 
-## API Reference
+## 📡 API Reference
 
-### Public
+### Public Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/ping` | Liveness probe → `{"ok": true}` |
-| `GET` | `/ready` | Readiness probe — DB connectivity check → `{"ready": true}` or `503` |
-| `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`) |
-| `GET` | `/manga/search?q=&limit=&offset=` | Paginated title search (`limit`: 1-100, default 10; `offset`: 0+, default 0) |
+| `GET` | `/ready` | Readiness probe — DB connectivity → `{"ready": true}` or `503` |
+| `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`, `genre`, `content_rating`) |
+| `GET` | `/manga/search?q=` | Paginated title search |
+| `GET` | `/manga/capabilities` | API capability contract (demographic filter version, pagination type) |
+| `GET` | `/manga/tags` | MangaDex filter tags grouped by type (genre, theme, format, content) |
+| `GET` | `/manga/genres` | Flat list of available genre tags |
 | `GET` | `/manga/{id}` | Manga detail with Jikan enrichment |
-| `GET` | `/manga/tags` | MangaDex filter tags |
-| `GET` | `/chapters/latest` | Latest chapters for the home feed |
-| `GET` | `/chapters/manga/{id}` | Chapter list (filtered by `lang`, default `en`) |
+| `GET` | `/chapters/latest` | Latest chapters for home feed (age-filtered) |
+| `GET` | `/chapters/manga/{id}` | Chapter list for a manga (filtered by `lang`, default `en`) |
 | `GET` | `/chapters/{id}/pages` | Page image URLs via MangaDex@Home |
+| `POST` | `/csp-report` | CSP violation reports (logging only, no PII) |
 
-### Authenticated (requires `Authorization: Bearer <firebase-id-token>`)
+### Authenticated Endpoints (requires `Authorization: Bearer <firebase-id-token>`)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/users/me` | Get or create user profile |
-| `PATCH` | `/users/me` | Update profile — `username` and/or `birth_date` (birth_date is immutable after first set) |
+| `PATCH` | `/users/me` | Update profile — `username` and/or `birth_date` |
 | `DELETE` | `/users/me` | Delete account and all associated data |
 | `GET` | `/users/me/preferences` | Get reading preferences |
-| `PUT` | `/users/me/preferences` | Update `defaultReaderMode` and/or `defaultLanguage` |
+| `PUT` | `/users/me/preferences` | Update preferences (`defaultReaderMode`, `defaultLanguage`, `demographic_filter`, `content_rating_filter`) |
 | `GET` | `/users/me/library` | List library entries (age-filtered) |
 | `POST` | `/users/me/library/{manga_id}` | Add manga to library |
-| `PATCH` | `/users/me/library/{manga_id}` | Update library status for a saved manga |
+| `PATCH` | `/users/me/library/{manga_id}` | Update library entry status |
 | `DELETE` | `/users/me/library/{manga_id}` | Remove manga from library |
 
-> Full API details: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
+### Demographic Filter Contract
+
+`GET /manga/capabilities` advertises the supported demographic-filter contract:
+
+```json
+{
+  "demographic_filter": {
+    "contract_version": 1,
+    "null_union": true,
+    "pagination": "cursor-v1"
+  }
+}
+```
+
+- `unspecified` is a local API token for the union of titles with a null or missing source demographic; it is never forwarded to MangaDex.
+- Requires an authenticated user aged 18 or older.
+- Queries including it use cursor-based pagination.
+- A missing, expired, tampered, or mismatched cursor returns HTTP 409.
 
 ---
 
-### Age Gating — Content Rating Thresholds
+## 🔒 Age Gating — Content Rating Thresholds
 
-Content from MangaDex is classified into four age tiers. Access is enforced
-at the route and service layers:
+Content from MangaDex is classified into four age tiers. Access is enforced at the route and service layers:
 
 | Tier | Content Rating | Access |
 |------|---------------|--------|
@@ -92,16 +175,14 @@ at the route and service layers:
 
 - **Guest users** (unauthenticated): only `safe` content is accessible.
 - **Age computation**: derived from `birth_date` on the user profile. Guests have no age → safe-only.
-- **403 responses**: restricted content returns `403` with a message like
-  `"This content is age-restricted (requires 16+)"`.
-- **Library**: `content_rating` is stored when adding to library; GET library
-  filters entries by the caller's age automatically.
-- **birth_date immutability**: once set, `birth_date` cannot be changed (prevents
-  age-gating bypass).
+- **Demographic gating**: content without a publication demographic (doujinshi/self-published) requires 18+.
+- **403 responses**: restricted content returns `403` with a message like `"This content is age-restricted (requires 16+)"`.
+- **Library**: `content_rating` is stored when adding to library; GET library filters entries by the caller's age automatically.
+- **birth_date immutability**: once set, `birth_date` cannot be changed (prevents age-gating bypass).
 
 ---
 
-## Running Locally
+## 💻 Running Locally
 
 ```bash
 # 1. Create and activate virtualenv
@@ -110,13 +191,12 @@ source venv/bin/activate        # Linux / macOS
 # venv\Scripts\activate         # Windows
 
 # 2. Install dependencies
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -r requirements-dev.txt
 
 # 3. Configure environment
 cp .env.example .env
 # Edit .env — set FIREBASE_PROJECT_ID and either
 # GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway).
-# Keep production/staging CORS origins explicit; use CORS_ORIGINS=* only for local development.
 
 # 4. Start server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -129,144 +209,109 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `http://localhost:8000/docs` | Swagger UI |
 | `http://localhost:8000/redoc` | ReDoc |
 
-> **Windows note:** Use `python -m pip` and `python -m uvicorn` — never bare `pip`/`uvicorn` — to avoid launcher path issues.
+> **Windows note:** Use `python -m pip` and `python -m uvicorn` — never bare `pip`/`uvicorn`.
 
 ---
 
-## Quality Gates
-
-The project uses [pre-commit](https://pre-commit.com) to automatically enforce code quality before commits and pushes — catching issues before they reach CI.
-
-### Gates
-
-| Gate | Trigger | What it checks | Time |
-|------|---------|----------------|------|
-| **ruff lint** | `git commit` | Static analysis, unused imports, common bugs | ~10s |
-| **ruff format** | `git commit` | Code style matches project config | ~5s |
-| **unit tests** | `git push` | All 169+ tests pass | ~60s |
-
-### Developer setup (one-time)
-
-```bash
-# From the project root, with the virtualenv activated:
-python -m pip install pre-commit
-pre-commit install
-pre-commit install --hook-type pre-push
-
-# Done. From now on, every commit and push runs the gates automatically.
-```
-
-### AI code review with GGA (optional)
-
-The project also supports [Gentleman Guardian Angel (GGA)](https://github.com/Gentleman-Programming/gentleman-guardian-angel) for AI-powered code review using OpenCode:
-
-```bash
-brew install gentleman-programming/tap/gga       # install
-gga install                                       # enable pre-commit hook
-```
-
-Coding standards for reviews are defined in [`AGENTS.md`](AGENTS.md).
-
-### Full pipeline
-
-```
-git commit
-  ├── GGA — AI code review (OpenCode, local, no rate limits)
-  ├── ruff lint
-  ├── ruff format
-git push
-  └── unit tests (169+)
-```
-
----
-
-## Deployment
-
-Deployed to **Railway** across 3 environments:
-
-| Environment | API base URL | Health check |
-|------------|--------------|--------------|
-| dev | `https://api.dev.inkscroller.devdigi.dev` | `https://api.dev.inkscroller.devdigi.dev/ping` |
-| staging | `https://api.stg.inkscroller.devdigi.dev` | `https://api.stg.inkscroller.devdigi.dev/ping` |
-| prod | `https://api.inkscroller.devdigi.dev` | `https://api.inkscroller.devdigi.dev/ping` |
-
-Production and development `/ping` have been verified online. The staging custom domain is reserved for the staging environment and should be verified after that environment is deployed/routed.
-
-Railway serves the backend on port `8080` in each environment. Cloudflare hosts the CNAME and TXT verification records for these custom API domains. The existing portfolio remains on `https://devdigi.dev` / `https://www.devdigi.dev` and is not routed to Railway.
-
-> Full deployment guide (Railway environments, Firebase secrets, Postgres): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 Inkscroller_backend/
 ├── main.py                        # App entry — mounts all routers
 ├── Dockerfile                     # Multi-stage build for Railway / container deploys
-├── requirements.txt
+├── pyproject.toml                 # Project config (versions, mypy, pytest)
+├── requirements.txt               # Production dependencies
+├── requirements-dev.txt           # Dev dependencies (testing, linting)
 │
-└── app/
-    ├── api/                       # FastAPI route handlers
-    │   ├── health.py              # GET /ping, GET /ready
-    │   ├── manga.py               # GET /manga, /manga/search, /manga/{id}, /manga/tags
-    │   ├── chapters.py            # GET /chapters/latest, /chapters/manga/{id}, /chapters/{id}/pages
-    │   └── users.py               # GET/PATCH/DELETE /users/me, prefs, library CRUD
-    │
-    ├── core/
-    │   ├── age.py                 # Age computation and content restriction rules
-    │   ├── cache.py               # SimpleCache — TTL-based in-memory cache
-    │   ├── config.py              # Settings via env vars
-    │   ├── firebase_auth.py       # Firebase ID token verification middleware
-    │   ├── dependencies.py        # FastAPI DI factories
-    │   ├── db_adapter.py          # Database adapter (SQLite / PostgreSQL)
-    │   ├── database.py            # Database bootstrap and migration helpers
-    │   ├── exceptions.py          # Global exception handlers
-    │   ├── logging.py             # Structured logging configuration
-    │   └── resilience.py          # Retry decorator with exponential backoff
-    │
-    ├── models/                    # Pydantic response models
-    │   ├── manga.py
-    │   ├── chapter.py
-    │   └── user.py                # UserProfile, UserPreferences
-    │
-    ├── services/                  # Business logic
-    │   ├── manga_service.py
-    │   ├── chapter_service.py
-    │   ├── chapter_pages_service.py
-    │   └── user_service.py        # User creation, preference read/write
-    │
-    └── sources/                   # External API clients (async httpx)
-        ├── mangadex_client.py
-        └── jikan_client.py
-
-tests/
-├── api/                           # Route and authenticated endpoint tests
-├── services/                      # Service/mapper unit tests
-└── compliance/                    # API/legal compliance audit tests
+├── app/
+│   ├── api/                       # FastAPI route handlers
+│   │   ├── health.py              # GET /ping, GET /ready
+│   │   ├── manga.py               # GET /manga, /manga/search, /manga/{id}, /manga/tags
+│   │   ├── chapters.py            # GET /chapters/latest, /chapters/manga/{id}, /chapters/{id}/pages
+│   │   ├── users.py               # GET/PATCH/DELETE /users/me, prefs, library CRUD
+│   │   └── security.py            # POST /csp-report
+│   │
+│   ├── core/
+│   │   ├── age.py                 # Age computation and content restriction rules
+│   │   ├── cache.py               # SimpleCache — TTL-based in-memory cache (max 1000 entries)
+│   │   ├── config.py              # Settings via env vars
+│   │   ├── firebase_auth.py       # Firebase ID token verification middleware
+│   │   ├── dependencies.py        # FastAPI DI factories
+│   │   ├── db_adapter.py          # Database adapter (SQLite / PostgreSQL)
+│   │   ├── database.py            # Database bootstrap and migration helpers
+│   │   ├── exceptions.py          # Global exception handlers
+│   │   ├── logging.py             # Structured logging configuration
+│   │   ├── resilience.py          # Retry decorator with exponential backoff
+│   │   └── manga_tags.py          # MangaDex genre tag UUID mappings
+│   │
+│   ├── models/                    # Pydantic response models
+│   │   ├── manga.py
+│   │   ├── chapter.py
+│   │   └── user.py                # UserProfile, UserPreferences
+│   │
+│   ├── services/                  # Business logic
+│   │   ├── manga_service.py       # Manga catalogue, search, demographic union, cursor pagination
+│   │   ├── manga_mapper.py        # MangaDex → standardised dict mapping
+│   │   ├── chapter_service.py     # Chapter listing, latest feed with age gating
+│   │   ├── chapter_pages_service.py
+│   │   ├── jikan_mapper.py        # Jikan/MAL → standardised dict mapping
+│   │   └── user_service.py        # User CRUD, preferences, library
+│   │
+│   └── sources/                   # External API clients (async httpx)
+│       ├── mangadex_client.py
+│       └── jikan_client.py
+│
+└── tests/
+    ├── api/                       # Route and authenticated endpoint tests
+    ├── core/                      # Cache tests
+    ├── services/                  # Service/mapper unit tests
+    └── compliance/                # API/legal compliance audit tests
 ```
 
 ---
 
-## Contributing
+## ✅ Quality Gates
 
-InkScroller Backend is a public portfolio project maintained by the author.
+The project uses [pre-commit](https://pre-commit.com) to automatically enforce code quality.
 
-External contributions are not actively accepted at this time, but issues,
-feedback, and code review comments are welcome.
+### Gates
 
-## Security Reporting
+| Gate | Trigger | What it checks |
+|------|---------|----------------|
+| **ruff lint** | `git commit` | Static analysis, unused imports, common bugs |
+| **ruff format** | `git commit` | Code style matches project config |
+| **mypy** | `git push` | Type correctness for public API |
+| **unit tests** | `git push` | All **279 tests** pass |
+| **GGA (optional)** | `git commit` | AI-powered code review via OpenCode |
 
-If you discover a security issue, **do not publish secrets or exploit details in a public issue**.
+### Developer setup (one-time)
 
-- Preferred: report privately through the main GitLab workflow (linked from project profile)
-- If only GitHub is available, open a minimal issue without sensitive details and request private follow-up
+```bash
+python -m pip install pre-commit
+pre-commit install
+pre-commit install --hook-type pre-push
+```
 
-General security posture and secret-handling guidance: [`SECURITY_PUBLIC_READINESS.md`](SECURITY_PUBLIC_READINESS.md)
+### Skip on demand
+
+```bash
+SKIP=ruff-lint git commit     # skip lint only
+SKIP=gga git push             # skip AI review
+git commit --no-verify        # skip all hooks
+```
 
 ---
 
-## Atribución y Disclaimer
+## 📽️ Slides & Video
+
+| Resource | URL |
+|----------|-----|
+| **Presentation slides** | *(añadir URL de Google Slides / Canva / PowerPoint)* |
+| **Demo video** | *(añadir URL de YouTube / Google Drive)* |
+
+---
+
+## 📝 Atribución y Disclaimer
 
 InkScroller Backend agrega datos de las siguientes fuentes externas:
 
@@ -279,16 +324,6 @@ Para consultas legales o solicitudes de takedown, ver [`docs/legal/api-complianc
 
 ---
 
-## License
+## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
-# Manga demographic filtering contract
-
-`GET /manga/capabilities` advertises the supported demographic-filter contract:
-`{"demographic_filter":{"contract_version":1,"null_union":true,"pagination":"cursor-v1"}}`.
-
-`unspecified` is a local API token for the union of titles with a null or
-missing source demographic; it is never forwarded to MangaDex. It requires an
-authenticated user aged 18 or older. Queries including it use cursor
-pagination. A missing, expired, tampered, or mismatched cursor returns HTTP
-409; clients must restart from the first page.
