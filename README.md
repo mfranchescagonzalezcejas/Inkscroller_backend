@@ -1,5 +1,5 @@
 <!-- ────────────────────────────────────────────────────────────── -->
-<!--  InkScroller Backend README — matching frontend style         -->
+<!--  InkScroller Backend README (EN) — matching frontend style    -->
 <!-- ────────────────────────────────────────────────────────────── -->
 
 <div align="center">
@@ -15,6 +15,7 @@
 <br/>
 
 [![Frontend](https://img.shields.io/badge/frontend-InkScroller%20Flutter-02569B?logo=flutter&style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend)
+[![Spanish](https://img.shields.io/badge/Leer%20en%20espa%C3%B1ol-README.es.md-0d9488?style=for-the-badge)](README.es.md)
 
 </div>
 
@@ -40,48 +41,18 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── LANGUAGE SWITCH ───────────────────────────────────────── -->
+## Table of Contents
 
-<div align="center">
-  <sub><b>· &nbsp; L A N G U A G E &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-<div align="center">
-
-[🇬🇧 English](#english) · [🇪🇸 Español](#espanol)
-
-</div>
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ═════════════════════════════════════════════════════════════ -->
-<!--                    E N G L I S H                             -->
-<!-- ═════════════════════════════════════════════════════════════ -->
-
-<a name="english"></a>
-
-<div align="center">
-  <sub><b>· &nbsp; T A B L E &nbsp; O F &nbsp; C O N T E N T S &nbsp; ·</b></sub>
-</div>
-
-- [Deployment](#deployment-en)
-- [Features](#features-en)
-- [Tech Stack](#tech-stack-en)
-- [API Reference](#api-reference-en)
-- [Age Gating](#age-gating-en)
-- [Running Locally](#running-locally-en)
-- [Project Structure](#project-structure-en)
-- [Quality Gates](#quality-gates-en)
+- [Deployment](#deployment)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [API Reference](#api-reference)
+- [Age Gating](#age-gating)
+- [Running Locally](#running-locally)
+- [Project Structure](#project-structure)
+- [Quality Gates](#quality-gates)
 - [TFM Deliverables](#tfm-deliverables)
-- [Attribution & Disclaimer](#attribution--disclaimer-en)
+- [Attribution & Disclaimer](#attribution--disclaimer)
 - [License](#license)
 
 <br/>
@@ -92,14 +63,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── DEPLOYMENT ─────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="deployment-en"></a>
-  <sub><b>· &nbsp; D E P L O Y M E N T &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 🚀 Deployment
 
 **Production API:** [`https://api.inkscroller.devdigi.dev`](https://api.inkscroller.devdigi.dev)
 
@@ -121,14 +85,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── FEATURES ───────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="features-en"></a>
-  <sub><b>· &nbsp; F E A T U R E S &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## ✨ Features
 
 | Area | Description |
 |------|-------------|
@@ -159,14 +116,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── TECH STACK ─────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="tech-stack-en"></a>
-  <sub><b>· &nbsp; T E C H &nbsp; S T A C K &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -191,14 +141,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── API REFERENCE ──────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="api-reference-en"></a>
-  <sub><b>· &nbsp; A P I &nbsp; R E F E R E N C E &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 📡 API Reference
 
 ### Public
 
@@ -239,14 +182,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── AGE GATING ─────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="age-gating-en"></a>
-  <sub><b>· &nbsp; A G E &nbsp; G A T I N G &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 🔒 Age Gating
 
 | Tier | Content Rating | Access |
 |------|---------------|--------|
@@ -270,28 +206,13 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 
 <br/>
 
-<!-- ─── RUNNING LOCALLY ────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="running-locally-en"></a>
-  <sub><b>· &nbsp; R U N N I N G &nbsp; L O C A L L Y &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 💻 Running Locally
 
 ```bash
-# 1. Create and activate virtualenv
 python -m venv venv
 source venv/bin/activate
-
-# 2. Install dependencies
 python -m pip install -r requirements.txt -r requirements-dev.txt
-
-# 3. Configure environment
 cp .env.example .env
-# Set FIREBASE_PROJECT_ID and credentials
-
-# 4. Start server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -309,25 +230,18 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 <br/>
 
-<!-- ─── PROJECT STRUCTURE ──────────────────────────────────────── -->
-
-<div align="center">
-  <a name="project-structure-en"></a>
-  <sub><b>· &nbsp; P R O J E C T &nbsp; S T R U C T U R E &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 📁 Project Structure
 
 ```
 Inkscroller_backend/
-├── main.py                     # App entry — mounts all routers
+├── main.py                     # App entry
 ├── Dockerfile                  # Multi-stage build
 ├── pyproject.toml              # Project config
 │
 ├── app/
 │   ├── api/                    # FastAPI route handlers
 │   ├── core/                   # Framework & cross-cutting
-│   ├── models/                 # Pydantic response models
+│   ├── models/                 # Pydantic models
 │   ├── services/               # Business logic
 │   └── sources/                # External API clients
 │
@@ -346,14 +260,7 @@ Inkscroller_backend/
 
 <br/>
 
-<!-- ─── QUALITY GATES ──────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="quality-gates-en"></a>
-  <sub><b>· &nbsp; Q U A L I T Y &nbsp; G A T E S &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## ✅ Quality Gates
 
 | Gate | When | What runs |
 |------|------|-----------|
@@ -376,14 +283,7 @@ pre-commit install && pre-commit install --hook-type pre-push
 
 <br/>
 
-<!-- ─── TFM DELIVERABLES ───────────────────────────────────────── -->
-
-<div align="center">
-  <a name="tfm-deliverables"></a>
-  <sub><b>· &nbsp; T F M &nbsp; D E L I V E R A B L E S &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 📦 TFM Deliverables
 
 <div align="center">
 
@@ -412,21 +312,14 @@ pre-commit install && pre-commit install --hook-type pre-push
 
 <br/>
 
-<!-- ─── ATTRIBUTION ────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="attribution--disclaimer-en"></a>
-  <sub><b>· &nbsp; A T T R I B U T I O N &nbsp; & &nbsp; D I S C L A I M E R &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 📝 Attribution & Disclaimer
 
 InkScroller Backend aggregates data from external sources:
 
-- **MangaDex** — primary catalogue, chapters, and page images. InkScroller is not affiliated with MangaDex. Content belongs to its respective authors and scanlation groups. [MangaDex Terms of Service](https://mangadex.org/about/terms-of-service).
-- **Jikan / MyAnimeList** — metadata enrichment (score, rank, genres). InkScroller is not affiliated with MyAnimeList or Jikan. [MyAnimeList Terms of Use](https://myanimelist.net/about/terms_of_use).
+- **MangaDex** — primary catalogue, chapters, and page images. InkScroller is not affiliated with MangaDex. Content belongs to its respective authors and scanlation groups. [Terms of Service](https://mangadex.org/about/terms-of-service).
+- **Jikan / MyAnimeList** — metadata enrichment (score, rank, genres). InkScroller is not affiliated with MyAnimeList or Jikan. [Terms of Use](https://myanimelist.net/about/terms_of_use).
 
-This project acts as a **reading proxy**. It does not host, store, or redistribute manga images. All rights belong to their original owners.
+This project acts as a **reading proxy**. It does not host, store, or redistribute manga images.
 
 For legal inquiries or takedown requests, see [`docs/legal/api-compliance.md`](docs/legal/api-compliance.md).
 
@@ -438,310 +331,9 @@ For legal inquiries or takedown requests, see [`docs/legal/api-compliance.md`](d
 
 <br/>
 
-<!-- ─── LICENSE ─────────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="license"></a>
-  <sub><b>· &nbsp; L I C E N S E &nbsp; ·</b></sub>
-</div>
-
-<br/>
+## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ═════════════════════════════════════════════════════════════ -->
-<!--                   E S P A Ñ O L                              -->
-<!-- ═════════════════════════════════════════════════════════════ -->
-
-<a name="espanol"></a>
-
-<div align="center">
-  <sub><b>· &nbsp; I N D I C E &nbsp; ·</b></sub>
-</div>
-
-- [Despliegue](#despliegue)
-- [Funcionalidades](#funcionalidades)
-- [Stack Tecnológico](#stack-tecnologico)
-- [Referencia API](#referencia-api)
-- [Control de Edad](#control-de-edad)
-- [Ejecución Local](#ejecucion-local)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Quality Gates](#quality-gates-es)
-- [Entregables TFM](#entregables-tfm)
-- [Atribución](#atribucion)
-- [Licencia](#licencia-es)
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── DESPLIEGUE ─────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="despliegue"></a>
-  <sub><b>· &nbsp; D E S P L I E G U E &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-**API de producción:** [`https://api.inkscroller.devdigi.dev`](https://api.inkscroller.devdigi.dev)
-
-| Entorno | URL | Estado |
-|---------|-----|--------|
-| **Producción** | `https://api.inkscroller.devdigi.dev` | ✅ |
-| Desarrollo | `https://api.dev.inkscroller.devdigi.dev` | ✅ |
-| Staging | `https://api.stg.inkscroller.devdigi.dev` | ✅ |
-
-📖 **Documentación API:** [`ReDoc`](https://api.inkscroller.devdigi.dev/redoc) · [`Swagger UI`](https://api.inkscroller.devdigi.dev/docs)
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── FUNCIONALIDADES ────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="funcionalidades"></a>
-  <sub><b>· &nbsp; F U N C I O N A L I D A D E S &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-| Área | Descripción |
-|------|-------------|
-| **Catálogo manga** | Navegar, filtrar y paginar el catálogo de MangaDex |
-| **Búsqueda** | Búsqueda por título con paginación |
-| **Enriquecimiento** | Datos MangaDex + metadatos Jikan/MAL |
-| **Filtro demográfico** | Multivalor con soporte `unspecified` |
-| **Listado de capítulos** | Por manga con filtro de idioma |
-| **URLs de páginas** | Imágenes vía MangaDex@Home |
-| **Home feed** | Últimos capítulos con control de edad |
-| **Auth** | Verificación de token Firebase |
-| **Perfiles** | Creación automática al autenticarse |
-| **Preferencias** | Modo de lectura, idioma, filtros |
-| **Biblioteca** | CRUD con filtrado por edad |
-| **Control de edad** | Acceso restringido por contenido + demografía |
-| **Paginación cursor** | Tokens a prueba de manipulaciones |
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── STACK TECNOLÓGICO ──────────────────────────────────────── -->
-
-<div align="center">
-  <a name="stack-tecnologico"></a>
-  <sub><b>· &nbsp; S T A C K &nbsp; T E C N O L Ó G I C O &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-| Capa | Tecnología |
-|------|-----------|
-| Framework | FastAPI 0.128 |
-| Cliente HTTP | httpx (async) |
-| Validación | Pydantic v2 |
-| Servidor ASGI | Uvicorn |
-| Auth | Firebase Admin SDK |
-| Base de datos | PostgreSQL (Railway) / SQLite (local) |
-| Runtime | Python 3.12 |
-| Tests | unittest (279 tests) |
-| Linting | Ruff 0.15.9 |
-| Type checking | mypy |
-| Despliegue | Railway (prod / dev / staging) |
-| Contenedor | Docker multi-stage |
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── REFERENCIA API ─────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="referencia-api"></a>
-  <sub><b>· &nbsp; R E F E R E N C I A &nbsp; A P I &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-### Público
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/ping` | Health check → `{"ok": true}` |
-| `GET` | `/ready` | Readiness → `{"ready": true}` o `503` |
-| `GET` | `/manga` | Lista paginada con filtros |
-| `GET` | `/manga/search?q=` | Búsqueda por título |
-| `GET` | `/manga/{id}` | Detalle con enriquecimiento Jikan |
-| `GET` | `/chapters/latest` | Últimos capítulos (filtrados por edad) |
-| `GET` | `/chapters/manga/{id}` | Capítulos por idioma |
-| `GET` | `/chapters/{id}/pages` | URLs de imágenes |
-
-### Autenticado
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/users/me` | Obtener perfil |
-| `PATCH` | `/users/me` | Actualizar perfil |
-| `DELETE` | `/users/me` | Eliminar cuenta |
-| `PUT` | `/users/me/preferences` | Actualizar preferencias |
-| `GET/POST` | `/users/me/library` | Gestionar biblioteca |
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── CONTROL DE EDAD ────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="control-de-edad"></a>
-  <sub><b>· &nbsp; C O N T R O L &nbsp; D E &nbsp; E D A D &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-| Nivel | Clasificación | Acceso |
-|-------|--------------|--------|
-| 0+ | `safe` | Todos los usuarios |
-| 16+ | `suggestive` | Usuarios autenticados ≥ 16 años |
-| 18+ | `erotica` | Usuarios autenticados ≥ 18 años |
-| 18+ | `pornographic` | Usuarios autenticados ≥ 18 años |
-
-- **Invitados**: solo contenido `safe`.
-- **Edad**: calculada desde `birth_date` en el perfil.
-- **Gate demográfico**: contenido sin demografía (doujinshi) requiere 18+.
-- **403**: contenido restringido devuelve la edad mínima requerida.
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── EJECUCIÓN LOCAL ────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="ejecucion-local"></a>
-  <sub><b>· &nbsp; E J E C U C I Ó N &nbsp; L O C A L &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-```bash
-python -m venv venv
-source venv/bin/activate
-python -m pip install -r requirements.txt -r requirements-dev.txt
-cp .env.example .env
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-| URL | Descripción |
-|-----|-------------|
-| `http://localhost:8000/docs` | Swagger UI |
-| `http://localhost:8000/redoc` | ReDoc |
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── ENTREGABLES TFM ────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="entregables-tfm"></a>
-  <sub><b>· &nbsp; E N T R E G A B L E S &nbsp; T F M &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-<div align="center">
-
-<table>
-<thead>
-<tr><th>Elemento</th><th>URL</th></tr>
-</thead>
-<tbody>
-<tr><td>🗂️ <b>Repositorio frontend</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/inkscroller_frontend">mfranchescagonzalezcejas/inkscroller_frontend</a></td></tr>
-<tr><td>⚙️ <b>Repositorio backend</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/Inkscroller_backend">mfranchescagonzalezcejas/Inkscroller_backend</a></td></tr>
-<tr><td>🔌 <b>API desplegada</b></td><td><a href="https://api.inkscroller.devdigi.dev">api.inkscroller.devdigi.dev</a></td></tr>
-<tr><td>📖 <b>Documentación API</b></td><td><a href="https://api.inkscroller.devdigi.dev/redoc">ReDoc</a></td></tr>
-<tr><td>📽️ <b>Slides</b></td><td>En progreso</td></tr>
-<tr><td>🎬 <b>Vídeo demo</b></td><td>En progreso</td></tr>
-<tr><td>👤 <b>Usuario prueba</b></td><td>No requerido — registrarse desde la app</td></tr>
-</tbody>
-</table>
-
-</div>
-
-<br/>
-
-<div align="center">
-  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
-</div>
-
-<br/>
-
-<!-- ─── ATRIBUCIÓN ─────────────────────────────────────────────── -->
-
-<div align="center">
-  <a name="atribucion"></a>
-  <sub><b>· &nbsp; A T R I B U C I Ó N &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-InkScroller Backend agrega datos de fuentes externas:
-
-- **MangaDex** — catálogo principal, capítulos e imágenes. InkScroller no está afiliado a MangaDex. Todo el contenido pertenece a sus autores y grupos de scanlation.
-- **Jikan / MyAnimeList** — enriquecimiento de metadatos (score, rank, géneros). InkScroller no está afiliado a MyAnimeList ni a Jikan.
-
-Este proyecto actúa como **proxy de lectura**. No almacena ni redistribuye imágenes de manga.
-
-Para consultas legales: [`docs/legal/api-compliance.md`](docs/legal/api-compliance.md)
-
-<br/>
-
-<div align="center">
-  <a name="licencia-es"></a>
-  <sub><b>· &nbsp; L I C E N C I A &nbsp; ·</b></sub>
-</div>
-
-<br/>
-
-MIT License — ver [LICENSE](LICENSE).
 
 <br/>
 
