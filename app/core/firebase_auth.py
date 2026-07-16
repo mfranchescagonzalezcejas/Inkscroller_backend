@@ -26,6 +26,7 @@ class FirebaseTokenPayload:
     uid: str
     email: str
     display_name: str | None = None
+    email_verified: bool = False
 
 
 class AuthenticationError(Exception):
@@ -140,10 +141,16 @@ async def verify_firebase_token(token: str) -> FirebaseTokenPayload:
     uid: str = decoded.get("uid", "")
     email: str = decoded.get("email", "")
     display_name: str | None = decoded.get("name")
+    email_verified: bool = bool(decoded.get("email_verified", False))
 
     if not uid or not email:
         raise AuthenticationError(
             "Firebase token missing required claims (uid, email)."
         )
 
-    return FirebaseTokenPayload(uid=uid, email=email, display_name=display_name)
+    return FirebaseTokenPayload(
+        uid=uid,
+        email=email,
+        display_name=display_name,
+        email_verified=email_verified,
+    )

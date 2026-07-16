@@ -34,6 +34,7 @@ _FAKE_DECODED_TOKEN = {
     "uid": "patched-uid-001",
     "email": "patched@example.com",
     "name": "Patched User",
+    "email_verified": True,
 }
 
 
@@ -218,7 +219,7 @@ class FirebaseTokenVerificationPathTests(unittest.TestCase):
 
 
 class AuthOnlyDependencyTests(unittest.TestCase):
-    """Proves ``get_current_user_verified`` validates Firebase token without
+    """Proves ``get_current_user_no_bootstrap`` validates Firebase token without
     bootstrapping a local user row."""
 
     def setUp(self):
@@ -231,7 +232,7 @@ class AuthOnlyDependencyTests(unittest.TestCase):
         asyncio.run(self.db.close())
 
     def test_verified_auth_does_not_create_user_row(self):
-        """DELETE /users/me via ``get_current_user_verified`` must NOT call
+        """DELETE /users/me via ``get_current_user_no_bootstrap`` must NOT call
         ``get_or_create_user`` or leave a user row behind."""
         with (
             patch(
@@ -264,7 +265,7 @@ class AuthOnlyDependencyTests(unittest.TestCase):
         )
         self.assertIsNone(
             user,
-            "get_current_user_verified must NOT create a local user row",
+            "get_current_user_no_bootstrap must NOT create a local user row",
         )
 
     def test_verified_auth_still_rejects_expired_token(self):

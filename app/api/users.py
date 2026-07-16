@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.age import can_access_content
 from app.core.dependencies import (
     get_current_user,
+    get_current_user_no_bootstrap,
     get_current_user_verified,
     get_manga_service,
     get_user_age,
@@ -32,12 +33,13 @@ logger = logging.getLogger(__name__)
 
 @router.get("/me", response_model=UserProfile)
 async def get_me(
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
 ) -> UserProfile:
-    """Return the local profile for the authenticated Firebase user."""
-    # `get_current_user` already bootstraps the user row; here we only need
-    # to fetch and return the full profile.
+    """Return the local profile for the authenticated (email-verified) Firebase user.
+
+    Requires email verification — 403 if the Firebase account email is unverified.
+    """
     return await user_service.get_or_create_user(current_user)
 
 
@@ -54,29 +56,33 @@ async def update_me(
 
 @router.delete("/me", status_code=204)
 async def delete_me(
-    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_no_bootstrap),
     user_service: UserService = Depends(get_user_service),
 ) -> None:
-    """Delete the authenticated account and all associated data."""
+    """Delete the authenticated account and all associated data.
+
+    Uses a lightweight token-only check so users can delete accounts even
+    before the local row is bootstrapped.
+    """
     await user_service.delete_account(current_user.uid)
 
 
 @router.get("/me/preferences", response_model=ReadingPreferences)
 async def get_preferences(
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
 ) -> ReadingPreferences:
-    """Return the reading preferences for the authenticated user."""
+    """Return the reading preferences for the authenticated (email-verified) user."""
     return await user_service.get_preferences(current_user.uid)
 
 
 @router.put("/me/preferences", response_model=ReadingPreferences)
 async def update_preferences(
     body: UpdatePreferencesRequest,
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
 ) -> ReadingPreferences:
-    """Update and return the reading preferences for the authenticated user."""
+    """Update and return the reading preferences for the authenticated (email-verified) user."""
     return await user_service.update_preferences(current_user.uid, body)
 
 
@@ -85,11 +91,11 @@ async def update_preferences(
 
 @router.get("/me/library", response_model=list[Manga])
 async def get_library(
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
     user_age: int | None = Depends(get_user_age),
 ) -> list[Manga]:
-    """Return the user's library from cached SQLite data — no Jikan dependency."""
+    """Return the user's library from cached SQLite data — email verification required."""
     entries = await user_service.get_library_entries(current_user.uid)
     # Filter by age
     filtered = []
@@ -117,7 +123,7 @@ async def get_library(
 async def add_to_library(
     manga_id: str,
     body: AddToLibraryRequest = AddToLibraryRequest(),
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
     manga_service: MangaService = Depends(get_manga_service),
 ) -> None:
@@ -139,7 +145,7 @@ async def add_to_library(
 async def update_library_status(
     manga_id: str,
     body: UpdateLibraryStatusRequest,
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
 ) -> LibraryMetadata:
     """Update library status for a saved manga and return updated metadata."""
@@ -159,7 +165,7 @@ async def update_library_status(
 @router.delete("/me/library/{manga_id}", status_code=204)
 async def remove_from_library(
     manga_id: str,
-    current_user: FirebaseTokenPayload = Depends(get_current_user),
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
 ) -> None:
     """Remove a manga from the authenticated user's library."""
