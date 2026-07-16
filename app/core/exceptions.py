@@ -133,6 +133,25 @@ async def handle_profile_conflict_error(
     return _error_response(409, "profile_conflict", exc.detail)
 
 
+class EmailNotVerifiedError(Exception):
+    """Raised when the user's Firebase email has not been verified."""
+
+    def __init__(self, detail: str = "Email not verified."):
+        """Initialise with an optional detail message."""
+        self.detail = detail
+        super().__init__(detail)
+
+
+async def handle_email_not_verified(
+    request: Request, exc: EmailNotVerifiedError
+) -> JSONResponse:
+    """Return a 403 response when the user's email is not verified."""
+    logger.warning(
+        "Email not verified on %s %s: %s", request.method, request.url.path, exc.detail
+    )
+    return _error_response(403, "email_not_verified", exc.detail)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach all exception handlers to the FastAPI app."""
     # ponytail: Starlette's add_exception_handler expects Exception-typed
@@ -149,4 +168,8 @@ def register_exception_handlers(app: FastAPI) -> None:
         handle_preferences_validation_error,  # type: ignore[arg-type]
     )
     app.add_exception_handler(ProfileConflictError, handle_profile_conflict_error)  # type: ignore[arg-type]
+    app.add_exception_handler(
+        EmailNotVerifiedError,
+        handle_email_not_verified,  # type: ignore[arg-type]
+    )
     app.add_exception_handler(Exception, handle_unhandled)

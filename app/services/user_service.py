@@ -87,14 +87,45 @@ class UserService:
 
         if row is None:
             now = _utc_now()
-            await self._db.execute(
-                "INSERT INTO users (firebase_uid, email, display_name, created_at) VALUES (?, ?, ?, ?)",
-                payload.uid,
-                payload.email,
-                payload.display_name,
-                now,
-            )
-            await self._db.commit()
+            try:
+                await self._db.execute(
+                    "INSERT INTO users (firebase_uid, email, display_name, created_at) VALUES (?, ?, ?, ?)",
+                    payload.uid,
+                    payload.email,
+                    payload.display_name,
+                    now,
+                )
+                await self._db.commit()
+            except Exception as exc:
+                if _is_unique_constraint_violation(exc):
+                    row = await self._db.fetchone(
+                        "SELECT firebase_uid, email, display_name, username, birth_date, created_at "
+                        "FROM users WHERE firebase_uid = ?",
+                        payload.uid,
+                    )
+                    if row is None:
+                        logger.exception(
+                            "Race-condition re-query failed for UID %s",
+                            _mask_uid(payload.uid),
+                        )
+                        raise
+                    logger.info(
+                        "Raced on bootstrap for UID %s — using existing row",
+                        _mask_uid(payload.uid),
+                    )
+                    return UserProfile(
+                        firebase_uid=row["firebase_uid"],
+                        email=row["email"],
+                        display_name=row["display_name"],
+                        username=row["username"],
+                        birth_date=row["birth_date"],
+                        created_at=row["created_at"],
+                    )
+                logger.exception(
+                    "Failed to bootstrap user for UID %s",
+                    _mask_uid(payload.uid),
+                )
+                raise
             logger.info(
                 "Bootstrapped new local user for Firebase UID %s",
                 _mask_uid(payload.uid),
@@ -577,13 +608,45 @@ class UserService:
         self, firebase_uid: str
     ) -> ReadingPreferences:
         now = _utc_now()
-        await self._db.execute(
-            "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at) "
-            "VALUES (?, 'vertical', 'en', NULL, NULL, ?)",
-            firebase_uid,
-            now,
-        )
-        await self._db.commit()
+        try:
+            await self._db.execute(
+                "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at) "
+                "VALUES (?, 'vertical', 'en', NULL, NULL, ?)",
+                firebase_uid,
+                now,
+            )
+            await self._db.commit()
+        except Exception as exc:
+            if _is_unique_constraint_violation(exc):
+                row = await self._db.fetchone(
+                    "SELECT firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at "
+                    "FROM reading_preferences WHERE firebase_uid = ?",
+                    firebase_uid,
+                )
+                if row is not None:
+                    demographic = (
+                        json.loads(row["demographic_filter"])
+                        if row["demographic_filter"]
+                        else None
+                    )
+                    return ReadingPreferences(
+                        firebase_uid=row["firebase_uid"],
+                        default_reader_mode=row["default_reader_mode"],
+                        default_language=row["default_language"],
+                        content_rating_filter=row["content_rating_filter"],
+                        demographic_filter=demographic,
+                        updated_at=row["updated_at"],
+                    )
+                logger.exception(
+                    "Race-condition re-query for preferences failed for UID %s",
+                    _mask_uid(firebase_uid),
+                )
+                raise
+            logger.exception(
+                "Failed to create default preferences for UID %s",
+                _mask_uid(firebase_uid),
+            )
+            raise
         return ReadingPreferences(
             firebase_uid=firebase_uid,
             default_reader_mode="vertical",

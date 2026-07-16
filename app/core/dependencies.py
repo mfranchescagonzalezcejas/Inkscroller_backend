@@ -5,7 +5,7 @@ from typing import cast
 
 from app.core.cache import SimpleCache
 from app.core.db_adapter import DatabaseAdapter
-from app.core.exceptions import AuthError
+from app.core.exceptions import AuthError, EmailNotVerifiedError
 from app.core.firebase_auth import (
     AuthenticationError,
     FirebaseTokenPayload,
@@ -64,10 +64,10 @@ async def get_current_user(
     return payload
 
 
-async def get_current_user_verified(
+async def get_current_user_no_bootstrap(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> FirebaseTokenPayload:
-    """Verify the Bearer token and return the Firebase payload — no DB side-effects.
+    """Verify the Bearer token without bootstrapping the local user row.
 
     Unlike :func:`get_current_user`, this dependency does **not** bootstrap or
     look up the local user row. Use it for endpoints that only need Firebase
@@ -84,6 +84,24 @@ async def get_current_user_verified(
         return await verify_firebase_token(credentials.credentials)
     except AuthenticationError as exc:
         raise AuthError(str(exc)) from exc
+
+
+async def get_current_user_verified(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    user_service: UserService = Depends(get_user_service),
+) -> FirebaseTokenPayload:
+    """Verify the Bearer token, bootstrap the local user, and enforce email verification.
+
+    Like :func:`get_current_user` but also checks that the Firebase account
+    has a verified email address. Raises :class:`EmailNotVerifiedError` (403)
+    if the email is not verified.
+
+    Use this for sensitive endpoints that require verified accounts.
+    """
+    user = await get_current_user(credentials, user_service)
+    if not user.email_verified:
+        raise EmailNotVerifiedError("Email not verified.")
+    return user
 
 
 def get_manga_service(request: Request) -> MangaService:
