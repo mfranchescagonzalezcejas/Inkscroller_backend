@@ -1,9 +1,7 @@
 """FastAPI dependency-injection helpers for services, auth, and cache."""
 
 import logging
-
-from fastapi import Depends, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from typing import cast
 
 from app.core.cache import SimpleCache
 from app.core.db_adapter import DatabaseAdapter
@@ -20,6 +18,8 @@ from app.services.tag_service import TagService
 from app.services.user_service import UserService
 from app.sources.jikan_client import JikanClient
 from app.sources.mangadex_client import MangaDexClient
+from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +28,12 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 def get_shared_cache(request: Request) -> SimpleCache:
     """Return the shared application cache stored in ``app.state.cache``."""
-    return request.app.state.cache
+    return cast(SimpleCache, request.app.state.cache)
 
 
 def get_db(request: Request) -> DatabaseAdapter:
     """Return the shared database adapter stored in ``app.state.db``."""
-    return request.app.state.db
+    return cast(DatabaseAdapter, request.app.state.db)
 
 
 def get_user_service(db: DatabaseAdapter = Depends(get_db)) -> UserService:

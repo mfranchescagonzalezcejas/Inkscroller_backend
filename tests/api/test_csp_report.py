@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-
 from tests.api.helpers import create_hermetic_test_app
 
 

@@ -1,6 +1,6 @@
 """Service for retrieving and grouping MangaDex tags with caching and fallback."""
 
-from typing import Any
+from typing import Any, cast
 
 from app.core.cache import SimpleCache
 from app.core.manga_tags import GENRE_TAG_UUIDS
@@ -27,7 +27,7 @@ class TagService:
         """Return grouped tags, using the cache or falling back to MangaDex."""
         cached = self._cache.get(_CACHE_KEY)
         if cached is not None:
-            return cached
+            return cast("dict[str, list[dict[str, str]]]", cached)
 
         try:
             data = await self._client.get_tags()

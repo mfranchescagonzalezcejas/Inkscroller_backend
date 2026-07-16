@@ -20,11 +20,10 @@ from unittest.mock import patch
 if find_spec("fastapi") is None or find_spec("dotenv") is None:
     raise unittest.SkipTest("fastapi/python-dotenv not installed")
 
-from fastapi.testclient import TestClient
-
 from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import get_db
+from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
 
 # ---------------------------------------------------------------------------

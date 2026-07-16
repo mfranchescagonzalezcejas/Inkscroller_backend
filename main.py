@@ -1,15 +1,11 @@
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import AsyncContextManager, Callable
+from typing import AsyncContextManager, cast
 
 import httpx
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import Response
-from starlette.types import ASGIApp, Receive, Scope, Send
-
 from app.api.chapters import router as chapters_router
 from app.api.health import router as health_router
 from app.api.manga import router as manga_router
@@ -23,6 +19,10 @@ from app.core.firebase_auth import init_firebase_admin
 from app.core.logging import setup_logging
 from app.core.security_headers import get_security_headers
 from app.services.user_service import UserService
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def build_lifespan(
     db_path: str | None = None,
 ) -> Callable[[FastAPI], AsyncContextManager[None]]:
     @asynccontextmanager
-    async def app_lifespan(app: FastAPI):
+    async def app_lifespan(app: FastAPI) -> AsyncIterator[None]:
         db = None
         mangadex_http = None
         mangadex_worker_http = None
@@ -124,7 +124,7 @@ class RequestBodyLimitMiddleware:
 
         while more_body:
             message = await receive()
-            messages.append(message)
+            messages.append(cast("dict", message))
 
             if message["type"] != "http.request":
                 more_body = False
@@ -140,7 +140,7 @@ class RequestBodyLimitMiddleware:
         async def wrapped_receive() -> dict:
             if messages:
                 return messages.pop(0)
-            return await receive()
+            return cast("dict", await receive())
 
         await self.app(scope, wrapped_receive, send)
 
@@ -161,9 +161,9 @@ class SecurityHeadersMiddleware:
             (k.lower().encode(), v.encode()) for k, v in headers.items()
         ]
 
-        async def _send(message: dict) -> None:
+        async def _send(message: "Message") -> None:
             if message["type"] == "http.response.start":
-                existing = message.get("headers", [])
+                existing = cast("list[tuple[bytes, bytes]]", message.get("headers", []))
                 existing_keys = {k.lower() for k, _ in existing}
                 missing = [(k, v) for k, v in header_items if k not in existing_keys]
                 if missing:
@@ -194,7 +194,7 @@ class TimeoutMiddleware:
                 self.app(scope, receive, send),
                 timeout=settings.request_timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await _error_504(scope, receive, send)
 
 

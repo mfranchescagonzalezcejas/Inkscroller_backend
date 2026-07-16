@@ -3,11 +3,10 @@ import os
 import unittest
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
 import main
 from app.core.config import Settings
 from app.core.security_headers import get_security_headers
+from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
 
 
@@ -109,6 +108,7 @@ class RequestBodyLimitMiddlewareTests(unittest.TestCase):
         """Drive the ASGI app directly with three separate receive messages
         to prove the body-limit middleware accumulates across chunks."""
         import asyncio
+
         from main import RequestBodyLimitMiddleware
         from starlette.types import Receive, Scope, Send
 

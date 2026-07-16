@@ -1,4 +1,5 @@
 import unittest
+
 from app.models.manga import Manga
 
 

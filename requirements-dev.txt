@@ -1,0 +1,7 @@
+# Development-only dependencies (linting, type checking, testing).
+# CI installs these alongside the runtime requirements in requirements.txt.
+
+mypy==2.3.0
+pytest==9.0.3
+pytest-cov==7.1.0
+ruff==0.15.9

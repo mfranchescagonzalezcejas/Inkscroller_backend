@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.manga_service import MangaService
 from app.core.config import settings
 from app.core.manga_tags import GENRE_TAG_UUIDS
+from app.services.manga_service import MangaService
 
 
 def _make_manga(manga_id: str, content_rating: str | None = None) -> dict:

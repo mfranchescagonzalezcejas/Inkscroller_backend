@@ -1,4 +1,5 @@
 import unittest
+
 from app.services.manga_mapper import map_mangadex_manga
 
 

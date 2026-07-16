@@ -12,17 +12,15 @@ from importlib.util import find_spec
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
 
-from fastapi.testclient import TestClient
-
 from app.core.age import can_access_content
 from app.core.dependencies import (
+    get_chapter_pages_service,
     get_chapter_service,
     get_manga_service,
     get_user_age,
 )
-from app.core.dependencies import get_chapter_pages_service
+from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
-
 
 # ---------------------------------------------------------------------------
 # Helpers

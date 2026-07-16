@@ -24,8 +24,6 @@ from unittest.mock import AsyncMock, patch
 if find_spec("fastapi") is None or find_spec("dotenv") is None:
     raise unittest.SkipTest("fastapi/python-dotenv not installed")
 
-from fastapi.testclient import TestClient
-
 from app.core.database import init_db
 from app.core.db_adapter import DatabaseAdapter
 from app.core.dependencies import (
@@ -37,8 +35,9 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import ProfileConflictError
 from app.core.firebase_auth import FirebaseTokenPayload
-from firebase_admin import auth as firebase_auth_sdk
 from app.services.user_service import UserService
+from fastapi.testclient import TestClient
+from firebase_admin import auth as firebase_auth_sdk
 from tests.api.helpers import create_hermetic_test_app
 
 # ---------------------------------------------------------------------------
