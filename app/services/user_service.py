@@ -113,6 +113,7 @@ class UserService:
                         "Raced on bootstrap for UID %s — using existing row",
                         _mask_uid(payload.uid),
                     )
+                    await self._db.commit()
                     return UserProfile(
                         firebase_uid=row["firebase_uid"],
                         email=row["email"],
@@ -629,6 +630,7 @@ class UserService:
                         if row["demographic_filter"]
                         else None
                     )
+                    await self._db.commit()
                     return ReadingPreferences(
                         firebase_uid=row["firebase_uid"],
                         default_reader_mode=row["default_reader_mode"],
