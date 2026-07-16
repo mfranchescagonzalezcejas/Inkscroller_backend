@@ -40,7 +40,10 @@ class TestChapterService(unittest.IsolatedAsyncioTestCase):
     async def test_latest_chapters_filters_manga_by_age(self):
         client = AsyncMock()
         client.get_latest_chapters.return_value = {
-            "data": [_chapter("safe-chapter", "safe-manga"), _chapter("adult-chapter", "adult-manga")]
+            "data": [
+                _chapter("safe-chapter", "safe-manga"),
+                _chapter("adult-chapter", "adult-manga"),
+            ]
         }
         client.get_manga_list_by_ids.return_value = {
             "data": [
