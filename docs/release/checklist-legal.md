@@ -1,7 +1,7 @@
-# Checklist Legal — Release InkScroller Backend
+# Legal Checklist — InkScroller Backend Release
 
-> **Nota (2026-05-05):** El target activo de despliegue es **Railway**. Este checklist usa únicamente evidencia de Railway (variables, logs y smoke tests).
-
+> **Note (2026-05-05):** The active deployment target is **Railway**. This checklist uses only Railway evidence (variables, logs, and smoke tests).
+> **Purpose:** Validate legal and API compliance before promoting to production.
 > **Propósito:** Validar el cumplimiento legal y de APIs antes de promover a producción.  
 > **Usar en:** Cada release a `staging` y `prod`.  
 > **Referencia:** [`docs/legal/api-compliance.md`](../legal/api-compliance.md)

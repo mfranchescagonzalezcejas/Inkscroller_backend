@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- What does this PR do? One or two sentences. / ¿Qué hace este PR? Una o dos oraciones. -->
+<!-- What does this PR do? One or two sentences. -->
 
 ## Task Link
 
@@ -12,12 +12,12 @@ GitLab MR / issue: <!-- URL -->
 
 GitHub issue (optional): Closes #<!-- issue number -->
 
-<!-- Or if it's related but doesn't close it: / O si está relacionado pero no la cierra: -->
+<!-- Or if it's related but doesn't close it: -->
 <!-- Refs #issue -->
 
 ## Evidence
 
-<!-- Check what's been done / Marcá lo que aplica -->
+<!-- Check what's been done -->
 
 - [ ] Tests passing locally
 - [ ] Linting / type checking clean

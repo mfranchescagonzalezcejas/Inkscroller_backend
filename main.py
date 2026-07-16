@@ -205,9 +205,50 @@ def create_app(
 
     app = FastAPI(
         title=settings.app_name,
+        description=settings.app_description,
         version=settings.version,
         debug=settings.debug,
         lifespan=lifespan_context,
+        contact={
+            "name": "InkScroller",
+            "url": "https://github.com/mfranchescagonzalezcejas/inkscroller_frontend",
+        },
+        license_info={
+            "name": "MIT",
+            "url": "https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/blob/main/LICENSE",
+        },
+        servers=[
+            {
+                "url": "https://api.inkscroller.devdigi.dev",
+                "description": "Production",
+            },
+            {
+                "url": "https://api.dev.inkscroller.devdigi.dev",
+                "description": "Development",
+            },
+        ],
+        openapi_tags=[
+            {
+                "name": "Health",
+                "description": "Liveness and readiness probes",
+            },
+            {
+                "name": "Manga",
+                "description": "Manga catalogue, search, and demographic filtering",
+            },
+            {
+                "name": "Chapters",
+                "description": "Chapter listing, latest feed, and page image URLs",
+            },
+            {
+                "name": "Users",
+                "description": "User profiles, preferences, and library management",
+            },
+            {
+                "name": "security",
+                "description": "Security reporting endpoints (CSP violations)",
+            },
+        ],
     )
 
     logger.info(

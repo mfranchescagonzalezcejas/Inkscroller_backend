@@ -1,23 +1,23 @@
-# Cumplimiento de APIs externas — InkScroller Backend
+# External API Compliance — InkScroller Backend
 
-> **Última actualización:** Abril 2026  
-> **Alcance:** Backend FastAPI — capa proxy para MangaDex y Jikan/MAL  
-> **Responsable:** Equipo InkScroller
+> **Last updated:** April 2026
+> **Scope:** FastAPI backend — proxy layer for MangaDex and Jikan/MAL
+> **Responsible:** InkScroller Team
 
 ---
 
 ## Tabla de contenidos
-
-1. [Propósito](#1-propósito)
+1. [Purpose](#1-purpose)
 2. [MangaDex API](#2-mangadex-api)
 3. [Jikan API / MyAnimeList](#3-jikan-api--myanimelist)
-4. [Reglas compartidas](#4-reglas-compartidas)
-5. [Proceso de Takedown](#5-proceso-de-takedown)
+4. [Shared Rules](#4-shared-rules)
+5. [Takedown Process](#5-takedown-process)
+6. [Review Log](#6-review-log)
 6. [Registro de revisión](#6-registro-de-revisión)
 
 ---
 
-## 1. Propósito
+## 1. Purpose
 
 Este documento establece las reglas de cumplimiento legal y ético para el uso de APIs de terceros dentro del backend de InkScroller. Su objetivo es garantizar que el proyecto:
 
