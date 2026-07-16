@@ -1,8 +1,7 @@
 """Pydantic models for the user profile and reading preferences endpoints."""
 
-from datetime import date
 import re
-
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, field_validator

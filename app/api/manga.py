@@ -1,6 +1,9 @@
 """Manga catalogue route handlers with search, list, detail, and age-gated access."""
 
+from typing import cast
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
 from app.core.config import settings
 from app.core.dependencies import get_manga_service, get_tag_service, get_user_age
@@ -76,18 +79,16 @@ async def search_manga(
     demographic = _validate_demographics(
         [token for token in demographic if token] if demographic else None,
     )
-    kwargs = {
-        "limit": limit,
-        "offset": offset,
-        "user_age": user_age,
-        "content_rating": content_rating,
-    }
-    if demographic is not None:
-        kwargs["demographic"] = demographic
-    if cursor is not None:
-        kwargs["cursor"] = cursor
     try:
-        return await service.search(q, **kwargs)
+        return await service.search(
+            q,
+            limit=limit,
+            offset=offset,
+            user_age=user_age,
+            content_rating=content_rating,
+            demographic=demographic,
+            cursor=cursor,
+        )
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -97,7 +98,7 @@ async def get_manga(
     manga_id: str,
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-):
+) -> Manga:
     """Return manga detail, blocking if the caller is too young."""
     manga_id = manga_id.strip()
     manga = await service.get_by_id(manga_id, user_age=user_age)
@@ -105,15 +106,16 @@ async def get_manga(
         # Check if it exists but is blocked by age restriction
         full_manga = await service.get_by_id(manga_id, skip_age_filter=True)
         if full_manga and not can_access_content(
-            full_manga.get("contentRating"), user_age
+            cast("str | None", full_manga.get("contentRating")), user_age
         ):
-            min_age = CONTENT_AGE_LIMITS.get(full_manga.get("contentRating"), 0)
+            rating = cast("str | None", full_manga.get("contentRating"))
+            min_age = CONTENT_AGE_LIMITS.get(rating) if rating is not None else 0
             raise HTTPException(
                 status_code=403,
                 detail=f"This content is age-restricted (requires {min_age}+)",
             )
         raise HTTPException(status_code=404, detail="Manga not found")
-    return manga
+    return cast("Manga", manga)
 
 
 @router.get("")
@@ -158,20 +160,18 @@ async def list_manga(
         [token for token in demographic if token] if demographic else None,
     )
 
-    kwargs = {
-        "limit": limit,
-        "offset": offset,
-        "title": title,
-        "demographic": demographic,
-        "status": status,
-        "order": resolved_order,
-        "genre": genre,
-        "user_age": user_age,
-        "content_rating": content_rating,
-    }
-    if cursor is not None:
-        kwargs["cursor"] = cursor
     try:
-        return await service.list_manga(**kwargs)
+        return await service.list_manga(
+            limit=limit,
+            offset=offset,
+            title=title,
+            demographic=demographic,
+            status=status,
+            order=resolved_order,
+            genre=genre,
+            user_age=user_age,
+            content_rating=content_rating,
+            cursor=cursor,
+        )
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error

@@ -1,7 +1,6 @@
 """Pydantic models for manga data and library metadata."""
 
 from pydantic import BaseModel
-from typing import List, Optional
 
 
 class LibraryMetadata(BaseModel):
@@ -21,33 +20,33 @@ class Manga(BaseModel):
 
     id: str
     title: str
-    description: Optional[str] = None
-    coverUrl: Optional[str] = None
+    description: str | None = None
+    coverUrl: str | None = None
 
-    demographic: Optional[str] = None
-    status: Optional[str] = None
+    demographic: str | None = None
+    status: str | None = None
 
     # Editorial / social (Jikan)
-    score: Optional[float] = None
-    rank: Optional[int] = None
-    popularity: Optional[int] = None
-    members: Optional[int] = None
-    favorites: Optional[int] = None
+    score: float | None = None
+    rank: int | None = None
+    popularity: int | None = None
+    members: int | None = None
+    favorites: int | None = None
 
-    authors: List[str] = []
-    serialization: Optional[str] = None
+    authors: list[str] = []
+    serialization: str | None = None
 
-    genres: List[str] = []
+    genres: list[str] = []
 
     # Lectura (MangaDex)
-    chapters: Optional[int] = None
+    chapters: int | None = None
 
     # Fechas
-    startYear: Optional[int] = None
-    endYear: Optional[int] = None
+    startYear: int | None = None
+    endYear: int | None = None
 
     # Content rating (MangaDex)
-    contentRating: Optional[str] = None
+    contentRating: str | None = None
 
     # User-library metadata (only present on authenticated library responses)
-    library: Optional[LibraryMetadata] = None
+    library: LibraryMetadata | None = None

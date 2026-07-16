@@ -12,10 +12,9 @@ import os
 from dataclasses import dataclass
 
 import firebase_admin
+from app.core.config import settings
 from firebase_admin import auth as firebase_auth_sdk
 from firebase_admin import credentials
-
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

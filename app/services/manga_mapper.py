@@ -1,6 +1,7 @@
 """Map raw MangaDex manga API items to internal dict format and apply statistics."""
 
 from __future__ import annotations
+
 from typing import Any
 
 COVER_BASE_URL = "https://uploads.mangadex.org/covers"

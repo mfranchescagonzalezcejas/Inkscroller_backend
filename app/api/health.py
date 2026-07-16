@@ -5,6 +5,7 @@ import logging
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from starlette.responses import Response
 
 from app.core.config import settings
 from app.core.db_adapter import DatabaseAdapter
@@ -14,13 +15,13 @@ router = APIRouter()
 
 
 @router.get("/ping")
-def ping():
+def ping() -> dict[str, bool]:
     """Liveness probe — returns ``{"ok": true}`` if the application is running."""
     return {"ok": True}
 
 
-@router.get("/ready")
-async def ready(request: Request):
+@router.get("/ready", response_model=None)
+async def ready(request: Request) -> Response:
     """Readiness probe — validates DB connectivity with a short timeout."""
     db: DatabaseAdapter = request.app.state.db
 
@@ -30,12 +31,15 @@ async def ready(request: Request):
             timeout=settings.readyz_timeout_seconds,
         )
         if result and result.get("ok") == 1:
-            return {"ready": True, "database": "ok"}
+            return JSONResponse(
+                status_code=200,
+                content={"ready": True, "database": "ok"},
+            )
         return JSONResponse(
             status_code=503,
             content={"ready": False, "database": "unexpected_response"},
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return JSONResponse(
             status_code=503,
             content={"ready": False, "database": "timeout"},

@@ -1,8 +1,8 @@
 """Retry decorator with exponential backoff for upstream API calls."""
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 from httpx import ConnectError, HTTPStatusError, TimeoutException
 
@@ -38,10 +38,10 @@ def with_retry(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: object, **kwargs: object) -> object:
             import asyncio
 
-            last_exc = None
+            last_exc: BaseException | None = None
             for attempt in range(max_retries + 1):
                 try:
                     return await func(*args, **kwargs)

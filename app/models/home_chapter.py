@@ -1,6 +1,7 @@
 """Pydantic model for the home-page chapter feed entries."""
 
 from datetime import datetime
+
 from pydantic import BaseModel
 
 

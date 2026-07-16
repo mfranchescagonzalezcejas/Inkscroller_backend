@@ -1,8 +1,9 @@
 """Service for fetching and caching chapter page image data."""
 
-from app.sources.mangadex_client import MangaDexClient
-from app.core.cache import SimpleCache
 from httpx import HTTPStatusError
+
+from app.core.cache import SimpleCache
+from app.sources.mangadex_client import MangaDexClient
 
 
 class ChapterPagesService:

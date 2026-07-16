@@ -39,16 +39,14 @@ except ModuleNotFoundError:  # pragma: no cover - local env without deps
     httpx.TimeoutException = _TimeoutException
     sys.modules["httpx"] = httpx
 
+from app.api import chapters as chapters_router_module
+from app.api import health as health_router_module
+from app.api import manga as manga_router_module
+from app.api import users as users_router_module
 from app.core.cache import SimpleCache
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
 from app.services.manga_service import MangaService
-
-from app.api import chapters as chapters_router_module
-from app.api import manga as manga_router_module
-from app.api import users as users_router_module
-from app.api import health as health_router_module
-
 
 # ---------------------------------------------------------------------------
 # P0-B4 — No binary image caching

@@ -1,8 +1,7 @@
 """Docker build context safety checks."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

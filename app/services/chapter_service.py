@@ -1,11 +1,11 @@
 """Service for fetching and caching MangaDex chapter data."""
 
-from datetime import datetime, timezone
-from typing import List
-from app.sources.mangadex_client import MangaDexClient
+from datetime import UTC, datetime
+
 from app.core.cache import SimpleCache
 from app.services.chapter_mapper import map_mangadex_chapter
 from app.services.manga_mapper import COVER_BASE_URL
+from app.sources.mangadex_client import MangaDexClient
 
 
 class ChapterService:
@@ -42,7 +42,7 @@ class ChapterService:
         self,
         manga_id: str,
         language: str = "en",
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Return the chapter list for a manga, filtered to readable/external entries."""
         cache_key = f"chapters:{manga_id}:{language}"
         cached = self._cache.get(cache_key)
@@ -71,7 +71,7 @@ class ChapterService:
         self,
         language: str = "en",
         limit: int = 10,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Return the latest chapters for the home feed, deduplicated (max 2 per manga)."""
         cache_key = f"chapters:latest:home:v4:{language}:{limit}"
         cached = self._cache.get(cache_key)
@@ -96,7 +96,7 @@ class ChapterService:
         ]
 
         # Filter out future-dated chapters from upstream.
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         chapter_items = [
             item
             for item in chapter_items
@@ -143,7 +143,7 @@ class ChapterService:
                     "coverUrl": cover_url,
                 }
 
-        raw_result: List[dict] = []
+        raw_result: list[dict] = []
         for chapter_item in chapter_items:
             chapter_base = map_mangadex_chapter(chapter_item)
             chapter_id = chapter_base.get("id")
@@ -175,7 +175,7 @@ class ChapterService:
 
         # Cap repeated entries per manga to preserve variety in Home feed.
         max_per_manga = 2
-        deduped: List[dict] = []
+        deduped: list[dict] = []
         per_manga_count: dict[str, int] = {}
 
         for item in raw_result:

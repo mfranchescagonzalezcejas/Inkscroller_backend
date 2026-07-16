@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - CI/dev sin deps completas
     httpx = types.ModuleType("httpx")
 
-    class _AsyncClient:  # noqa: D401 - stub mínimo para imports
+    class _AsyncClient:
         pass
 
     class _ConnectError(Exception):
@@ -33,7 +33,6 @@ except ModuleNotFoundError:  # pragma: no cover - CI/dev sin deps completas
 
 from app.sources.jikan_client import JikanClient
 from app.sources.mangadex_client import MangaDexClient
-
 
 PII_PARAM_KEYWORDS = {
     "uid",

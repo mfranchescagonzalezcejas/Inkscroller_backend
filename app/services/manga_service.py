@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import logging
-import uuid
 import hashlib
 import hmac
+import logging
+import uuid
+from typing import cast
 
-from app.sources.mangadex_client import MangaDexClient
-from app.core.cache import SimpleCache
-from app.sources.jikan_client import JikanClient
-from app.services.manga_mapper import map_mangadex_manga, apply_statistics
-from app.services.jikan_mapper import map_jikan_detail
-from app.core.manga_tags import GENRE_TAG_UUIDS
-from app.core.config import settings
 from app.core.age import can_access_content, can_access_demographic
+from app.core.cache import SimpleCache
+from app.core.config import settings
+from app.core.manga_tags import GENRE_TAG_UUIDS
+from app.services.jikan_mapper import map_jikan_detail
+from app.services.manga_mapper import apply_statistics, map_mangadex_manga
+from app.sources.jikan_client import JikanClient
+from app.sources.mangadex_client import MangaDexClient
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,8 @@ class MangaService:
             "suggestive": ["safe", "suggestive"],
             "all": ["safe", "suggestive", "erotica", "pornographic"],
         }
+        if content_rating is None:
+            return ["safe"]
         return mapping.get(content_rating, ["safe"])
 
     def _resolve_content_ratings(
@@ -338,7 +341,7 @@ class MangaService:
         )
         cached = self._cache.get(cache_key)
         if cached is not None:
-            return cached
+            return cast("dict", cached)
 
         search_kwargs = {
             "query": query,
@@ -351,15 +354,15 @@ class MangaService:
         payload = await self._client.search_manga(**search_kwargs)
         items = payload.get("data", []) if isinstance(payload, dict) else []
         total_count = payload.get("total", len(items))
-        result = [map_mangadex_manga(item) for item in items]
+        mapped: list[dict] = [map_mangadex_manga(item) for item in items]
 
         # Fetch statistics (ratings/scores) for search results
-        if result:
+        if mapped:
             try:
-                manga_ids = [m["id"] for m in result]
+                manga_ids = [m["id"] for m in mapped]
                 stats_payload = await self._client.get_statistics(manga_ids)
                 stats_dict = stats_payload.get("statistics", {})
-                for manga in result:
+                for manga in mapped:
                     manga_stats = stats_dict.get(manga["id"], {})
                     apply_statistics(manga, manga_stats)
             except Exception:
@@ -368,10 +371,10 @@ class MangaService:
                     exc_info=True,
                 )
 
-        result = self._filter_by_age(result, user_age)
+        filtered = self._filter_by_age(mapped, user_age)
 
         response = {
-            "data": result,
+            "data": filtered,
             "limit": limit,
             "offset": offset,
             "total": total_count,
@@ -415,11 +418,11 @@ class MangaService:
             Paginated result dict.
 
         """
+        included_tags: list[str] | None = None
         if demographic and "unspecified" in demographic:
             fingerprint = f"list:{title}:{status}:{order}:{genre}:{user_age}:{content_rating}:{sorted(demographic)}"
             if cursor is not None:
                 return await self._cursor_page(cursor, limit, fingerprint)
-            included_tags = None
             if genre:
                 tag_uuid = GENRE_TAG_UUIDS.get(genre.lower())
                 if tag_uuid:
@@ -483,10 +486,9 @@ class MangaService:
         )
         cached = self._cache.get(cache_key)
         if cached is not None:
-            return cached
+            return cast("dict", cached)
 
         # Resolve genre name to MangaDex tag UUID
-        included_tags: list[str] | None = None
         if genre:
             tag_uuid = GENRE_TAG_UUIDS.get(genre.lower())
             if tag_uuid:
@@ -508,17 +510,17 @@ class MangaService:
         # Capture upstream total BEFORE filtering so pagination metadata
         # reflects the actual dataset size, not just the current page.
         total_count = payload.get("total", len(items))
-        result = [map_mangadex_manga(item) for item in items]
+        mapped: list[dict] = [map_mangadex_manga(item) for item in items]
 
         # Always fetch statistics to get rating for all manga lists
-        if result:
+        if mapped:
             try:
-                manga_ids = [m["id"] for m in result]
+                manga_ids = [m["id"] for m in mapped]
                 stats_payload = await self._client.get_statistics(manga_ids)
                 stats_dict = stats_payload.get("statistics", {})
 
                 # Apply statistics to each manga
-                for manga in result:
+                for manga in mapped:
                     manga_stats = stats_dict.get(manga["id"], {})
                     apply_statistics(manga, manga_stats)
             except Exception:
@@ -527,10 +529,10 @@ class MangaService:
                     exc_info=True,
                 )
 
-        result = self._filter_by_age(result, user_age)
+        filtered = self._filter_by_age(mapped, user_age)
 
         response = {
-            "data": result,
+            "data": filtered,
             "limit": limit,
             "offset": offset,
             "total": total_count,
@@ -568,11 +570,11 @@ class MangaService:
             # per request so that a prior ``skip_age_filter=True`` call cannot
             # poison the shared cache for age-restricted readers.
             if skip_age_filter:
-                return cached
+                return cast("dict", cached)
             if user_age is None and cached.get("contentRating") != "safe":
                 return None  # guest: only safe content
             if can_access_content(cached.get("contentRating"), user_age):
-                return cached
+                return cast("dict", cached)
             return None
 
         payload = await self._client.get_manga(manga_id)

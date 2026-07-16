@@ -1,8 +1,8 @@
 """Pydantic model for MangaDex chapter metadata."""
 
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class Chapter(BaseModel):
@@ -14,11 +14,11 @@ class Chapter(BaseModel):
     """
 
     id: str
-    number: Optional[str]
-    title: Optional[str]
-    date: Optional[datetime]
-    scanlation_group: Optional[str] = None
+    number: str | None
+    title: str | None
+    date: datetime | None
+    scanlation_group: str | None = None
 
     readable: bool
     external: bool
-    externalUrl: Optional[str]
+    externalUrl: str | None

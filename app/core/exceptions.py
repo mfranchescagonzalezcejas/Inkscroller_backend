@@ -2,12 +2,11 @@
 
 import logging
 
+from app.core.config import settings
+from app.core.security_headers import get_security_headers
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from httpx import ConnectError, HTTPStatusError, TimeoutException
-
-from app.core.config import settings
-from app.core.security_headers import get_security_headers
 
 logger = logging.getLogger(__name__)
 
@@ -136,13 +135,18 @@ async def handle_profile_conflict_error(
 
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach all exception handlers to the FastAPI app."""
-    app.add_exception_handler(HTTPStatusError, handle_http_status_error)
-    app.add_exception_handler(TimeoutException, handle_timeout)
-    app.add_exception_handler(ConnectError, handle_connect_error)
-    app.add_exception_handler(UpstreamServiceError, handle_upstream_service_error)
-    app.add_exception_handler(AuthError, handle_auth_error)
+    # ponytail: Starlette's add_exception_handler expects Exception-typed
+    # callables but each handler is intentionally narrowed to a specific
+    # exception subclass. The runtime contract is correct; mypy can't
+    # prove the contravariance through this dispatcher.
+    app.add_exception_handler(HTTPStatusError, handle_http_status_error)  # type: ignore[arg-type]
+    app.add_exception_handler(TimeoutException, handle_timeout)  # type: ignore[arg-type]
+    app.add_exception_handler(ConnectError, handle_connect_error)  # type: ignore[arg-type]
+    app.add_exception_handler(UpstreamServiceError, handle_upstream_service_error)  # type: ignore[arg-type]
+    app.add_exception_handler(AuthError, handle_auth_error)  # type: ignore[arg-type]
     app.add_exception_handler(
-        PreferencesValidationError, handle_preferences_validation_error
+        PreferencesValidationError,
+        handle_preferences_validation_error,  # type: ignore[arg-type]
     )
-    app.add_exception_handler(ProfileConflictError, handle_profile_conflict_error)
+    app.add_exception_handler(ProfileConflictError, handle_profile_conflict_error)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, handle_unhandled)

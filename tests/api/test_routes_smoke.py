@@ -1,13 +1,10 @@
-import asyncio
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib.util import find_spec
 from unittest.mock import AsyncMock, MagicMock, patch
 
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
-
-from fastapi.testclient import TestClient
 
 from app.core import database
 from app.core.cache import SimpleCache
@@ -22,6 +19,7 @@ from app.core.dependencies import (
 from app.services.manga_service import MangaService
 from app.services.tag_service import TagService
 from app.sources.mangadex_client import MangaDexClient
+from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
 
 
@@ -120,7 +118,7 @@ class AppSmokeTests(unittest.TestCase):
 
         with TestClient(self.app) as client:
             db = client.app.state.db
-            with patch.object(db, "fetchone", side_effect=asyncio.TimeoutError()):
+            with patch.object(db, "fetchone", side_effect=TimeoutError()):
                 response = client.get("/ready")
 
         self.assertEqual(response.status_code, 503)
@@ -317,6 +315,7 @@ class AppSmokeTests(unittest.TestCase):
                     "genre": None,
                     "user_age": None,
                     "content_rating": None,
+                    "cursor": None,
                 }
             ],
         )
@@ -386,7 +385,7 @@ class AppSmokeTests(unittest.TestCase):
                     "id": "chapter-1",
                     "number": "1",
                     "title": "Arrival",
-                    "date": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
+                    "date": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
                     "scanlation_group": "Team Ink",
                     "readable": True,
                     "external": False,

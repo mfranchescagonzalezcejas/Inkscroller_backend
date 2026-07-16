@@ -4,8 +4,7 @@ import asyncio
 import json
 import logging
 import sqlite3
-from asyncio import TimeoutError as AsyncTimeoutError
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import firebase_admin
 from firebase_admin import auth as firebase_auth_sdk
@@ -35,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 def _utc_now() -> str:
     """Return the current UTC datetime as an ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _mask_uid(uid: str) -> str:
@@ -66,8 +65,8 @@ def _serialize_birth_date_for_db(
 
 def _model_field_was_provided(model: UpdateUserProfileRequest, field_name: str) -> bool:
     """Check if a Pydantic v2 model field was explicitly provided (not omitted) in the request."""
-    fields_set = getattr(model, "model_fields_set", None)
-    if fields_set is None:
+    fields_set: set[str] = getattr(model, "model_fields_set", set()) or set()
+    if not fields_set:
         fields_set = getattr(model, "__fields_set__", set())
     return field_name in fields_set
 
@@ -126,12 +125,12 @@ class UserService:
     ) -> UserProfile:
         """Update authenticated profile metadata and return the current profile."""
         if req is None:
-            update_data = {}
+            update_data: dict[str, object] = {}
             if username is not None:
                 update_data["username"] = username
             if birth_date is not None:
                 update_data["birth_date"] = birth_date
-            profile_update = UpdateUserProfileRequest(**update_data)
+            profile_update = UpdateUserProfileRequest(**update_data)  # type: ignore[arg-type]
         else:
             profile_update = req
         current = await self._get_user(firebase_uid)
@@ -239,7 +238,7 @@ class UserService:
             logger.info("Deleted Firebase Auth user.")
         except firebase_auth_sdk.UserNotFoundError:
             logger.info("Firebase user already deleted.")
-        except AsyncTimeoutError:
+        except TimeoutError:
             # The request may have succeeded on Firebase's side even though
             # we timed out locally — flag so reconciliation can check later.
             logger.warning(
@@ -325,7 +324,7 @@ class UserService:
                 "Reconciled pending deletion: user %s already gone.",
                 _mask_uid(firebase_uid),
             )
-        except (AsyncTimeoutError, Exception):
+        except (TimeoutError, Exception):
             # Retry failed — keep the pending flag for next time.
             logger.warning(
                 "Reconciliation retry failed for %s — will retry on next call.",

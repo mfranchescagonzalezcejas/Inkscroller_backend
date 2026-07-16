@@ -13,13 +13,11 @@ from importlib.util import find_spec
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
 
-from fastapi.testclient import TestClient
-
 from app.core.age import can_access_content
 from app.core.dependencies import get_manga_service, get_user_age
 from app.services.manga_service import MangaService
+from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -94,6 +92,8 @@ class FakeMangaServiceWithAge:
         offset: int = 0,
         user_age: int | None = None,
         content_rating: str | None = None,
+        demographic: list[str] | None = None,
+        cursor: str | None = None,
     ) -> dict:
         self.calls.append(
             {

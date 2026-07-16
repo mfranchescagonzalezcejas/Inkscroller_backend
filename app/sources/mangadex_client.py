@@ -1,9 +1,9 @@
 """HTTP client for the MangaDex v5 REST API with per-method retry support."""
 
-import httpx
-from typing import Any
 import asyncio
+from typing import Any, cast
 
+import httpx
 from app.core.resilience import with_retry
 
 
@@ -40,7 +40,7 @@ class MangaDexClient:
             params=params,
         )
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def get_manga(self, manga_id: str) -> dict[str, Any]:
@@ -52,7 +52,7 @@ class MangaDexClient:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def get_chapters(
@@ -77,7 +77,7 @@ class MangaDexClient:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def get_latest_chapters(
@@ -96,7 +96,7 @@ class MangaDexClient:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def get_manga_list_by_ids(self, manga_ids: list[str]) -> dict[str, Any]:
@@ -115,21 +115,21 @@ class MangaDexClient:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def get_chapter(self, chapter_id: str) -> dict:
         """Fetch chapter metadata including manga relationship."""
         response = await self.client.get(f"/chapter/{chapter_id}")
         response.raise_for_status()
-        return response.json()
+        return cast("dict", response.json())
 
     @with_retry()
     async def get_chapter_pages(self, chapter_id: str) -> dict:
         """Fetch the MangaDex@Home server URLs for a chapter's page images."""
         response = await self.client.get(f"/at-home/server/{chapter_id}")
         response.raise_for_status()
-        return response.json()
+        return cast("dict", response.json())
 
     @with_retry(max_retries=1)
     async def get_tags(self) -> dict[str, Any]:
@@ -144,7 +144,7 @@ class MangaDexClient:
         """
         response = await self.client.get("/manga/tag")
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def list_manga(
@@ -196,7 +196,7 @@ class MangaDexClient:
 
         response = await self.client.get("/manga", params=params)
         response.raise_for_status()
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     @with_retry()
     async def get_statistics(self, manga_ids: list[str]) -> dict[str, Any]:

@@ -49,7 +49,7 @@ def _runtime_environment() -> str:
 class Settings:
     """Application settings loaded from environment variables with sensible defaults."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Load all settings from environment variables, falling back to defaults."""
         self.app_name: str = "Inkscroller API"
         self.version: str = "0.1.0"

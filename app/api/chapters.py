@@ -1,6 +1,9 @@
 """Chapter and chapter-page route handlers with age-gated access."""
 
+from typing import cast
+
 from fastapi import APIRouter, Depends, HTTPException
+
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
 from app.core.dependencies import (
     get_chapter_pages_service,
@@ -8,11 +11,11 @@ from app.core.dependencies import (
     get_manga_service,
     get_user_age,
 )
-from app.services.chapter_service import ChapterService
-from app.services.chapter_pages_service import ChapterPagesService
-from app.services.manga_service import MangaService
 from app.models.chapter import Chapter
 from app.models.home_chapter import HomeChapter
+from app.services.chapter_pages_service import ChapterPagesService
+from app.services.chapter_service import ChapterService
+from app.services.manga_service import MangaService
 
 router = APIRouter(prefix="/chapters", tags=["Chapters"])
 
@@ -22,9 +25,12 @@ async def get_latest_home_chapters(
     limit: int = 10,
     lang: str = "en",
     chapter_service: ChapterService = Depends(get_chapter_service),
-):
+) -> list[HomeChapter]:
     """Return the latest chapters across all manga for the home feed."""
-    return await chapter_service.get_latest_home_chapters(language=lang, limit=limit)
+    return cast(
+        "list[HomeChapter]",
+        await chapter_service.get_latest_home_chapters(language=lang, limit=limit),
+    )
 
 
 @router.get("/manga/{manga_id}", response_model=list[Chapter])
@@ -34,17 +40,17 @@ async def get_manga_chapters(
     chapter_service: ChapterService = Depends(get_chapter_service),
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-):
+) -> list[Chapter]:
     """Return the chapter list for a manga, gated by the caller's age."""
     # Check age restriction
     manga = await manga_service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
         full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
         if full_manga and not can_access_content(
-            full_manga.get("contentRating"), user_age
+            cast("str | None", full_manga.get("contentRating")), user_age
         ):
-            rating = full_manga.get("contentRating")
-            min_age = CONTENT_AGE_LIMITS.get(rating)
+            rating = cast("str | None", full_manga.get("contentRating"))
+            min_age = CONTENT_AGE_LIMITS.get(rating) if rating is not None else None
             raise HTTPException(
                 status_code=403,
                 detail=(
@@ -58,7 +64,7 @@ async def get_manga_chapters(
     chapters = await chapter_service.get_chapters(manga_id, language=lang)
     if not chapters:
         raise HTTPException(status_code=404, detail="No chapters found")
-    return chapters
+    return cast("list[Chapter]", chapters)
 
 
 @router.get("/{chapter_id}/pages")
@@ -68,7 +74,7 @@ async def get_chapter_pages(
     chapter_service: ChapterService = Depends(get_chapter_service),
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-):
+) -> dict:
     """Return MangaDex@Home page image URLs for a chapter, gated by age.
 
     Resolves the manga from the chapter to check age restrictions
@@ -85,10 +91,10 @@ async def get_chapter_pages(
     if manga is None:
         full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
         if full_manga and not can_access_content(
-            full_manga.get("contentRating"), user_age
+            cast("str | None", full_manga.get("contentRating")), user_age
         ):
-            rating = full_manga.get("contentRating")
-            min_age = CONTENT_AGE_LIMITS.get(rating)
+            rating = cast("str | None", full_manga.get("contentRating"))
+            min_age = CONTENT_AGE_LIMITS.get(rating) if rating is not None else None
             raise HTTPException(
                 status_code=403,
                 detail=(

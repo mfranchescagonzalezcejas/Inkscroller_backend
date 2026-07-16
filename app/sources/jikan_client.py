@@ -1,7 +1,8 @@
 """HTTP client for the Jikan v4 REST API with retry support."""
 
-import httpx
+from typing import cast
 
+import httpx
 from app.core.resilience import with_retry
 
 
@@ -13,7 +14,7 @@ class JikanClient:
         self.client = client
 
     @with_retry(max_retries=2, base_delay=1.0)
-    async def search_manga(self, title: str):
+    async def search_manga(self, title: str) -> dict:
         """Search for a manga by title, returning the first match."""
         response = await self.client.get(
             "/manga",
@@ -23,4 +24,4 @@ class JikanClient:
             },
         )
         response.raise_for_status()
-        return response.json()
+        return cast("dict", response.json())
