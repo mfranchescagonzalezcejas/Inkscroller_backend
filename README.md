@@ -11,14 +11,14 @@
 > **TFM — Máster en Desarrollo de Aplicaciones Web y Móviles**
 > *Entrega: 20 de julio de 2026*
 >
-> **Repositorio frontend:** [mfranchescagonzalezcejas/inkscroller_frontend](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend)
+> Ver [`inkscroller_frontend`](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend) para el repositorio principal del proyecto con todos los entregables del TFM.
 
 ---
 
 ## 📋 Índice
 
+- [TFM Deliverables](#tfm-deliverables)
 - [Deployment](#deployment)
-- [Test Credentials](#test-credentials)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [API Reference](#api-reference)
@@ -26,7 +26,7 @@
 - [Running Locally](#running-locally)
 - [Project Structure](#project-structure)
 - [Quality Gates](#quality-gates)
-- [Slides & Video](#slides--video)
+- [TFM Deliverables](#tfm-deliverables)
 - [Atribución y Disclaimer](#atribución-y-disclaimer)
 - [License](#license)
 
@@ -47,19 +47,6 @@
 **Swagger UI:** [`https://api.inkscroller.devdigi.dev/docs`](https://api.inkscroller.devdigi.dev/docs)
 
 > Full deployment guide (Railway environments, Firebase secrets, PostgreSQL): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-
----
-
-## 👤 Test Credentials
-
-| Field | Value |
-|-------|-------|
-| **Email** | `demo@inkscroller.app` |
-| **Password** | `Demo123!` |
-| **Age** | 22 (access to all content ratings) |
-| **Role** | Usuario de prueba para evaluar todas las funcionalidades |
-
-> Este usuario está registrado en Firebase Authentication y tiene una edad verificada de 22 años, lo que permite probar el acceso a contenido de todas las clasificaciones (safe, suggestive, erotica, pornographic).
 
 ---
 
@@ -302,12 +289,21 @@ git commit --no-verify        # skip all hooks
 
 ---
 
-## 📽️ Slides & Video
+## 📦 TFM Deliverables
 
-| Resource | URL |
-|----------|-----|
-| **Presentation slides** | *(añadir URL de Google Slides / Canva / PowerPoint)* |
-| **Demo video** | *(añadir URL de YouTube / Google Drive)* |
+| Item | URL |
+|------|-----|
+| 🗂️ **Frontend repo** | [mfranchescagonzalezcejas/inkscroller_frontend](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend) |
+| ⚙️ **Backend repo** | [mfranchescagonzalezcejas/Inkscroller_backend](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend) |
+| 🔌 **Deployed API** | [`https://api.inkscroller.devdigi.dev`](https://api.inkscroller.devdigi.dev) |
+| 📖 **API Docs (ReDoc)** | [`https://api.inkscroller.devdigi.dev/redoc`](https://api.inkscroller.devdigi.dev/redoc) |
+| 📽️ **Slides** | Work in progress — not published yet |
+| 🎬 **Demo video** | Work in progress — not published yet |
+| 👤 **Test user** | Not required — users can create an account from the app with email/password registration |
+
+> El proyecto completo consiste en un **frontend Flutter** + **backend FastAPI**.
+> Para la entrega del TFM, usar el repositorio frontend como referencia principal:
+> [`mfranchescagonzalezcejas/inkscroller_frontend`](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend)
 
 ---
 
