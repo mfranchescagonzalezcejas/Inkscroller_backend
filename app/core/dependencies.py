@@ -188,6 +188,7 @@ async def get_user_language(
     if lang is not None and lang.strip():
         return lang.strip()
     if user is not None:
+        await user_service.get_or_create_user(user)
         preferences = await user_service.get_preferences(user.uid)
         return preferences.default_language
     return "en"

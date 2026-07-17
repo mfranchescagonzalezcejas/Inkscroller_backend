@@ -2,7 +2,7 @@
 
 from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content, can_access_demographic
 from app.core.dependencies import (
@@ -93,22 +93,25 @@ async def get_manga_chapters(
 @router.get("/manga/{manga_id}/languages", response_model=ChapterLanguagesResponse)
 async def get_manga_chapter_languages(
     manga_id: str,
-    preferred_lang: str = "en",
+    preferred_lang: str | None = Query(None),
     chapter_service: ChapterService = Depends(get_chapter_service),
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
+    resolved_lang: str = Depends(get_user_language),
 ) -> ChapterLanguagesResponse:
     """Discover available languages and return chapters in the best match.
 
-    ``preferred_lang`` is the user's language preference (from frontend).
-    Returns available languages, the matched language code, and chapters
-    in that matched language — all in one call so the frontend doesn't
-    need a second round-trip.
+    ``preferred_lang`` is the frontend-driven language preference. When
+    omitted, ``get_user_language`` resolves from the user's saved preferences
+    (or defaults to ``"en"`` for guests). Returns available languages, the
+    matched language code, and chapters in that matched language — all in
+    one call so the frontend doesn't need a second round-trip.
     """
     manga = await _require_manga_access(manga_id, manga_service, user_age)
     available = sorted(manga.get("availableTranslatedLanguages") or [])
 
-    matched = _match_language(preferred_lang, available)
+    lang = preferred_lang.strip() if preferred_lang else resolved_lang
+    matched = _match_language(lang, available)
     chapters = cast(
         "list[Chapter]",
         await chapter_service.get_chapters(manga_id, language=matched),
@@ -125,7 +128,7 @@ def _match_language(preferred: str, available: list[str]) -> str:
     """Resolve the best language match from available options.
 
     1. Exact match → use it.
-    2. Prefix match (e.g. ``es`` → ``es-la``) → use the variant.
+    2. Regional variant match (e.g. ``es`` → ``es-la``, ``pt-br`` → ``pt``).
     3. No match → first available element, or fall back to preferred.
     """
     if not available:
@@ -137,12 +140,17 @@ def _match_language(preferred: str, available: list[str]) -> str:
     if preferred_lower in available:
         return preferred_lower
 
-    # Prefix match: preferred is a short code, available has a regional variant
+    # preferred is a short code → match regional variant (es → es-la)
     for lang in available:
         if lang.startswith(preferred_lower + "-") or lang.startswith(
             preferred_lower + "_"
         ):
             return lang
+
+    # preferred is a regional code → match base language (pt-br → pt)
+    base = preferred_lower.split("-")[0].split("_")[0]
+    if base != preferred_lower and base in available:
+        return base
 
     # Fallback to first available
     return available[0]

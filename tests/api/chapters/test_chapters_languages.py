@@ -184,6 +184,45 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
         self.assertEqual(data["matched"], "en")
         self.assertEqual(data["chapters"], [])
 
+    def test_languages_regional_preferred_matches_base_available(self):
+        """preferred_lang=pt-br matches available pt via base-code fallback."""
+        manga_db = {
+            "regional-1": _make_manga(
+                "regional-1",
+                "Regional",
+                "safe",
+                available_translated_languages=["en", "pt"],
+            ),
+        }
+        chapters = [
+            {
+                "id": "ch-1",
+                "number": "1",
+                "title": "Chapter 1",
+                "date": "2026-01-01T00:00:00Z",
+                "language": "pt",
+                "readable": True,
+                "external": False,
+                "externalUrl": None,
+            },
+        ]
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(manga_db)
+        )
+        self.app.dependency_overrides[get_chapter_service] = lambda: FakeChapterService(
+            chapters
+        )
+        self.app.dependency_overrides[get_user_age] = lambda: None
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/chapters/manga/regional-1/languages?preferred_lang=pt-br"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["matched"], "pt")
+
     def test_languages_returns_403_for_age_restricted(self):
         """Guests cannot discover languages for age-restricted manga."""
         self._override(user_age=None)
