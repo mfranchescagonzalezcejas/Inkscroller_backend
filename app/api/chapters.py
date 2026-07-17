@@ -10,6 +10,7 @@ from app.core.dependencies import (
     get_chapter_service,
     get_manga_service,
     get_user_age,
+    get_user_language,
 )
 from app.models.chapter import Chapter
 from app.models.home_chapter import HomeChapter
@@ -36,16 +37,15 @@ async def get_latest_home_chapters(
     )
 
 
-@router.get("/manga/{manga_id}", response_model=list[Chapter])
-async def get_manga_chapters(
+async def _require_manga_access(
     manga_id: str,
-    lang: str = "en",
-    chapter_service: ChapterService = Depends(get_chapter_service),
-    manga_service: MangaService = Depends(get_manga_service),
-    user_age: int | None = Depends(get_user_age),
-) -> list[Chapter]:
-    """Return the chapter list for a manga, gated by the caller's age."""
-    # Check age restriction
+    manga_service: MangaService,
+    user_age: int | None,
+) -> dict:
+    """Resolve manga and enforce age gate, returning the accessible manga.
+
+    Raises HTTPException 403 or 404 for denied or unknown manga.
+    """
     manga = await manga_service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
         full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
@@ -63,11 +63,33 @@ async def get_manga_chapters(
                 ),
             )
         raise HTTPException(status_code=404, detail="Manga not found")
+    return manga
 
-    chapters = await chapter_service.get_chapters(manga_id, language=lang)
-    if not chapters:
-        raise HTTPException(status_code=404, detail="No chapters found")
+
+@router.get("/manga/{manga_id}", response_model=list[Chapter])
+async def get_manga_chapters(
+    manga_id: str,
+    language: str = Depends(get_user_language),
+    chapter_service: ChapterService = Depends(get_chapter_service),
+    manga_service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
+) -> list[Chapter]:
+    """Return the chapter list for a manga, gated by the caller's age."""
+    await _require_manga_access(manga_id, manga_service, user_age)
+    chapters = await chapter_service.get_chapters(manga_id, language=language)
     return cast("list[Chapter]", chapters)
+
+
+@router.get("/manga/{manga_id}/languages", response_model=list[str])
+async def get_manga_chapter_languages(
+    manga_id: str,
+    chapter_service: ChapterService = Depends(get_chapter_service),
+    manga_service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
+) -> list[str]:
+    """Return the unique translated languages available for a manga."""
+    await _require_manga_access(manga_id, manga_service, user_age)
+    return await chapter_service.get_available_languages(manga_id)
 
 
 @router.get("/{chapter_id}/pages")

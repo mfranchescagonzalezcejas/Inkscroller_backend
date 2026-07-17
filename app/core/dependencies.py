@@ -18,7 +18,7 @@ from app.services.tag_service import TagService
 from app.services.user_service import UserService
 from app.sources.jikan_client import JikanClient
 from app.sources.mangadex_client import MangaDexClient
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
@@ -173,3 +173,21 @@ async def get_user_age(
     from app.core.age import compute_age
 
     return compute_age(profile.birth_date)
+
+
+async def get_user_language(
+    lang: str | None = Query(None),
+    user: FirebaseTokenPayload | None = Depends(get_current_user_optional),
+    user_service: UserService = Depends(get_user_service),
+) -> str:
+    """Resolve the requested chapter language.
+
+    Precedence: non-empty ``lang`` query param, authenticated user's
+    ``ReadingPreferences.default_language``, then ``"en"`` for guests.
+    """
+    if lang is not None and lang.strip():
+        return lang.strip()
+    if user is not None:
+        preferences = await user_service.get_preferences(user.uid)
+        return preferences.default_language
+    return "en"
