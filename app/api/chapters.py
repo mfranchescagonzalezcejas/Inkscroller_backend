@@ -4,7 +4,7 @@ from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.age import CONTENT_AGE_LIMITS, can_access_content
+from app.core.age import CONTENT_AGE_LIMITS, can_access_content, can_access_demographic
 from app.core.dependencies import (
     get_chapter_pages_service,
     get_chapter_service,
@@ -49,7 +49,10 @@ async def _require_manga_access(
     manga = await manga_service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
         full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
-        if full_manga and not can_access_content(
+        if full_manga is None:
+            raise HTTPException(status_code=404, detail="Manga not found")
+
+        if not can_access_content(
             cast("str | None", full_manga.get("contentRating")), user_age
         ):
             rating = cast("str | None", full_manga.get("contentRating"))
@@ -62,6 +65,13 @@ async def _require_manga_access(
                     else "This content has an unrecognized rating and cannot be accessed"
                 ),
             )
+
+        if not can_access_demographic(full_manga.get("demographic"), user_age):
+            raise HTTPException(
+                status_code=403,
+                detail="This manga is age-restricted due to its demographic content",
+            )
+
         raise HTTPException(status_code=404, detail="Manga not found")
     return manga
 
