@@ -134,6 +134,8 @@ def _match_language(preferred: str, available: list[str]) -> str:
     if not available:
         return preferred
 
+    # Normalize underscores to hyphens (pt_BR → pt-br)
+    preferred = preferred.replace("_", "-")
     preferred_lower = preferred.lower()
 
     # Exact match
@@ -142,13 +144,11 @@ def _match_language(preferred: str, available: list[str]) -> str:
 
     # preferred is a short code → match regional variant (es → es-la)
     for lang in available:
-        if lang.startswith(preferred_lower + "-") or lang.startswith(
-            preferred_lower + "_"
-        ):
+        if lang.startswith(preferred_lower + "-"):
             return lang
 
     # preferred is a regional code → match base language (pt-br → pt)
-    base = preferred_lower.split("-")[0].split("_")[0]
+    base = preferred_lower.split("-")[0]
     if base != preferred_lower and base in available:
         return base
 
