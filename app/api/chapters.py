@@ -12,7 +12,7 @@ from app.core.dependencies import (
     get_user_age,
     get_user_language,
 )
-from app.models.chapter import Chapter
+from app.models.chapter import Chapter, ChapterLanguagesResponse
 from app.models.home_chapter import HomeChapter
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
@@ -90,19 +90,62 @@ async def get_manga_chapters(
     return cast("list[Chapter]", chapters)
 
 
-@router.get("/manga/{manga_id}/languages", response_model=list[str])
+@router.get("/manga/{manga_id}/languages", response_model=ChapterLanguagesResponse)
 async def get_manga_chapter_languages(
     manga_id: str,
+    preferred_lang: str = "en",
+    chapter_service: ChapterService = Depends(get_chapter_service),
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
-) -> list[str]:
-    """Return the unique translated languages available for a manga.
+) -> ChapterLanguagesResponse:
+    """Discover available languages and return chapters in the best match.
 
-    Reads ``availableTranslatedLanguages`` from the MangaDex manga detail
-    endpoint, which is already fetched and cached by the manga service.
+    ``preferred_lang`` is the user's language preference (from frontend).
+    Returns available languages, the matched language code, and chapters
+    in that matched language — all in one call so the frontend doesn't
+    need a second round-trip.
     """
     manga = await _require_manga_access(manga_id, manga_service, user_age)
-    return sorted(manga.get("availableTranslatedLanguages") or [])
+    available = sorted(manga.get("availableTranslatedLanguages") or [])
+
+    matched = _match_language(preferred_lang, available)
+    chapters = cast(
+        "list[Chapter]",
+        await chapter_service.get_chapters(manga_id, language=matched),
+    )
+
+    return ChapterLanguagesResponse(
+        available=available,
+        matched=matched,
+        chapters=chapters,
+    )
+
+
+def _match_language(preferred: str, available: list[str]) -> str:
+    """Resolve the best language match from available options.
+
+    1. Exact match → use it.
+    2. Prefix match (e.g. ``es`` → ``es-la``) → use the variant.
+    3. No match → first available element, or fall back to preferred.
+    """
+    if not available:
+        return preferred
+
+    preferred_lower = preferred.lower()
+
+    # Exact match
+    if preferred_lower in available:
+        return preferred_lower
+
+    # Prefix match: preferred is a short code, available has a regional variant
+    for lang in available:
+        if lang.startswith(preferred_lower + "-") or lang.startswith(
+            preferred_lower + "_"
+        ):
+            return lang
+
+    # Fallback to first available
+    return available[0]
 
 
 @router.get("/{chapter_id}/pages")

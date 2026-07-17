@@ -99,7 +99,9 @@ class FakeChapterService:
         self, manga_id: str, language: str | None = "en"
     ) -> list[dict]:
         self._last_language = language
-        return list(self._chapters)
+        if language is None:
+            return list(self._chapters)
+        return [ch for ch in self._chapters if ch.get("language") == language]
 
     async def get_available_languages(self, manga_id: str) -> list[str]:
         return sorted({chapter.get("language", "en") for chapter in self._chapters})
