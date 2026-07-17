@@ -18,6 +18,7 @@ class Chapter(BaseModel):
     title: str | None
     date: datetime | None
     scanlation_group: str | None = None
+    language: str
 
     readable: bool
     external: bool

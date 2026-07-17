@@ -47,6 +47,40 @@ class ChapterMapperTests(unittest.TestCase):
 
         self.assertEqual(chapter["scanlation_group"], "group-raw-id")
 
+    def test_map_chapter_extracts_translated_language(self):
+        payload = {
+            "id": "chapter-1",
+            "attributes": {
+                "chapter": "12",
+                "title": "The Return",
+                "translatedLanguage": "es",
+                "pages": 22,
+                "externalUrl": None,
+            },
+            "relationships": [],
+        }
+
+        chapter = map_mangadex_chapter(payload)
+
+        self.assertEqual(chapter["language"], "es")
+
+    def test_map_chapter_preserves_non_english_language(self):
+        payload = {
+            "id": "chapter-1",
+            "attributes": {
+                "chapter": "12",
+                "title": "The Return",
+                "translatedLanguage": "ja-ro",
+                "pages": 22,
+                "externalUrl": None,
+            },
+            "relationships": [],
+        }
+
+        chapter = map_mangadex_chapter(payload)
+
+        self.assertEqual(chapter["language"], "ja-ro")
+
 
 if __name__ == "__main__":
     unittest.main()
