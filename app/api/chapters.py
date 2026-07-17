@@ -107,8 +107,8 @@ async def get_manga_chapter_languages(
     matched language code, and chapters in that matched language — all in
     one call so the frontend doesn't need a second round-trip.
     """
-    manga = await _require_manga_access(manga_id, manga_service, user_age)
-    available = sorted(manga.get("availableTranslatedLanguages") or [])
+    await _require_manga_access(manga_id, manga_service, user_age)
+    available = await chapter_service.get_available_languages(manga_id)
 
     lang = preferred_lang.strip() if preferred_lang else resolved_lang
     matched = _match_language(lang, available)

@@ -117,14 +117,23 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
                 "variant-1",
                 "Variant Manga",
                 "safe",
-                available_translated_languages=["en", "es-la"],
             ),
         }
         chapters = [
             {
                 "id": "ch-1",
                 "number": "1",
-                "title": "Chapter 1",
+                "title": "Chapter 1 EN",
+                "date": "2026-01-01T00:00:00Z",
+                "language": "en",
+                "readable": True,
+                "external": False,
+                "externalUrl": None,
+            },
+            {
+                "id": "ch-2",
+                "number": "1",
+                "title": "Chapter 1 ES-LA",
                 "date": "2026-01-01T00:00:00Z",
                 "language": "es-la",
                 "readable": True,
@@ -191,14 +200,23 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
                 "regional-1",
                 "Regional",
                 "safe",
-                available_translated_languages=["en", "pt"],
             ),
         }
         chapters = [
             {
-                "id": "ch-1",
+                "id": "ch-en",
                 "number": "1",
-                "title": "Chapter 1",
+                "title": "Chapter EN",
+                "date": "2026-01-01T00:00:00Z",
+                "language": "en",
+                "readable": True,
+                "external": False,
+                "externalUrl": None,
+            },
+            {
+                "id": "ch-pt",
+                "number": "1",
+                "title": "Chapter PT",
                 "date": "2026-01-01T00:00:00Z",
                 "language": "pt",
                 "readable": True,
@@ -242,17 +260,15 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_languages_matched_lang_no_chapters(self):
-        """Available languages exist but matched lang has zero chapters."""
+    def test_languages_available_only_from_real_chapters(self):
+        """Available languages come from actual chapter data, not metadata."""
         manga_db = {
-            "empty-lang-1": _make_manga(
-                "empty-lang-1",
-                "Empty Lang",
+            "real-ch-1": _make_manga(
+                "real-ch-1",
+                "Real Chapters",
                 "safe",
-                available_translated_languages=["en", "ja"],
             ),
         }
-        # Only English chapters; Japanese has none
         chapters = [
             {
                 "id": "ch-1",
@@ -274,14 +290,14 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
         self.app.dependency_overrides[get_user_age] = lambda: None
 
         with TestClient(self.app) as client:
-            response = client.get(
-                "/chapters/manga/empty-lang-1/languages?preferred_lang=ja"
-            )
+            response = client.get("/chapters/manga/real-ch-1/languages")
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["matched"], "ja")
-        self.assertEqual(data["chapters"], [])
+        # Only English chapter exists → only English in available
+        self.assertEqual(data["available"], ["en"])
+        self.assertEqual(data["matched"], "en")
+        self.assertEqual(len(data["chapters"]), 1)
 
 
 if __name__ == "__main__":

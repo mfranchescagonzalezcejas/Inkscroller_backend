@@ -77,6 +77,34 @@ class ChapterService:
         self._cache.set(cache_key, result)
         return result
 
+    async def get_available_languages(self, manga_id: str) -> list[str]:
+        """Return sorted unique languages that have at least one chapter.
+
+        Fetches one page from MangaDex (max 100 chapters) without language
+        filter — enough to discover which languages are active. Cached under
+        ``chapters:languages:{manga_id}``.
+        """
+        cache_key = f"chapters:languages:{manga_id}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        payload = await self._client.get_chapters(
+            manga_id=manga_id,
+            language=None,
+            limit=100,
+            offset=0,
+        )
+        items = payload.get("data", [])
+        languages = {
+            item.get("attributes", {}).get("translatedLanguage")
+            for item in items
+            if item.get("attributes", {}).get("translatedLanguage")
+        }
+        result = sorted(languages)
+        self._cache.set(cache_key, result)
+        return result
+
     async def get_latest_home_chapters(
         self,
         language: str = "en",
