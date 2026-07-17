@@ -152,3 +152,19 @@ class TestChapterService(unittest.IsolatedAsyncioTestCase):
         result = await service.get_available_languages("manga-1")
 
         self.assertEqual(result, ["es"])
+
+    async def test_get_available_languages_all_ineligible_returns_empty(self):
+        """When ALL chapters have pages=0 and no externalUrl → empty list."""
+        client = AsyncMock()
+        client.get_chapters.return_value = {
+            "data": [
+                _chapter("ch-1", language="en", pages=0),
+                _chapter("ch-2", language="en", pages=0),
+            ],
+            "total": 2,
+        }
+        service = ChapterService(client, SimpleCache())
+
+        result = await service.get_available_languages("manga-1")
+
+        self.assertEqual(result, [])

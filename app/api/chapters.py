@@ -112,22 +112,5 @@ async def get_chapter_pages(
     if not manga_id:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    manga = await manga_service.get_by_id(manga_id, user_age=user_age)
-    if manga is None:
-        full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
-        if full_manga and not can_access_content(
-            cast("str | None", full_manga.get("contentRating")), user_age
-        ):
-            rating = cast("str | None", full_manga.get("contentRating"))
-            min_age = CONTENT_AGE_LIMITS.get(rating) if rating is not None else None
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f"This content is age-restricted (requires {min_age}+)"
-                    if min_age is not None
-                    else "This content has an unrecognized rating and cannot be accessed"
-                ),
-            )
-        raise HTTPException(status_code=404, detail="Manga not found")
-
+    await _require_manga_access(manga_id, manga_service, user_age)
     return await pages_service.get_pages(chapter_id)
