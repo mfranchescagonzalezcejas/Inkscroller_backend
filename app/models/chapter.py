@@ -18,7 +18,20 @@ class Chapter(BaseModel):
     title: str | None
     date: datetime | None
     scanlation_group: str | None = None
+    language: str
 
     readable: bool
     external: bool
     externalUrl: str | None
+
+
+class ChapterLanguagesResponse(BaseModel):
+    """Response for the chapter language discovery endpoint.
+
+    Returns the available languages, the matched language based on the
+    user's preference, and the chapters in that matched language.
+    """
+
+    available: list[str]
+    matched: str
+    chapters: list[Chapter]

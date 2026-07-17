@@ -2,16 +2,17 @@
 
 from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.age import CONTENT_AGE_LIMITS, can_access_content
+from app.core.age import CONTENT_AGE_LIMITS, can_access_content, can_access_demographic
 from app.core.dependencies import (
     get_chapter_pages_service,
     get_chapter_service,
     get_manga_service,
     get_user_age,
+    get_user_language,
 )
-from app.models.chapter import Chapter
+from app.models.chapter import Chapter, ChapterLanguagesResponse
 from app.models.home_chapter import HomeChapter
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
@@ -36,20 +37,22 @@ async def get_latest_home_chapters(
     )
 
 
-@router.get("/manga/{manga_id}", response_model=list[Chapter])
-async def get_manga_chapters(
+async def _require_manga_access(
     manga_id: str,
-    lang: str = "en",
-    chapter_service: ChapterService = Depends(get_chapter_service),
-    manga_service: MangaService = Depends(get_manga_service),
-    user_age: int | None = Depends(get_user_age),
-) -> list[Chapter]:
-    """Return the chapter list for a manga, gated by the caller's age."""
-    # Check age restriction
+    manga_service: MangaService,
+    user_age: int | None,
+) -> dict:
+    """Resolve manga and enforce age gate, returning the accessible manga.
+
+    Raises HTTPException 403 or 404 for denied or unknown manga.
+    """
     manga = await manga_service.get_by_id(manga_id, user_age=user_age)
     if manga is None:
         full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
-        if full_manga and not can_access_content(
+        if full_manga is None:
+            raise HTTPException(status_code=404, detail="Manga not found")
+
+        if not can_access_content(
             cast("str | None", full_manga.get("contentRating")), user_age
         ):
             rating = cast("str | None", full_manga.get("contentRating"))
@@ -62,12 +65,95 @@ async def get_manga_chapters(
                     else "This content has an unrecognized rating and cannot be accessed"
                 ),
             )
-        raise HTTPException(status_code=404, detail="Manga not found")
 
-    chapters = await chapter_service.get_chapters(manga_id, language=lang)
-    if not chapters:
-        raise HTTPException(status_code=404, detail="No chapters found")
+        if not can_access_demographic(full_manga.get("demographic"), user_age):
+            raise HTTPException(
+                status_code=403,
+                detail="This manga is age-restricted due to its demographic content",
+            )
+
+        raise HTTPException(status_code=404, detail="Manga not found")
+    return manga
+
+
+@router.get("/manga/{manga_id}", response_model=list[Chapter])
+async def get_manga_chapters(
+    manga_id: str,
+    language: str = Depends(get_user_language),
+    chapter_service: ChapterService = Depends(get_chapter_service),
+    manga_service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
+) -> list[Chapter]:
+    """Return the chapter list for a manga, gated by the caller's age."""
+    await _require_manga_access(manga_id, manga_service, user_age)
+    chapters = await chapter_service.get_chapters(manga_id, language=language)
     return cast("list[Chapter]", chapters)
+
+
+@router.get("/manga/{manga_id}/languages", response_model=ChapterLanguagesResponse)
+async def get_manga_chapter_languages(
+    manga_id: str,
+    preferred_lang: str | None = Query(None),
+    chapter_service: ChapterService = Depends(get_chapter_service),
+    manga_service: MangaService = Depends(get_manga_service),
+    user_age: int | None = Depends(get_user_age),
+    resolved_lang: str = Depends(get_user_language),
+) -> ChapterLanguagesResponse:
+    """Discover available languages and return chapters in the best match.
+
+    ``preferred_lang`` is the frontend-driven language preference. When
+    omitted, ``get_user_language`` resolves from the user's saved preferences
+    (or defaults to ``"en"`` for guests). Returns available languages, the
+    matched language code, and chapters in that matched language — all in
+    one call so the frontend doesn't need a second round-trip.
+    """
+    await _require_manga_access(manga_id, manga_service, user_age)
+    available = await chapter_service.get_available_languages(manga_id)
+
+    lang = preferred_lang.strip() if preferred_lang else resolved_lang
+    matched = _match_language(lang, available)
+    chapters = cast(
+        "list[Chapter]",
+        await chapter_service.get_chapters(manga_id, language=matched),
+    )
+
+    return ChapterLanguagesResponse(
+        available=available,
+        matched=matched,
+        chapters=chapters,
+    )
+
+
+def _match_language(preferred: str, available: list[str]) -> str:
+    """Resolve the best language match from available options.
+
+    1. Exact match → use it.
+    2. Regional variant match (e.g. ``es`` → ``es-la``, ``pt-br`` → ``pt``).
+    3. No match → first available element, or fall back to preferred.
+    """
+    if not available:
+        return preferred
+
+    # Normalize underscores to hyphens (pt_BR → pt-br)
+    preferred = preferred.replace("_", "-")
+    preferred_lower = preferred.lower()
+
+    # Exact match
+    if preferred_lower in available:
+        return preferred_lower
+
+    # preferred is a short code → match regional variant (es → es-la)
+    for lang in available:
+        if lang.startswith(preferred_lower + "-"):
+            return lang
+
+    # preferred is a regional code → match base language (pt-br → pt)
+    base = preferred_lower.split("-")[0]
+    if base != preferred_lower and base in available:
+        return base
+
+    # Fallback to first available
+    return available[0]
 
 
 @router.get("/{chapter_id}/pages")
@@ -90,22 +176,5 @@ async def get_chapter_pages(
     if not manga_id:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    manga = await manga_service.get_by_id(manga_id, user_age=user_age)
-    if manga is None:
-        full_manga = await manga_service.get_by_id(manga_id, skip_age_filter=True)
-        if full_manga and not can_access_content(
-            cast("str | None", full_manga.get("contentRating")), user_age
-        ):
-            rating = cast("str | None", full_manga.get("contentRating"))
-            min_age = CONTENT_AGE_LIMITS.get(rating) if rating is not None else None
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    f"This content is age-restricted (requires {min_age}+)"
-                    if min_age is not None
-                    else "This content has an unrecognized rating and cannot be accessed"
-                ),
-            )
-        raise HTTPException(status_code=404, detail="Manga not found")
-
+    await _require_manga_access(manga_id, manga_service, user_age)
     return await pages_service.get_pages(chapter_id)

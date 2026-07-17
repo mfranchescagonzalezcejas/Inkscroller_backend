@@ -15,6 +15,7 @@ from app.core.dependencies import (
     get_manga_service,
     get_tag_service,
     get_user_age,
+    get_user_language,
 )
 from app.services.manga_service import MangaService
 from app.services.tag_service import TagService
@@ -68,7 +69,7 @@ class FakeChapterService:
     async def get_manga_id_for_chapter(self, chapter_id: str) -> str | None:
         return self._chapter_manga_map.get(chapter_id)
 
-    async def get_chapters(self, manga_id: str, language: str = "en"):
+    async def get_chapters(self, manga_id: str, language: str | None = "en"):
         self.calls.append({"manga_id": manga_id, "language": language})
         return self.chapters
 
@@ -387,6 +388,7 @@ class AppSmokeTests(unittest.TestCase):
                     "title": "Arrival",
                     "date": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
                     "scanlation_group": "Team Ink",
+                    "language": "es",
                     "readable": True,
                     "external": False,
                     "externalUrl": None,
@@ -397,6 +399,7 @@ class AppSmokeTests(unittest.TestCase):
         self.app.dependency_overrides[get_chapter_service] = lambda: fake_service
         self.app.dependency_overrides[get_manga_service] = lambda: fake_manga
         self.app.dependency_overrides[get_user_age] = lambda: None
+        self.app.dependency_overrides[get_user_language] = lambda: "es"
 
         with TestClient(self.app) as client:
             response = client.get("/chapters/manga/manga-77?lang=es")
@@ -407,19 +410,21 @@ class AppSmokeTests(unittest.TestCase):
         )
         self.assertEqual(response.json()[0]["id"], "chapter-1")
         self.assertEqual(response.json()[0]["scanlation_group"], "Team Ink")
+        self.assertEqual(response.json()[0]["language"], "es")
 
-    def test_chapters_route_returns_404_when_service_returns_empty(self):
+    def test_chapters_route_returns_200_when_service_returns_empty(self):
         fake_service = FakeChapterService(chapters=[])
         fake_manga = FakeMangaService()
         self.app.dependency_overrides[get_chapter_service] = lambda: fake_service
         self.app.dependency_overrides[get_manga_service] = lambda: fake_manga
         self.app.dependency_overrides[get_user_age] = lambda: None
+        self.app.dependency_overrides[get_user_language] = lambda: "es"
 
         with TestClient(self.app) as client:
             response = client.get("/chapters/manga/manga-404")
 
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["detail"], "No chapters found")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
 
     def test_pages_route_trims_chapter_id_before_service_call(self):
         fake_pages = FakeChapterPagesService()

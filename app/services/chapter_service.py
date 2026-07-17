@@ -42,7 +42,7 @@ class ChapterService:
     async def get_chapters(
         self,
         manga_id: str,
-        language: str = "en",
+        language: str | None = "en",
     ) -> list[dict]:
         """Return the chapter list for a manga, filtered to readable/external entries."""
         cache_key = f"chapters:{manga_id}:{language}"
@@ -74,6 +74,47 @@ class ChapterService:
             )
         ]
 
+        self._cache.set(cache_key, result)
+        return result
+
+    async def get_available_languages(self, manga_id: str) -> list[str]:
+        """Return sorted unique languages that have at least one readable or external chapter.
+
+        Paginates all pages (limit=100) without language filter so no
+        language is missed. Cached under ``chapters:languages:{manga_id}``.
+        Only includes languages whose chapters pass the same eligibility
+        filter as ``get_chapters`` (pages > 0 or externalUrl).
+        """
+        cache_key = f"chapters:languages:{manga_id}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        items: list[dict] = []
+        offset = 0
+        while True:
+            payload = await self._client.get_chapters(
+                manga_id=manga_id,
+                language=None,
+                limit=100,
+                offset=offset,
+            )
+            page_items = payload.get("data", [])
+            items.extend(page_items)
+            if not page_items or offset + 100 >= payload.get("total", len(items)):
+                break
+            offset += 100
+
+        languages = {
+            item.get("attributes", {}).get("translatedLanguage")
+            for item in items
+            if (
+                item.get("attributes", {}).get("pages", 0) > 0
+                or item.get("attributes", {}).get("externalUrl") is not None
+            )
+            and item.get("attributes", {}).get("translatedLanguage")
+        }
+        result = sorted(languages)
         self._cache.set(cache_key, result)
         return result
 

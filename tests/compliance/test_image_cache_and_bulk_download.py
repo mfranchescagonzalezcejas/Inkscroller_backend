@@ -205,6 +205,7 @@ class TestNoBinaryCaching(unittest.TestCase):
                     "attributes": {
                         "chapter": "1",
                         "title": "Chapter One",
+                        "translatedLanguage": "en",
                         "pages": 10,
                         "publishAt": "2024-01-01T00:00:00Z",
                         "externalUrl": None,
@@ -250,6 +251,7 @@ class TestNoBinaryCaching(unittest.TestCase):
                     "attributes": {
                         "chapter": "1",
                         "title": "One",
+                        "translatedLanguage": "en",
                         "pages": 1,
                         "publishAt": "2024-01-01T00:00:00Z",
                         "externalUrl": None,

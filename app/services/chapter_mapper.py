@@ -21,6 +21,7 @@ def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
         "title": attr.get("title"),
         "date": date,
         "scanlation_group": _extract_scanlation_group_name(item),
+        "language": attr.get("translatedLanguage", ""),
         # 🔑 LO IMPORTANTE
         "readable": pages > 0,
         "external": external_url is not None,

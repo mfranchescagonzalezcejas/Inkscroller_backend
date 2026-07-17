@@ -5,14 +5,21 @@ from app.core.cache import SimpleCache
 from app.services.chapter_service import ChapterService
 
 
-def _chapter(chapter_id: str, manga_id: str = "manga-1") -> dict:
+def _chapter(
+    chapter_id: str,
+    manga_id: str = "manga-1",
+    language: str = "en",
+    pages: int = 1,
+    external_url: str | None = None,
+) -> dict:
     return {
         "id": chapter_id,
         "attributes": {
             "chapter": chapter_id,
-            "pages": 1,
+            "translatedLanguage": language,
+            "pages": pages,
             "publishAt": "2024-01-01T00:00:00Z",
-            "externalUrl": None,
+            "externalUrl": external_url,
         },
         "relationships": [{"type": "manga", "id": manga_id}],
     }

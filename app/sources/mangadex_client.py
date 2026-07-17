@@ -58,26 +58,25 @@ class MangaDexClient:
     async def get_chapters(
         self,
         manga_id: str,
-        language: str = "en",
+        language: str | list[str] | None = "en",
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
         """Fetch all chapters for a manga, including scanlation-group relationships."""
-        response = await self.client.get(
-            "/chapter",
-            params={
-                "manga": manga_id,
-                "translatedLanguage[]": language,
-                "includes[]": ["scanlation_group"],
-                "order[chapter]": "asc",
-                "limit": limit,
-                "offset": offset,
-                # Include all content ratings — age-gating is handled by the
-                # API route's service layer, which checks user age separately.
-                # MangaDex default is safe+suggestive only.
-                "contentRating[]": ["safe", "suggestive", "erotica", "pornographic"],
-            },
-        )
+        params: dict[str, Any] = {
+            "manga": manga_id,
+            "includes[]": ["scanlation_group"],
+            "order[chapter]": "asc",
+            "limit": limit,
+            "offset": offset,
+            # Include all content ratings — age-gating is handled by the
+            # API route's service layer, which checks user age separately.
+            # MangaDex default is safe+suggestive only.
+            "contentRating[]": ["safe", "suggestive", "erotica", "pornographic"],
+        }
+        if language is not None:
+            params["translatedLanguage[]"] = language
+        response = await self.client.get("/chapter", params=params)
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
