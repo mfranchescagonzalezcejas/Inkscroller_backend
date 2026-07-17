@@ -49,6 +49,7 @@ def _make_manga(
     manga_id: str,
     title: str = "Test Manga",
     content_rating: str | None = "safe",
+    available_translated_languages: list[str] | None = None,
 ) -> dict:
     """Build a minimal mapped-manga dict matching MangaService output shape."""
     return {
@@ -57,6 +58,7 @@ def _make_manga(
         "description": None,
         "coverUrl": None,
         "contentRating": content_rating,
+        "availableTranslatedLanguages": available_translated_languages or [],
     }
 
 

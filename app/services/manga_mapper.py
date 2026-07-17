@@ -50,6 +50,11 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
     # Content rating
     content_rating = attributes.get("contentRating")
 
+    # Available translated languages (from GET /manga/{id})
+    available_translated_languages = (
+        attributes.get("availableTranslatedLanguages") or []
+    )
+
     # Tags - extract genre names from attributes
     tags = attributes.get("tags", [])
     genre_names = [
@@ -67,6 +72,7 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "latestUploadedChapter": latest_uploaded_chapter,
         "status": status,
         "contentRating": content_rating,
+        "availableTranslatedLanguages": available_translated_languages,
         "genres": genre_names,
         # ⬇️ Statistics (filled by get_statistics in service)
         "score": None,

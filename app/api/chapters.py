@@ -83,13 +83,16 @@ async def get_manga_chapters(
 @router.get("/manga/{manga_id}/languages", response_model=list[str])
 async def get_manga_chapter_languages(
     manga_id: str,
-    chapter_service: ChapterService = Depends(get_chapter_service),
     manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ) -> list[str]:
-    """Return the unique translated languages available for a manga."""
-    await _require_manga_access(manga_id, manga_service, user_age)
-    return await chapter_service.get_available_languages(manga_id)
+    """Return the unique translated languages available for a manga.
+
+    Reads ``availableTranslatedLanguages`` from the MangaDex manga detail
+    endpoint, which is already fetched and cached by the manga service.
+    """
+    manga = await _require_manga_access(manga_id, manga_service, user_age)
+    return sorted(manga.get("availableTranslatedLanguages") or [])
 
 
 @router.get("/{chapter_id}/pages")

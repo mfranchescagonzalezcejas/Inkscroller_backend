@@ -24,7 +24,12 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
     """GET /chapters/manga/{manga_id}/languages discovery endpoint."""
 
     MANGA_DB = {
-        "safe-1": _make_manga("safe-1", "One Piece", "safe"),
+        "safe-1": _make_manga(
+            "safe-1",
+            "One Piece",
+            "safe",
+            available_translated_languages=["en", "es"],
+        ),
         "suggestive-1": _make_manga("suggestive-1", "Berserk", "suggestive"),
     }
 
@@ -86,18 +91,18 @@ class TestChapterLanguagesEndpoint(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), ["en", "es"])
 
-    def test_languages_endpoint_returns_empty_for_accessible_manga(self):
-        """Accessible manga with no eligible chapters returns empty list."""
+    def test_languages_endpoint_returns_empty_when_no_languages(self):
+        """Manga with no availableTranslatedLanguages returns empty list."""
+        no_lang_manga = {
+            "no-lang-1": _make_manga("no-lang-1", "No Lang", "safe"),
+        }
         self.app.dependency_overrides[get_manga_service] = lambda: (
-            FakeMangaServiceWithAge(self.MANGA_DB)
-        )
-        self.app.dependency_overrides[get_chapter_service] = lambda: FakeChapterService(
-            []
+            FakeMangaServiceWithAge(no_lang_manga)
         )
         self.app.dependency_overrides[get_user_age] = lambda: None
 
         with TestClient(self.app) as client:
-            response = client.get("/chapters/manga/safe-1/languages")
+            response = client.get("/chapters/manga/no-lang-1/languages")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])

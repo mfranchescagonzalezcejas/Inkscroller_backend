@@ -77,42 +77,6 @@ class ChapterService:
         self._cache.set(cache_key, result)
         return result
 
-    async def get_available_languages(self, manga_id: str) -> list[str]:
-        """Return sorted unique translated languages for eligible chapters."""
-        cache_key = f"chapters:languages:{manga_id}"
-        cached = self._cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-        items: list[dict] = []
-        offset = 0
-        while True:
-            payload = await self._client.get_chapters(
-                manga_id=manga_id,
-                language=None,
-                limit=500,
-                offset=offset,
-            )
-            page_items = payload.get("data", [])
-            items.extend(page_items)
-            if not page_items or offset + 500 >= payload.get("total", len(items)):
-                break
-            offset += 500
-
-        languages = {
-            item.get("attributes", {}).get("translatedLanguage")
-            for item in items
-            if (
-                item.get("attributes", {}).get("pages", 0) > 0
-                or item.get("attributes", {}).get("externalUrl") is not None
-            )
-            and item.get("attributes", {}).get("translatedLanguage")
-        }
-
-        result = sorted(languages)
-        self._cache.set(cache_key, result)
-        return result
-
     async def get_latest_home_chapters(
         self,
         language: str = "en",
