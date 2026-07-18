@@ -48,5 +48,8 @@ class Manga(BaseModel):
     # Content rating (MangaDex)
     contentRating: str | None = None
 
+    # MAL cross-reference (from MangaDex links or Jikan enrichment)
+    malId: int | None = None
+
     # User-library metadata (only present on authenticated library responses)
     library: LibraryMetadata | None = None

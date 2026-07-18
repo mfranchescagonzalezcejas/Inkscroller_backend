@@ -17,6 +17,8 @@ def _make_manga(manga_id: str, content_rating: str | None = None) -> dict:
         "status": "ongoing",
         "contentRating": content_rating,
         "genres": [],
+        "malId": None,
+        "chapters": None,
         "score": None,
         "rank": None,
         "popularity": None,
@@ -24,7 +26,6 @@ def _make_manga(manga_id: str, content_rating: str | None = None) -> dict:
         "favorites": None,
         "authors": [],
         "serialization": None,
-        "chapters": None,
         "startYear": None,
         "endYear": None,
     }
@@ -34,6 +35,7 @@ def _raw_mangadex_item(
     manga_id: str,
     content_rating: str | None = None,
     demographic: str = "shounen",
+    mal_id: int | None = None,
 ) -> dict:
     """Build a raw MangaDex API item (as returned by the client)."""
     attrs: dict = {
@@ -43,6 +45,8 @@ def _raw_mangadex_item(
     }
     if content_rating is not None:
         attrs["contentRating"] = content_rating
+    if mal_id is not None:
+        attrs["links"] = {"mal": mal_id}
     return {
         "id": manga_id,
         "attributes": attrs,
@@ -928,7 +932,8 @@ class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result["id"], "1")
 
-    async def test_get_by_id_jikan_does_not_overwrite_access_fields(self):
+    async def test_get_by_id_jikan_does_not_overwrite_content_rating(self):
+        """contentRating is never overwritten by Jikan (age-gating field)."""
         raw_item = _raw_mangadex_item("1", "safe", None)
         self.client.get_manga.return_value = {"data": raw_item}
         self.jikan.search_manga = AsyncMock(return_value={"data": [{}]})
@@ -942,8 +947,81 @@ class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
         ):
             result = await self.service.get_by_id("1", user_age=18)
 
-        self.assertEqual(result["demographic"], None)
+        # demographic IS now filled by Jikan (no longer excluded)
+        self.assertEqual(result["demographic"], "shounen")
+        # contentRating stays protected — never overwritten
         self.assertEqual(result["contentRating"], "safe")
+
+    async def test_get_by_id_jikan_uses_mal_id_when_available(self):
+        """With malId present, enrichment calls get_manga_by_id (not search_manga)."""
+        raw_item = _raw_mangadex_item("1", "safe", None, mal_id=12345)
+        self.client.get_manga.return_value = {"data": raw_item}
+        self.jikan.get_manga_by_id = AsyncMock(
+            return_value={
+                "data": {
+                    "synopsis": "Jikan synopsis",
+                    "demographics": [{"name": "Seinen"}],
+                    "chapters": 42,
+                }
+            }
+        )
+
+        with patch.object(settings, "enable_jikan_enrichment", True):
+            result = await self.service.get_by_id("1", user_age=18)
+
+        self.assertIsNotNone(result)
+        self.jikan.get_manga_by_id.assert_awaited_once_with(12345)
+        self.jikan.search_manga.assert_not_called()
+        # Jikan data fills gaps
+        self.assertEqual(result.get("malId"), 12345)
+        self.assertEqual(result.get("description"), "Jikan synopsis")
+        self.assertEqual(result.get("demographic"), "seinen")
+        self.assertEqual(result.get("chapters"), 42)
+
+    async def test_get_by_id_jikan_falls_back_to_search_without_mal_id(self):
+        """Without malId, enrichment falls back to search_manga (current behaviour)."""
+        raw_item = _raw_mangadex_item("1", "safe")  # no links.mal
+        self.client.get_manga.return_value = {"data": raw_item}
+        self.jikan.search_manga = AsyncMock(
+            return_value={
+                "data": [
+                    {
+                        "synopsis": "Fallback synopsis",
+                        "demographics": [{"name": "Shounen"}],
+                        "chapters": 24,
+                    }
+                ]
+            }
+        )
+
+        with patch.object(settings, "enable_jikan_enrichment", True):
+            result = await self.service.get_by_id("1", user_age=18)
+
+        self.assertIsNotNone(result)
+        self.jikan.get_manga_by_id.assert_not_called()
+        self.jikan.search_manga.assert_awaited_once_with("Manga 1")
+        self.assertEqual(result.get("description"), "Fallback synopsis")
+        self.assertEqual(result.get("demographic"), "shounen")
+        self.assertEqual(result.get("chapters"), 24)
+
+    async def test_get_by_id_jikan_down_returns_mangadex_data(self):
+        """When Jikan is unreachable, enrichment is skipped, MangaDex data returned."""
+        raw_item = _raw_mangadex_item("1", "safe", mal_id=12345)
+        self.client.get_manga.return_value = {"data": raw_item}
+        self.jikan.get_manga_by_id = AsyncMock(
+            side_effect=ConnectionError("Jikan down")
+        )
+
+        with patch.object(settings, "enable_jikan_enrichment", True):
+            result = await self.service.get_by_id("1", user_age=18)
+
+        self.assertIsNotNone(result)
+        # Verify enrichment path was triggered (not silently skipped)
+        self.jikan.get_manga_by_id.assert_awaited_once_with(12345)
+        self.jikan.search_manga.assert_not_called()
+        self.assertEqual(result.get("malId"), 12345)
+        # MangaDex fallback: description stays None
+        self.assertIsNone(result.get("description"))
 
 
 class TestSnapshotPageHasMore(unittest.TestCase):

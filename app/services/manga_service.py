@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import logging
 import uuid
-from typing import cast
+from typing import Any, cast
 
 from app.core.age import can_access_content, can_access_demographic
 from app.core.cache import SimpleCache
@@ -586,17 +586,26 @@ class MangaService:
         # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
         if settings.enable_jikan_enrichment:
             try:
-                jikan_payload = await self._jikan.search_manga(result["title"])
-                search_data = jikan_payload.get("data", [])
-                jikan_data = (
-                    map_jikan_detail({"data": search_data[0]}) if search_data else None
-                )
+                jikan_data: dict[str, Any] | None = None
+                mal_id = result.get("malId")
+                if mal_id is not None:
+                    # Preciso: buscar por MAL ID directo
+                    jikan_payload = await self._jikan.get_manga_by_id(mal_id)
+                    jikan_data = map_jikan_detail(
+                        {"data": jikan_payload.get("data", {})}
+                    )
+                else:
+                    # Fallback: búsqueda por título (comportamiento anterior)
+                    jikan_payload = await self._jikan.search_manga(result["title"])
+                    search_data = jikan_payload.get("data", [])
+                    if search_data:
+                        jikan_data = map_jikan_detail({"data": search_data[0]})
 
                 if jikan_data is not None:
                     for key, value in jikan_data.items():
                         # Solo rellenamos si MangaDex no tenía el dato
                         if (
-                            key not in {"demographic", "contentRating"}
+                            key != "contentRating"
                             and result.get(key) in (None, [], "")
                             and value not in (None, [], "")
                         ):

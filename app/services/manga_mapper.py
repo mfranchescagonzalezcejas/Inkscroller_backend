@@ -47,6 +47,10 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         f"{COVER_BASE_URL}/{item['id']}/{cover_file}.256.jpg" if cover_file else None
     )
 
+    # MAL ID from MangaDex links (used by Jikan enrichment)
+    links = attributes.get("links") or {}
+    mal_id = links.get("mal")
+
     # Content rating
     content_rating = attributes.get("contentRating")
 
@@ -74,6 +78,9 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "contentRating": content_rating,
         "availableTranslatedLanguages": available_translated_languages,
         "genres": genre_names,
+        "malId": int(mal_id) if mal_id else None,
+        # ponytail: chapters always None from MangaDex, Jikan enrichment fills it
+        "chapters": None,
         # ⬇️ Statistics (filled by get_statistics in service)
         "score": None,
         "rank": None,
@@ -82,7 +89,6 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         "favorites": None,
         "authors": [],
         "serialization": None,
-        "chapters": None,
         "startYear": None,
         "endYear": None,
     }
