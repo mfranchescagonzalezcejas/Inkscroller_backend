@@ -12,6 +12,7 @@ class TestJikanClientGetMangaById(IsolatedAsyncioTestCase):
     """JikanClient.get_manga_by_id — contract tests."""
 
     def setUp(self):
+        """Create a mock HTTP client and JikanClient instance for each test."""
         self.client = MagicMock()
         self.client.get = AsyncMock()
         self.jikan = JikanClient(self.client)
