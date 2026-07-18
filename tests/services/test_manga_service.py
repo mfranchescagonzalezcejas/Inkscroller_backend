@@ -58,12 +58,14 @@ class TestFilterByAge(unittest.TestCase):
     """T3.1 — _filter_by_age helper."""
 
     def setUp(self):
+        """Create mock clients for filter_by_age tests."""
         self.client = MagicMock()
         self.jikan = MagicMock()
         self.cache = MagicMock()
         self.service = MangaService(self.client, self.jikan, self.cache)
 
     def test_filter_by_age_guest(self):
+        """Filter by age guest."""
         manga_list = [
             {"id": "1", "contentRating": "safe", "demographic": "shounen"},
             {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
@@ -76,6 +78,7 @@ class TestFilterByAge(unittest.TestCase):
         self.assertEqual(result[1]["id"], "3")
 
     def test_filter_by_age_16(self):
+        """Filter by age 16."""
         manga_list = [
             {"id": "1", "contentRating": "safe", "demographic": "shounen"},
             {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
@@ -89,6 +92,7 @@ class TestFilterByAge(unittest.TestCase):
         self.assertEqual(result[2]["id"], "3")
 
     def test_filter_by_age_18_with_doujinshi(self):
+        """Filter by age 18 with doujinshi."""
         manga_list = [
             {"id": "1", "contentRating": "safe", "demographic": "shounen"},
             {
@@ -106,6 +110,7 @@ class TestFilterByAge(unittest.TestCase):
         self.assertEqual(len(result), 3)
 
     def test_filter_by_age_12(self):
+        """Filter by age 12."""
         manga_list = [
             {"id": "1", "contentRating": "safe", "demographic": "shounen"},
             {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
@@ -115,10 +120,12 @@ class TestFilterByAge(unittest.TestCase):
         self.assertEqual(result[0]["id"], "1")
 
     def test_filter_by_age_empty_list(self):
+        """Filter by age empty list."""
         result = self.service._filter_by_age([], 16)
         self.assertEqual(result, [])
 
     def test_filter_by_age_erotica_guest(self):
+        """Filter by age erotica guest."""
         manga_list = [
             {"id": "1", "contentRating": "erotica", "demographic": "shounen"},
         ]
@@ -126,6 +133,7 @@ class TestFilterByAge(unittest.TestCase):
         self.assertEqual(len(result), 0)
 
     def test_filter_by_age_erotica_18(self):
+        """Filter by age erotica 18."""
         manga_list = [
             {"id": "1", "contentRating": "erotica", "demographic": "shounen"},
         ]
@@ -133,6 +141,7 @@ class TestFilterByAge(unittest.TestCase):
         self.assertEqual(len(result), 1)
 
     def test_filter_by_age_erotica_17(self):
+        """Filter by age erotica 17."""
         manga_list = [
             {"id": "1", "contentRating": "erotica", "demographic": "shounen"},
         ]
@@ -144,6 +153,7 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
     """T3.2 — search() with user_age parameter."""
 
     def setUp(self):
+        """Create mocks for search age-gating tests."""
         self.client = MagicMock()
         self.client.search_manga = AsyncMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
@@ -247,6 +257,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
     """T3.3 — list_manga() with user_age parameter."""
 
     def setUp(self):
+        """Create mocks for list_manga age-gating tests."""
         self.client = MagicMock()
         self.client.list_manga = AsyncMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
@@ -272,6 +283,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["total"], 1)
 
     async def test_list_manga_filters_by_age_12(self):
+        """List manga filters by age 12."""
         raw_items = [
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
@@ -287,6 +299,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["total"], 1)
 
     async def test_list_manga_filters_by_age_16(self):
+        """List manga filters by age 16."""
         raw_items = [
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
@@ -300,6 +313,7 @@ class TestListMangaByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result["data"]), 2)
 
     async def test_list_manga_guest_sees_only_safe(self):
+        """List manga guest sees only safe."""
         raw_items = [
             _raw_mangadex_item("1", "safe"),
             _raw_mangadex_item("2", "suggestive"),
@@ -320,28 +334,34 @@ class TestResolveContentRatings(unittest.TestCase):
     """_resolve_content_ratings and _content_rating_to_mangadex."""
 
     def setUp(self):
+        """Create mocks for content rating resolution tests."""
         self.client = MagicMock()
         self.jikan = MagicMock()
         self.cache = MagicMock()
         self.service = MangaService(self.client, self.jikan, self.cache)
 
     def test_content_rating_to_mangadex_safe(self):
+        """Content rating to mangadex safe."""
         result = MangaService._content_rating_to_mangadex("safe")
         self.assertEqual(result, ["safe"])
 
     def test_content_rating_to_mangadex_suggestive(self):
+        """Content rating to mangadex suggestive."""
         result = MangaService._content_rating_to_mangadex("suggestive")
         self.assertEqual(result, ["safe", "suggestive"])
 
     def test_content_rating_to_mangadex_all(self):
+        """Content rating to mangadex all."""
         result = MangaService._content_rating_to_mangadex("all")
         self.assertEqual(result, ["safe", "suggestive", "erotica", "pornographic"])
 
     def test_content_rating_to_mangadex_unknown_defaults_to_safe(self):
+        """Content rating to mangadex unknown defaults to safe."""
         result = MangaService._content_rating_to_mangadex("invalid")
         self.assertEqual(result, ["safe"])
 
     def test_content_rating_to_mangadex_none_defaults_to_safe(self):
+        """Content rating to mangadex none defaults to safe."""
         result = MangaService._content_rating_to_mangadex(None)
         self.assertEqual(result, ["safe"])
 
@@ -401,6 +421,7 @@ class TestSearchWithContentRating(unittest.IsolatedAsyncioTestCase):
     """search() with explicit content_rating override."""
 
     def setUp(self):
+        """Create mocks for search content_rating tests."""
         self.client = MagicMock()
         self.client.search_manga = AsyncMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
@@ -445,6 +466,7 @@ class TestListMangaWithContentRating(unittest.IsolatedAsyncioTestCase):
     """list_manga() with explicit content_rating override."""
 
     def setUp(self):
+        """Create mocks for list_manga content_rating tests."""
         self.client = MagicMock()
         self.client.list_manga = AsyncMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
@@ -481,6 +503,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
     """The local null-demographic filter produces stable, complete pages."""
 
     def setUp(self):
+        """Create mocks for null-demographic union scan tests."""
         self.client = MagicMock()
         self.client.list_manga = AsyncMock()
         self.client.search_manga = AsyncMock()
@@ -498,6 +521,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self._secret_patcher.stop()
 
     async def test_list_null_only_scans_without_forwarding_sentinel(self):
+        """List null only scans without forwarding sentinel."""
         self.client.list_manga.return_value = {
             "data": [
                 _raw_mangadex_item("named", "safe", "seinen"),
@@ -519,6 +543,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["demographic"], ["none"])
 
     async def test_search_mixed_union_deduplicates_and_has_full_pages(self):
+        """Search mixed union deduplicates and has full pages."""
         self.client.search_manga.return_value = {
             "data": [
                 _raw_mangadex_item("named", "safe", "seinen"),
@@ -542,6 +567,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["demographic"], ["none"])
 
     async def test_cursor_reuses_snapshot_without_rescanning(self):
+        """Cursor reuses snapshot without rescanning."""
         self.client.list_manga.return_value = {
             "data": [
                 _raw_mangadex_item("first", "safe", None),
@@ -568,6 +594,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.client.list_manga.await_count, 1)
 
     async def test_cursor_rejects_mismatched_filter_and_expiry(self):
+        """Cursor rejects mismatched filter and expiry."""
         self.client.list_manga.return_value = {
             "data": [
                 _raw_mangadex_item("first", "safe", None),
@@ -597,6 +624,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_cursor_rejects_tampered_position(self):
+        """Cursor rejects tampered position."""
         self.client.list_manga.return_value = {
             "data": [
                 _raw_mangadex_item("first", "safe", None),
@@ -640,6 +668,7 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_union_preserves_genre_and_initial_offset(self):
+        """Union preserves genre and initial offset."""
         self.client.list_manga.return_value = {
             "data": [
                 _raw_mangadex_item("first", "safe", None),
@@ -670,6 +699,7 @@ class TestCursorPageEnrichesStats(unittest.IsolatedAsyncioTestCase):
     """T3 — _cursor_page enriches page with statistics on demand."""
 
     def setUp(self):
+        """Create mocks for cursor page statistics tests."""
         self.client = MagicMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
         self.jikan = MagicMock()
@@ -719,6 +749,7 @@ class TestListUnionDoesNotStatAllItems(unittest.IsolatedAsyncioTestCase):
     """T3 — union path stats only the page, not all merged items."""
 
     def setUp(self):
+        """Create mocks for union path statistics tests."""
         self.client = MagicMock()
         self.client.list_manga = AsyncMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
@@ -779,6 +810,7 @@ class TestSearchUnionPageHasStats(unittest.IsolatedAsyncioTestCase):
     """T3 — search union path returns items with stats populated."""
 
     def setUp(self):
+        """Create mocks for search union statistics tests."""
         self.client = MagicMock()
         self.client.search_manga = AsyncMock()
         self.client.get_statistics = AsyncMock(return_value={"statistics": {}})
@@ -1029,6 +1061,7 @@ class TestSnapshotPageHasMore(unittest.TestCase):
     """has_more must reflect data availability, not cursor token presence."""
 
     def setUp(self):
+        """Set up service for snapshot has_more tests."""
         self.service = MangaService.__new__(MangaService)
         self.service._snapshots = {}
         self.service._cache = {}
@@ -1050,14 +1083,17 @@ class TestSnapshotPageHasMore(unittest.TestCase):
         }
 
     def test_has_more_true_when_more_items(self):
+        """Has more true when more items."""
         result = self._snapshot_page(["a", "b", "c"], 1, 0)
         self.assertTrue(result["has_more"])
 
     def test_has_more_false_on_last_page(self):
+        """Has more false on last page."""
         result = self._snapshot_page(["a"], 1, 0)
         self.assertFalse(result["has_more"])
 
     def test_has_more_true_without_cursor_secret(self):
+        """Has more true without cursor secret."""
         result = self._snapshot_page(["a", "b", "c", "d", "e"], 2, 0)
         self.assertTrue(result["has_more"])
         self.assertIsNone(result["next_cursor"])
@@ -1067,10 +1103,12 @@ class TestScanUnionLatestOrdering(unittest.IsolatedAsyncioTestCase):
     """_scan_union must sort globally when order=latest."""
 
     def setUp(self):
+        """Set up service for scan_union ordering tests."""
         self.service = MangaService.__new__(MangaService)
         self.service._client = None
 
     async def test_latest_ordering_mixed_demographics(self):
+        """Latest ordering mixed demographics."""
         s1 = {
             "id": "s1",
             "demographic": "seinen",
@@ -1097,6 +1135,7 @@ class TestScanUnionLatestOrdering(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([m["id"] for m in items], ["s2", "u1", "s1"])
 
     async def test_popular_ordering_preserved(self):
+        """Popular ordering preserved."""
         p1 = {"id": "p1", "demographic": "shounen", "popularity": 500}
         p2 = {"id": "p2", "demographic": None, "popularity": 1000}
         p3 = {"id": "p3", "demographic": "shounen", "popularity": 100}
