@@ -1073,6 +1073,90 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertIn("username", response_schema)
         self.assertIn("birth_date", response_schema)
 
+    # -- PATCH /users/me/library/{manga_id}/progress ---------------------------
+
+    def test_update_progress_returns_200(self):
+        """PATCH progress with valid chapters_read returns updated metadata."""
+        with TestClient(self.app) as client:
+            client.post("/users/me/library/manga-1")
+            response = client.patch(
+                "/users/me/library/manga-1/progress",
+                json={"chapters_read": 5},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["chapters_read"], 5)
+        self.assertEqual(data["library_status"], "reading")
+        self.assertIn("added_at", data)
+        self.assertIn("updated_at", data)
+
+    def test_update_progress_updates_in_get_library(self):
+        """chapters_read persists and reflects in library response."""
+        with TestClient(self.app) as client:
+            client.post("/users/me/library/manga-1")
+            client.patch(
+                "/users/me/library/manga-1/progress",
+                json={"chapters_read": 10},
+            )
+            response = client.get("/users/me/library")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["library"]["chapters_read"], 10)
+
+    def test_update_progress_defaults_to_zero(self):
+        """New library entries have chapters_read = 0."""
+        with TestClient(self.app) as client:
+            client.post("/users/me/library/manga-1")
+            response = client.get("/users/me/library")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]["library"]["chapters_read"], 0)
+
+    def test_update_progress_nonexistent_returns_404(self):
+        """PATCH progress for a manga not in library returns 404."""
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me/library/manga-nonexistent/progress",
+                json={"chapters_read": 5},
+            )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_update_progress_negative_returns_422(self):
+        """PATCH progress with negative chapters_read returns 422."""
+        with TestClient(self.app) as client:
+            client.post("/users/me/library/manga-1")
+            response = client.patch(
+                "/users/me/library/manga-1/progress",
+                json={"chapters_read": -1},
+            )
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_update_progress_unauthenticated_returns_401(self):
+        """Anonymous users cannot update reading progress."""
+        self.app.dependency_overrides.pop(get_current_user, None)
+        self.app.dependency_overrides.pop(get_current_user_verified, None)
+        with TestClient(self.app) as client:
+            response = client.patch(
+                "/users/me/library/manga-1/progress",
+                json={"chapters_read": 5},
+            )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_openapi_includes_progress_route(self):
+        """OpenAPI schema includes the progress sub-path."""
+        with TestClient(self.app) as client:
+            response = client.get("/openapi.json")
+
+        self.assertEqual(response.status_code, 200)
+        path_item = response.json()["paths"]["/users/me/library/{manga_id}/progress"]
+        self.assertIn("patch", path_item)
+
 
 class UserAccountDeletionTests(unittest.TestCase):
     """Tests for DELETE /users/me account deletion."""

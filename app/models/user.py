@@ -81,6 +81,20 @@ class UpdateLibraryStatusRequest(BaseModel):
     library_status: Literal["reading", "completed", "paused"]
 
 
+class UpdateReadingProgressRequest(BaseModel):
+    """Payload accepted by ``PATCH /users/me/library/{manga_id}/progress``."""
+
+    chapters_read: int
+
+    @field_validator("chapters_read")
+    @classmethod
+    def validate_chapters_read(cls, value: int) -> int:
+        """Reject negative chapter counts."""
+        if value < 0:
+            raise ValueError("chapters_read must be >= 0")
+        return value
+
+
 class AddToLibraryRequest(BaseModel):
     """Optional payload accepted by `POST /users/me/library/{manga_id}`.
 

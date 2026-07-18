@@ -7,6 +7,7 @@ class LibraryMetadata(BaseModel):
     """Metadata for a manga saved in the user's library."""
 
     library_status: str
+    chapters_read: int = 0
     added_at: str
     updated_at: str
 

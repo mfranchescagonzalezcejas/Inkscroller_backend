@@ -20,6 +20,7 @@ from app.models.user import (
     ReadingPreferences,
     UpdateLibraryStatusRequest,
     UpdatePreferencesRequest,
+    UpdateReadingProgressRequest,
     UpdateUserProfileRequest,
     UserProfile,
 )
@@ -111,6 +112,7 @@ async def get_library(
             authors=entry["authors"],
             library=LibraryMetadata(
                 library_status=entry["library_status"],
+                chapters_read=entry.get("chapters_read", 0),
                 added_at=entry["added_at"],
                 updated_at=entry["updated_at"],
             ),
@@ -157,9 +159,27 @@ async def update_library_status(
 
     return LibraryMetadata(
         library_status=updated["library_status"],
+        chapters_read=int(updated.get("chapters_read", 0)),
         added_at=updated["added_at"],
         updated_at=updated["updated_at"],
     )
+
+
+@router.patch("/me/library/{manga_id}/progress", response_model=LibraryMetadata)
+async def update_reading_progress(
+    manga_id: str,
+    body: UpdateReadingProgressRequest,
+    current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
+    user_service: UserService = Depends(get_user_service),
+) -> LibraryMetadata:
+    """Update reading progress (chapters read) for a manga in the user's library."""
+    updated = await user_service.update_reading_progress(
+        current_user.uid, manga_id, body.chapters_read
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Manga not in library")
+
+    return updated
 
 
 @router.delete("/me/library/{manga_id}", status_code=204)

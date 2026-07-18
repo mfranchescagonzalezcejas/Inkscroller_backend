@@ -16,6 +16,7 @@ from app.core.exceptions import (
     UpstreamServiceError,
 )
 from app.core.firebase_auth import FirebaseTokenPayload
+from app.models.manga import LibraryMetadata
 from app.models.user import (
     ReadingPreferences,
     UpdatePreferencesRequest,
@@ -498,7 +499,7 @@ class UserService:
     async def get_library_entries(self, firebase_uid: str) -> list[dict]:
         """Return user-library rows with cached manga metadata, newest first."""
         rows = await self._db.fetchall(
-            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors, content_rating "
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at, title, cover_url, authors, content_rating "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -506,6 +507,7 @@ class UserService:
             {
                 "manga_id": row["manga_id"],
                 "library_status": row["library_status"],
+                "chapters_read": row["chapters_read"],
                 "added_at": row["added_at"],
                 "updated_at": row["updated_at"],
                 "title": row["title"] or "",
@@ -579,7 +581,7 @@ class UserService:
             return None
 
         row = await self._db.fetchone(
-            "SELECT manga_id, library_status, added_at, updated_at "
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at "
             "FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
             firebase_uid,
             manga_id,
@@ -591,9 +593,47 @@ class UserService:
         return {
             "manga_id": row["manga_id"],
             "library_status": row["library_status"],
+            "chapters_read": row["chapters_read"],
             "added_at": row["added_at"],
             "updated_at": row["updated_at"],
         }
+
+    async def update_reading_progress(
+        self, firebase_uid: str, manga_id: str, chapters_read: int
+    ) -> LibraryMetadata | None:
+        """Update ``chapters_read`` for a manga in the user's library.
+
+        Returns the updated metadata, or ``None`` if the manga is not in the library.
+        """
+        now = _utc_now()
+        rowcount = await self._db.execute(
+            "UPDATE user_library SET chapters_read = ?, updated_at = ? "
+            "WHERE firebase_uid = ? AND manga_id = ?",
+            chapters_read,
+            now,
+            firebase_uid,
+            manga_id,
+        )
+        await self._db.commit()
+
+        if rowcount == 0:
+            return None
+
+        row = await self._db.fetchone(
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at "
+            "FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
+            firebase_uid,
+            manga_id,
+        )
+        if row is None:
+            return None
+
+        return LibraryMetadata(
+            library_status=row["library_status"],
+            chapters_read=row["chapters_read"],
+            added_at=row["added_at"],
+            updated_at=row["updated_at"],
+        )
 
     async def remove_from_library(self, firebase_uid: str, manga_id: str) -> bool:
         """Remove a manga from the user's library. Returns True if it existed."""

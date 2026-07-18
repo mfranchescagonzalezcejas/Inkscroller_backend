@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS user_library (
     title          TEXT,
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
+    chapters_read  INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -69,6 +70,7 @@ _POSTGRES_MIGRATIONS = [
     "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS content_rating_filter TEXT",
     "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS demographic_filter TEXT",
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS content_rating TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS chapters_read INTEGER NOT NULL DEFAULT 0",
 ]
 
 _POSTGRES_DDL = """
@@ -106,6 +108,7 @@ CREATE TABLE IF NOT EXISTS user_library (
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
     content_rating TEXT,
+    chapters_read  INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -179,6 +182,10 @@ async def _migrate_sqlite_columns(conn: object) -> None:
             "ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'",
         ),
         ("content_rating", "ALTER TABLE user_library ADD COLUMN content_rating TEXT"),
+        (
+            "chapters_read",
+            "ALTER TABLE user_library ADD COLUMN chapters_read INTEGER NOT NULL DEFAULT 0",
+        ),
     ]
     for col, ddl in migrations:
         if col not in columns:
