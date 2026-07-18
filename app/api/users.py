@@ -173,12 +173,6 @@ async def update_reading_progress(
     user_service: UserService = Depends(get_user_service),
 ) -> LibraryMetadata:
     """Update reading progress (chapters read) for a manga in the user's library."""
-    if body.chapters_read < 0:
-        raise HTTPException(
-            status_code=422,
-            detail="chapters_read must be >= 0",
-        )
-
     updated = await user_service.update_reading_progress(
         current_user.uid, manga_id, body.chapters_read
     )
