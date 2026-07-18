@@ -25,3 +25,10 @@ class JikanClient:
         )
         response.raise_for_status()
         return cast("dict", response.json())
+
+    @with_retry(max_retries=2, base_delay=1.0)
+    async def get_manga_by_id(self, mal_id: int) -> dict:
+        """Fetch manga details from Jikan v4 by MAL ID (much more precise than search)."""
+        response = await self.client.get(f"/manga/{mal_id}")
+        response.raise_for_status()
+        return cast("dict", response.json())
