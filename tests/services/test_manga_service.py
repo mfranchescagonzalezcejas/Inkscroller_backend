@@ -853,6 +853,7 @@ class TestGetByIdByAge(unittest.IsolatedAsyncioTestCase):
     """T3.4 — get_by_id() with user_age parameter."""
 
     def setUp(self):
+        """Create mock clients and service instance for get_by_id age-gating tests."""
         self.client = MagicMock()
         self.client.get_manga = AsyncMock()
         self.jikan = MagicMock()
