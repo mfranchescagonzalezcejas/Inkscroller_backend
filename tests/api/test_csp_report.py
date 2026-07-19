@@ -8,9 +8,20 @@ from tests.api.helpers import create_hermetic_test_app
 class CSPReportTests(unittest.TestCase):
     def setUp(self):
         self.app = create_hermetic_test_app()
+        self._trusted_origin = "https://inkscroller-app.web.app"
 
     def tearDown(self):
         self.app.dependency_overrides.clear()
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _headers(self, origin: str | None = None) -> dict[str, str]:
+        h: dict[str, str] = {}
+        if origin:
+            h["Origin"] = origin
+        return h
+
+    # ── tests ────────────────────────────────────────────────────────────────
 
     def test_post_csp_report_returns_204(self):
         with TestClient(self.app) as client:
@@ -26,6 +37,7 @@ class CSPReportTests(unittest.TestCase):
                         "column-number": 7,
                     }
                 },
+                headers=self._headers(self._trusted_origin),
             )
 
         self.assertEqual(response.status_code, 204)
@@ -37,9 +49,22 @@ class CSPReportTests(unittest.TestCase):
             response = client.post(
                 "/csp-report",
                 content=b'{"csp-report":{"effective-directive":"script-src"}}',
-                headers={"Content-Type": "application/csp-report"},
+                headers={
+                    "Content-Type": "application/csp-report",
+                    "Origin": self._trusted_origin,
+                },
             )
 
+        self.assertEqual(response.status_code, 204)
+
+    def test_post_csp_report_rejects_requests_from_untrusted_origins(self):
+        """CSP reports from unknown origins must be silently discarded."""
+        with TestClient(self.app) as client:
+            response = client.post(
+                "/csp-report",
+                json={"csp-report": {"effective-directive": "script-src"}},
+                headers=self._headers("https://evil.com"),
+            )
         self.assertEqual(response.status_code, 204)
 
     def test_post_csp_report_sanitizes_field_values(self):
@@ -54,6 +79,7 @@ class CSPReportTests(unittest.TestCase):
                             "violated-directive": "x" * 500,
                         }
                     },
+                    headers=self._headers(self._trusted_origin),
                 )
 
         self.assertEqual(response.status_code, 204)
@@ -72,7 +98,10 @@ class CSPReportTests(unittest.TestCase):
             response = client.post(
                 "/csp-report",
                 content=b"not-json",
-                headers={"Content-Type": "application/csp-report"},
+                headers={
+                    "Content-Type": "application/csp-report",
+                    "Origin": self._trusted_origin,
+                },
             )
 
         self.assertEqual(response.status_code, 204)
@@ -94,7 +123,11 @@ class CSPReportTests(unittest.TestCase):
 
         with patch("app.api.security.logger") as mock_logger:
             with TestClient(self.app) as client:
-                response = client.post("/csp-report", json=report_payload)
+                response = client.post(
+                    "/csp-report",
+                    json=report_payload,
+                    headers=self._headers(self._trusted_origin),
+                )
 
         self.assertEqual(response.status_code, 204)
 

@@ -47,7 +47,9 @@ async def receive_csp_report(request: FastAPIRequest) -> Response:
     anti-abuse measure (attacker cannot spoof Origin on a browser CSP POST).
     """
     origin = request.headers.get("origin") or request.headers.get("referer", "")
-    if not any(trusted in origin for trusted in settings.cors_origins):
+    if not any(
+        trusted == "*" or trusted in origin for trusted in settings.cors_origins
+    ):
         return Response(status_code=204)
 
     # ponytail: telemetry input — discard bad payloads silently

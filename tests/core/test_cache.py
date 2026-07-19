@@ -1,5 +1,6 @@
 import time
 import unittest
+from collections import OrderedDict
 
 from app.core.cache import SimpleCache
 
@@ -7,10 +8,12 @@ from app.core.cache import SimpleCache
 class TestSimpleCacheMaxsize(unittest.TestCase):
     def test_evicts_expired_entry_before_oldest_live_entry(self):
         cache = SimpleCache(maxsize=2)
-        cache._store = {
-            "oldest-live": (time.time() + 60, "live"),
-            "expired": (time.time() - 1, "stale"),
-        }
+        cache._store = OrderedDict(
+            {
+                "oldest-live": (time.time() + 60, "live"),
+                "expired": (time.time() - 1, "stale"),
+            }
+        )
 
         cache.set("new", "value")
 

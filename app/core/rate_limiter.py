@@ -47,6 +47,10 @@ class _SlidingWindowStore:
     def __init__(self) -> None:
         self._buckets: dict[str, deque[float]] = defaultdict(deque)
 
+    def reset(self) -> None:
+        """Clear all rate-limit buckets (test isolation)."""
+        self._buckets.clear()
+
     def _purge(self, key: str, window: int) -> None:
         """Remove timestamps older than *window* seconds."""
         cutoff = time.monotonic() - window
@@ -65,6 +69,11 @@ class _SlidingWindowStore:
 
 
 _store = _SlidingWindowStore()
+
+
+def reset_for_tests() -> None:
+    """Clear all rate-limit state.  Call in test ``setUp`` to isolate tests."""
+    _store.reset()
 
 
 # ── Callable dependency for FastAPI routes ──────────────────────────────────

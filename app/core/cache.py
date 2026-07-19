@@ -35,10 +35,20 @@ class SimpleCache:
         return value
 
     def set(self, key: str, value: Any) -> None:
-        """Store ``value`` under ``key`` with the configured TTL."""
+        """Store ``value`` under ``key`` with the configured TTL.
+
+        Purges expired entries first (cheap).  If still over *maxsize*,
+        evicts the least-recently-used entry.
+        """
         expires_at = time.time() + self.ttl
         self._store[key] = (expires_at, value)
-        # LRU: move to end on set too
         self._store.move_to_end(key)
         if len(self._store) > self.maxsize:
-            self._store.popitem(last=False)  # evict least-recently-used
+            # Purge expired entries first (scan full store)
+            now = time.time()
+            for k in list(self._store.keys()):
+                if now > self._store[k][0]:
+                    del self._store[k]
+            # Still over limit → evict LRU
+            while len(self._store) > self.maxsize:
+                self._store.popitem(last=False)
