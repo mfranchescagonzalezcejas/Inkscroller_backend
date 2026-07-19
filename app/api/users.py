@@ -143,6 +143,31 @@ async def get_library(
         if enriched.get("genres"):
             entry["genres"] = enriched["genres"]
 
+        # Persist the enriched data back to user_library so subsequent
+        # reads are fast and don't depend on the lazy enrichment path.
+        await user_service.add_to_library(
+            current_user.uid,
+            entry["manga_id"],
+            title=entry.get("title"),
+            cover_url=entry.get("cover_url"),
+            authors=entry.get("authors"),
+            content_rating=entry.get("content_rating"),
+            description=entry.get("description"),
+            demographic=entry.get("demographic"),
+            status=entry.get("status"),
+            score=entry.get("score"),
+            rank=entry.get("rank"),
+            popularity=entry.get("popularity"),
+            members=entry.get("members"),
+            favorites=entry.get("favorites"),
+            serialization=entry.get("serialization"),
+            genres=entry.get("genres"),
+            chapters=entry.get("chapters"),
+            start_year=entry.get("start_year"),
+            end_year=entry.get("end_year"),
+            mal_id=entry.get("mal_id"),
+        )
+
     # Filter by age
     filtered = []
     for entry in entries:
