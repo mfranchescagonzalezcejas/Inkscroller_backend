@@ -56,18 +56,22 @@ def can_access_content(
 def can_access_demographic(
     demographic: str | None,
     user_age: int | None,
+    content_rating: str | None = None,
 ) -> bool:
     """Check if user can access content without a publication demographic.
 
     Content without a publication demographic (``None``) is typically
     doujinshi, self-published, or unclassified fan works. Only registered
-    adults (18+) can access it.
+    adults (18+) can access it — unless the content already has a ``safe``
+    rating, in which case the demographic gate is redundant.
 
     Content with a known demographic (shounen, shoujo, seinen, josei)
     is always allowed — normal contentRating rules apply separately.
     """
     if demographic is not None:
         return True  # known demographic → always allow, age-gating is on contentRating
+    if content_rating == "safe":
+        return True  # ponytail: safe content doesn't need demographic gating (#128)
     if user_age is None:
         return False  # guest → no doujinshi
     return user_age >= 18  # only 18+ for undemographic content

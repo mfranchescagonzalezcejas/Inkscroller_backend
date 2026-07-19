@@ -178,9 +178,10 @@ class ChapterService:
             demographic = attributes.get("publicationDemographic")
             if demographic == "none":
                 demographic = None
+            content_rating = attributes.get("contentRating")
             if not (
-                can_access_demographic(demographic, user_age)
-                and can_access_content(attributes.get("contentRating"), user_age)
+                can_access_demographic(demographic, user_age, content_rating)
+                and can_access_content(content_rating, user_age)
             ):
                 continue
             titles = attributes.get("title", {})

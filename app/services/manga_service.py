@@ -204,13 +204,16 @@ class MangaService:
 
         Applies two gates:
         1. Demographic: titles without a publication demographic (doujinshi/self-published)
-           are restricted to registered adults (18+).
+           are restricted to registered adults (18+), unless the content rating is already
+           ``safe`` — in which case the demographic gate is skipped (#128).
         2. Content rating: standard age-tiered access (safe/suggestive/erotica/pornographic).
         """
         return [
             m
             for m in manga_list
-            if can_access_demographic(m.get("demographic"), user_age)
+            if can_access_demographic(
+                m.get("demographic"), user_age, m.get("contentRating")
+            )
             and can_access_content(m.get("contentRating"), user_age)
         ]
 
@@ -571,7 +574,9 @@ class MangaService:
                 return None  # guest: only safe content
             if can_access_content(
                 cached.get("contentRating"), user_age
-            ) and can_access_demographic(cached.get("demographic"), user_age):
+            ) and can_access_demographic(
+                cached.get("demographic"), user_age, cached.get("contentRating")
+            ):
                 return cast("dict", cached)
             return None
 
@@ -637,7 +642,9 @@ class MangaService:
             return None  # guest: only safe content
         if not can_access_content(result.get("contentRating"), user_age):
             return None
-        if not can_access_demographic(result.get("demographic"), user_age):
+        if not can_access_demographic(
+            result.get("demographic"), user_age, result.get("contentRating")
+        ):
             return None
 
         return result
