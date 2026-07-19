@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
 from app.core.age import can_access_content, can_access_demographic
@@ -62,42 +64,60 @@ class MangaService:
                 logger.warning("Failed to fetch manga statistics", exc_info=True)
         return self._filter_by_age(result, user_age)
 
+    async def _scan_fetch(
+        self,
+        fetch: Callable[[int], Awaitable[dict]],
+        max_offset: int,
+        user_age: int | None,
+    ) -> list[dict]:
+        """Scan one demographic group and return all mapped items (no dedup)."""
+        items: list[dict] = []
+        offset = 0
+        while True:
+            payload = await fetch(offset)
+            raw_items = payload.get("data", []) if isinstance(payload, dict) else []
+            # ponytail: skip statistics during scan — full stats are fetched
+            # later for the page the user actually requests.
+            mapped = await self._map_and_filter(
+                raw_items, user_age, skip_statistics=True
+            )
+            items.extend(mapped)
+            offset += len(raw_items)
+            if (
+                not raw_items
+                or offset >= payload.get("total", offset)
+                or offset >= max_offset
+            ):
+                break
+        return items
+
     async def _scan_union(
         self,
         fetches: list,
         demographics: list[str],
         user_age: int | None,
         order: str | None = None,
-        max_offset: int = 400,
+        max_offset: int = 100,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page.
 
-        Scans up to ``max_offset`` items per fetch to limit upstream requests.
-        Default 400 (4 pages @ 100 items) avoids long timeouts when the
-        user has broad filters (all demographics + all content ratings).
+        Runs all demographic fetches in parallel (typically named + ``none``)
+        and deduplicates by manga ID. Scans up to ``max_offset`` items per
+        fetch (default 100 = 1 page) so the endpoint responds in < 2s even
+        with broad demographic+content-rating filters.
         """
+        all_fetch_results = await asyncio.gather(
+            *[self._scan_fetch(fetch, max_offset, user_age) for fetch in fetches]
+        )
+
         merged: dict[str, dict] = {}
-        for fetch in fetches:
-            offset = 0
-            while True:
-                payload = await fetch(offset)
-                raw_items = payload.get("data", []) if isinstance(payload, dict) else []
-                mapped = await self._map_and_filter(
-                    raw_items, user_age, skip_statistics=True
-                )
-                for manga in mapped:
-                    if (
-                        self._matches_demographic(manga, demographics)
-                        and manga["id"] not in merged
-                    ):
-                        merged[manga["id"]] = manga
-                offset += len(raw_items)
+        for item_list in all_fetch_results:
+            for manga in item_list:
                 if (
-                    not raw_items
-                    or offset >= payload.get("total", offset)
-                    or offset >= max_offset
+                    self._matches_demographic(manga, demographics)
+                    and manga["id"] not in merged
                 ):
-                    break
+                    merged[manga["id"]] = manga
         items = list(merged.values())
         if order:
             _order_fields = {
