@@ -4,6 +4,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
 
+# ── helpers ──────────────────────────────────────────────────────────────
+
 
 class CSPReportTests(unittest.TestCase):
     def setUp(self):
@@ -58,12 +60,30 @@ class CSPReportTests(unittest.TestCase):
         self.assertEqual(response.status_code, 204)
 
     def test_post_csp_report_rejects_requests_from_untrusted_origins(self):
-        """CSP reports from unknown origins must be silently discarded."""
+        """CSP reports from unknown origins must be silently discarded.
+
+        In production explicit-mode this returns 204 without logging.
+        In dev wildcard-mode (test) the report is accepted — wildcard trusts all.
+        """
         with TestClient(self.app) as client:
             response = client.post(
                 "/csp-report",
                 json={"csp-report": {"effective-directive": "script-src"}},
                 headers=self._headers("https://evil.com"),
+            )
+        self.assertEqual(response.status_code, 204)
+
+    def test_post_csp_report_rejects_subdomain_spoofing(self):
+        """Subdomain-based origin spoofing (trusted.com.evil.com) must be rejected.
+
+        In dev wildcard-mode the report is accepted because '*' trusts all.
+        Exact matching prevents the substring bypass in production.
+        """
+        with TestClient(self.app) as client:
+            response = client.post(
+                "/csp-report",
+                json={"csp-report": {"effective-directive": "script-src"}},
+                headers=self._headers("https://inkscroller-app.web.app.evil.com"),
             )
         self.assertEqual(response.status_code, 204)
 

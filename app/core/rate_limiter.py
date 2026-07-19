@@ -35,9 +35,16 @@ def _route_category(path: str) -> tuple[int, int]:
 
 # ── In-memory store ─────────────────────────────────────────────────────────
 
+_MAX_BUCKETS = 10_000
+
 
 class _SlidingWindowStore:
     """Dict-of-deques backed sliding window rate counter.
+
+    Bounded to ``_MAX_BUCKETS`` distinct keys.  When the limit is reached
+    the oldest-bucket scan evicts one — O(n) per eviction, acceptable for
+    a single worker since subsequent calls skip the scan until the map
+    fills again.
 
     Thread-safe enough for GIL-protected ASGI because individual dict/
     deque operations are atomic under the GIL and we never iterate while
@@ -46,6 +53,13 @@ class _SlidingWindowStore:
 
     def __init__(self) -> None:
         self._buckets: dict[str, deque[float]] = defaultdict(deque)
+
+    def _evict_one(self) -> None:
+        """Remove the bucket with the most recent timestamp (oldest active key)."""
+        if not self._buckets:
+            return
+        oldest_key = min(self._buckets, key=lambda k: self._buckets[k][-1])
+        del self._buckets[oldest_key]
 
     def reset(self) -> None:
         """Clear all rate-limit buckets (test isolation)."""
@@ -65,6 +79,8 @@ class _SlidingWindowStore:
         if len(bucket) >= max_reqs:
             return True
         bucket.append(time.monotonic())
+        if len(self._buckets) > _MAX_BUCKETS:
+            self._evict_one()
         return False
 
 
@@ -78,16 +94,15 @@ def reset_for_tests() -> None:
 
 # ── Callable dependency for FastAPI routes ──────────────────────────────────
 
+# We use the direct TCP peer address (``request.client``) — a direct caller
+# can spoof ``X-Forwarded-For`` to bypass limits, so we never trust it
+# unless the deployment validates it at the reverse-proxy layer.
+
 
 def _client_key(request: Request) -> str:
-    """Build a rate-limit key from the client IP."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    client = (
-        forwarded.split(",")[0].strip() or request.client.host
-        if request.client
-        else "unknown"
-    )
-    return f"rl:{client}"
+    """Build a rate-limit key from the direct TCP peer IP."""
+    client = request.client
+    return f"rl:{client.host}" if client else "rl:unknown"
 
 
 async def rate_limit(
@@ -96,6 +111,9 @@ async def rate_limit(
     max_requests: int | None = None,
 ) -> None:
     """FastAPI dependency: reject with 429 if the client exceeds the limit.
+
+    Uses the direct TCP peer address — callers cannot bypass limits by
+    spoofing ``X-Forwarded-For``.
 
     Usage::
 
@@ -128,10 +146,11 @@ class _RateLimitError(Exception):
 class RateLimitMiddleware:
     """ASGI middleware that applies sliding-window rate limits per IP + path.
 
+    Uses the direct TCP peer address from ``scope["client"]`` — callers
+    cannot bypass limits by spoofing ``X-Forwarded-For``.
+
     Falls back to the per-route defaults from PUBLIC_ENDPOINT_LIMIT,
-    AUTH_ENDPOINT_LIMIT, and STRICT_LIMIT.  Endpoints that already use
-    the ``rate_limit`` dependency are still covered by the middleware
-    catch-all — the dependency is just finer-grained control.
+    AUTH_ENDPOINT_LIMIT, and STRICT_LIMIT.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -144,14 +163,8 @@ class RateLimitMiddleware:
 
         path = scope.get("path", "/")
         window, max_reqs = _route_category(path)
-
-        # Build client key
-        headers = dict(scope.get("headers", {}))
-        forwarded = headers.get(b"x-forwarded-for", b"").decode()
-        client = forwarded.split(",")[0].strip() or (
-            scope.get("client", ("unknown", 0))[0] or "unknown"
-        )
-        key = f"rl:{client}:{path}"
+        client = scope.get("client", ("unknown", 0))
+        key = f"rl:{client[0]}:{path}"
 
         if _store.is_limited(key, window, max_reqs):
             resp = JSONResponse(

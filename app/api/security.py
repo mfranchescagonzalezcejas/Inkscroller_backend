@@ -2,6 +2,7 @@
 
 import json
 import logging
+from urllib.parse import urlparse
 
 from fastapi import APIRouter
 from fastapi import Request as FastAPIRequest
@@ -46,9 +47,17 @@ async def receive_csp_report(request: FastAPIRequest) -> Response:
     Only accepts reports from origins listed in CORS_ORIGINS as a basic
     anti-abuse measure (attacker cannot spoof Origin on a browser CSP POST).
     """
-    origin = request.headers.get("origin") or request.headers.get("referer", "")
+    raw_origin = request.headers.get("origin") or ""
+    if not raw_origin:
+        # Fallback: extract scheme+host from Referer
+        referer = request.headers.get("referer", "")
+        if referer:
+            parsed = urlparse(referer)
+            raw_origin = f"{parsed.scheme}://{parsed.netloc}".lower()
+
+    # Exact origin matching (prevents subdomain bypass: evil.com → trusted.com.evil.com)
     if not any(
-        trusted == "*" or trusted in origin for trusted in settings.cors_origins
+        trusted == "*" or trusted == raw_origin for trusted in settings.cors_origins
     ):
         return Response(status_code=204)
 
