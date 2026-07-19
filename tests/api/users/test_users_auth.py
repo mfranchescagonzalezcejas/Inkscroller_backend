@@ -56,8 +56,22 @@ _FAKE_MANGA = {
     "id": "manga-abc-123",
     "title": "Test Manga",
     "description": "A test manga",
-    "coverUrl": None,
-    "contentRating": None,
+    "coverUrl": "https://cdn.example/cover.jpg",
+    "demographic": "shounen",
+    "status": "reading",
+    "score": 8.5,
+    "rank": 12,
+    "popularity": 150,
+    "members": 2000,
+    "favorites": 80,
+    "authors": ["Test Author"],
+    "serialization": "Weekly Shonen Jump",
+    "genres": ["Action", "Adventure"],
+    "chapters": 42,
+    "startYear": 2020,
+    "endYear": 2022,
+    "contentRating": "safe",
+    "malId": 12345,
 }
 
 _FAKE_MANGA_EROTICA = {
@@ -65,7 +79,21 @@ _FAKE_MANGA_EROTICA = {
     "title": "Erotica Manga",
     "description": "Age-restricted manga",
     "coverUrl": None,
+    "demographic": "seinen",
+    "status": "completed",
+    "score": 7.5,
+    "rank": 50,
+    "popularity": 500,
+    "members": 5000,
+    "favorites": 200,
+    "authors": ["Erotica Author"],
+    "serialization": "Adult Magazine",
+    "genres": ["Drama"],
+    "chapters": 10,
+    "startYear": 2019,
+    "endYear": 2020,
     "contentRating": "erotica",
+    "malId": 67890,
 }
 
 _FAKE_MANGA_SUGGESTIVE = {
@@ -73,7 +101,21 @@ _FAKE_MANGA_SUGGESTIVE = {
     "title": "Suggestive Manga",
     "description": "Suggestive manga",
     "coverUrl": None,
+    "demographic": "shounen",
+    "status": "reading",
+    "score": 7.0,
+    "rank": 100,
+    "popularity": 1000,
+    "members": 10000,
+    "favorites": 500,
+    "authors": ["Suggestive Author"],
+    "serialization": "Young Magazine",
+    "genres": ["Comedy"],
+    "chapters": 25,
+    "startYear": 2021,
+    "endYear": None,
     "contentRating": "suggestive",
+    "malId": 11111,
 }
 
 
@@ -703,6 +745,25 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(data[0]["library"]["library_status"], "reading")
         self.assertIn("added_at", data[0]["library"])
         self.assertIn("updated_at", data[0]["library"])
+        self.assertEqual(data[0]["title"], _FAKE_MANGA["title"])
+        self.assertEqual(data[0]["description"], _FAKE_MANGA["description"])
+        self.assertEqual(data[0]["coverUrl"], _FAKE_MANGA["coverUrl"])
+        self.assertEqual(data[0]["demographic"], _FAKE_MANGA["demographic"])
+        self.assertEqual(data[0]["status"], _FAKE_MANGA["status"])
+        self.assertEqual(data[0]["score"], _FAKE_MANGA["score"])
+        self.assertEqual(data[0]["rank"], _FAKE_MANGA["rank"])
+        self.assertEqual(data[0]["popularity"], _FAKE_MANGA["popularity"])
+        self.assertEqual(data[0]["members"], _FAKE_MANGA["members"])
+        self.assertEqual(data[0]["favorites"], _FAKE_MANGA["favorites"])
+        self.assertEqual(data[0]["authors"], _FAKE_MANGA["authors"])
+        self.assertEqual(data[0]["serialization"], _FAKE_MANGA["serialization"])
+        self.assertEqual(data[0]["genres"], _FAKE_MANGA["genres"])
+        self.assertEqual(data[0]["chapters"], _FAKE_MANGA["chapters"])
+        self.assertEqual(data[0]["startYear"], _FAKE_MANGA["startYear"])
+        self.assertEqual(data[0]["endYear"], _FAKE_MANGA["endYear"])
+        self.assertEqual(data[0]["contentRating"], _FAKE_MANGA["contentRating"])
+        self.assertEqual(data[0]["malId"], _FAKE_MANGA["malId"])
+        self.assert_response_key_absent(data[0], "totalChaptersCount")
 
     # -- POST /users/me/library/{manga_id} ------------------------------------
 
@@ -911,6 +972,407 @@ class LibraryEndpointTests(unittest.TestCase):
         )
         self.assertEqual(row["content_rating"], "suggestive")
 
+    def test_service_add_to_library_accepts_full_metadata(self):
+        """UserService.add_to_library accepts and stores all metadata fields."""
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-full-001",
+                title="Full Manga",
+                description="A full manga",
+                demographic="shounen",
+                status="completed",
+                score=8.5,
+                rank=10,
+                popularity=100,
+                members=1000,
+                favorites=50,
+                serialization="Magazine X",
+                genres=["Action", "Adventure"],
+                chapters=42,
+                start_year=2020,
+                end_year=2022,
+                mal_id=12345,
+            )
+        )
+
+        row = asyncio.run(
+            self.db.fetchone(
+                "SELECT title, description, demographic, status, score, rank, "
+                "popularity, members, favorites, serialization, genres, chapters, "
+                "start_year, end_year, mal_id FROM user_library WHERE manga_id = ?",
+                "manga-full-001",
+            )
+        )
+        self.assertEqual(row["title"], "Full Manga")
+        self.assertEqual(row["description"], "A full manga")
+        self.assertEqual(row["demographic"], "shounen")
+        self.assertEqual(row["status"], "completed")
+        self.assertEqual(row["score"], 8.5)
+        self.assertEqual(row["rank"], 10)
+        self.assertEqual(row["popularity"], 100)
+        self.assertEqual(row["members"], 1000)
+        self.assertEqual(row["favorites"], 50)
+        self.assertEqual(row["serialization"], "Magazine X")
+        self.assertEqual(json.loads(row["genres"]), ["Action", "Adventure"])
+        self.assertEqual(row["chapters"], 42)
+        self.assertEqual(row["start_year"], 2020)
+        self.assertEqual(row["end_year"], 2022)
+        self.assertEqual(row["mal_id"], 12345)
+
+    def test_service_get_library_entries_return_full_metadata(self):
+        """UserService.get_library_entries returns all metadata fields."""
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-full-002",
+                title="Full Manga 2",
+                description="Another full manga",
+                demographic="seinen",
+                status="reading",
+                score=9.0,
+                rank=5,
+                popularity=50,
+                members=500,
+                favorites=25,
+                serialization="Magazine Y",
+                genres=["Drama"],
+                chapters=20,
+                start_year=2021,
+                end_year=None,
+                mal_id=67890,
+            )
+        )
+
+        entries = asyncio.run(
+            UserService(self.db).get_library_entries(_FAKE_PAYLOAD.uid)
+        )
+        self.assertEqual(len(entries), 1)
+        entry = entries[0]
+        self.assertEqual(entry["title"], "Full Manga 2")
+        self.assertEqual(entry["description"], "Another full manga")
+        self.assertEqual(entry["demographic"], "seinen")
+        self.assertEqual(entry["status"], "reading")
+        self.assertEqual(entry["score"], 9.0)
+        self.assertEqual(entry["rank"], 5)
+        self.assertEqual(entry["popularity"], 50)
+        self.assertEqual(entry["members"], 500)
+        self.assertEqual(entry["favorites"], 25)
+        self.assertEqual(entry["serialization"], "Magazine Y")
+        self.assertEqual(entry["genres"], ["Drama"])
+        self.assertEqual(entry["chapters"], 20)
+        self.assertEqual(entry["start_year"], 2021)
+        self.assertIsNone(entry["end_year"])
+        self.assertEqual(entry["mal_id"], 67890)
+
+    def test_add_to_library_round_trip_returns_full_metadata(self):
+        """POST adds manga with all metadata, GET returns it without upstream calls."""
+        with TestClient(self.app) as client:
+            post = client.post(
+                "/users/me/library/manga-abc-123",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            self.assertEqual(post.status_code, 204)
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        entry = data[0]
+        self.assertEqual(entry["id"], _FAKE_MANGA["id"])
+        self.assertEqual(entry["title"], _FAKE_MANGA["title"])
+        self.assertEqual(entry["description"], _FAKE_MANGA["description"])
+        self.assertEqual(entry["coverUrl"], _FAKE_MANGA["coverUrl"])
+        self.assertEqual(entry["demographic"], _FAKE_MANGA["demographic"])
+        self.assertEqual(entry["status"], _FAKE_MANGA["status"])
+        self.assertEqual(entry["score"], _FAKE_MANGA["score"])
+        self.assertEqual(entry["rank"], _FAKE_MANGA["rank"])
+        self.assertEqual(entry["popularity"], _FAKE_MANGA["popularity"])
+        self.assertEqual(entry["members"], _FAKE_MANGA["members"])
+        self.assertEqual(entry["favorites"], _FAKE_MANGA["favorites"])
+        self.assertEqual(entry["authors"], _FAKE_MANGA["authors"])
+        self.assertEqual(entry["serialization"], _FAKE_MANGA["serialization"])
+        self.assertEqual(entry["genres"], _FAKE_MANGA["genres"])
+        self.assertEqual(entry["chapters"], _FAKE_MANGA["chapters"])
+        self.assertEqual(entry["startYear"], _FAKE_MANGA["startYear"])
+        self.assertEqual(entry["endYear"], _FAKE_MANGA["endYear"])
+        self.assertEqual(entry["contentRating"], _FAKE_MANGA["contentRating"])
+        self.assertEqual(entry["malId"], _FAKE_MANGA["malId"])
+        self.assert_response_key_absent(entry, "totalChaptersCount")
+
+    def test_add_to_library_re_add_refreshes_metadata_preserves_state(self):
+        """Re-adding refreshes non-null metadata but keeps status, progress, timestamps."""
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-abc-123",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            client.patch(
+                "/users/me/library/manga-abc-123",
+                json={"library_status": "completed"},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            client.patch(
+                "/users/me/library/manga-abc-123/progress",
+                json={"chapters_read": 10},
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        before = asyncio.run(
+            self.db.fetchone(
+                "SELECT added_at, updated_at, library_status, chapters_read "
+                "FROM user_library WHERE manga_id = ?",
+                "manga-abc-123",
+            )
+        )
+
+        updated_manga = {
+            **_FAKE_MANGA,
+            "title": "Updated Title",
+            "description": "Updated description",
+            "score": 9.5,
+            "genres": ["Action", "Fantasy"],
+        }
+        updated_service = AsyncMock()
+        updated_service.get_by_id = AsyncMock(return_value=updated_manga)
+        self.app.dependency_overrides[get_manga_service] = lambda: updated_service
+
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-abc-123",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        after = asyncio.run(
+            self.db.fetchone(
+                "SELECT title, description, score, genres, library_status, "
+                "chapters_read, added_at, updated_at "
+                "FROM user_library WHERE manga_id = ?",
+                "manga-abc-123",
+            )
+        )
+        self.assertEqual(after["title"], "Updated Title")
+        self.assertEqual(after["description"], "Updated description")
+        self.assertEqual(after["score"], 9.5)
+        self.assertEqual(json.loads(after["genres"]), ["Action", "Fantasy"])
+        self.assertEqual(after["library_status"], "completed")
+        self.assertEqual(after["chapters_read"], 10)
+        self.assertEqual(after["added_at"], before["added_at"])
+        self.assertEqual(after["updated_at"], before["updated_at"])
+
+    def test_add_to_library_absent_manga_creates_valid_entry(self):
+        """When MangaService returns None, POST still creates a valid library entry."""
+        no_manga_service = AsyncMock()
+        no_manga_service.get_by_id = AsyncMock(return_value=None)
+        self.app.dependency_overrides[get_manga_service] = lambda: no_manga_service
+
+        with TestClient(self.app) as client:
+            client.post(
+                "/users/me/library/manga-missing-001",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        entry = data[0]
+        self.assertEqual(entry["id"], "manga-missing-001")
+        self.assertEqual(entry["title"], "manga-missing-001")
+        self.assertIsNone(entry["description"])
+        self.assertIsNone(entry["coverUrl"])
+        self.assertIsNone(entry["demographic"])
+        self.assertIsNone(entry["status"])
+        self.assertIsNone(entry["score"])
+        self.assertIsNone(entry["rank"])
+        self.assertIsNone(entry["popularity"])
+        self.assertIsNone(entry["members"])
+        self.assertIsNone(entry["favorites"])
+        self.assertEqual(entry["authors"], [])
+        self.assertIsNone(entry["serialization"])
+        self.assertEqual(entry["genres"], [])
+        self.assertIsNone(entry["chapters"])
+        self.assertIsNone(entry["startYear"])
+        self.assertIsNone(entry["endYear"])
+        self.assertIsNone(entry["contentRating"])
+        self.assertIsNone(entry["malId"])
+        self.assertIn("library", entry)
+        self.assertEqual(entry["library"]["library_status"], "reading")
+
+    def test_get_library_partial_legacy_row_returns_valid_manga(self):
+        """Rows with only old columns still return valid Manga with nulls/empty lists."""
+        asyncio.run(
+            self.db.execute(
+                "INSERT INTO user_library (firebase_uid, manga_id, added_at, "
+                "library_status, updated_at, title, cover_url, authors, chapters_read, "
+                "content_rating, genres) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                _FAKE_PAYLOAD.uid,
+                "manga-legacy-001",
+                "2024-01-01T00:00:00+00:00",
+                "reading",
+                "2024-01-01T00:00:00+00:00",
+                None,
+                None,
+                "[]",
+                0,
+                "safe",
+                "[]",
+            )
+        )
+        asyncio.run(self.db.commit())
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        entry = data[0]
+        self.assertEqual(entry["id"], "manga-legacy-001")
+        self.assertEqual(entry["title"], "manga-legacy-001")
+        self.assertIsNone(entry["description"])
+        self.assertIsNone(entry["coverUrl"])
+        self.assertIsNone(entry["demographic"])
+        self.assertIsNone(entry["status"])
+        self.assertIsNone(entry["score"])
+        self.assertIsNone(entry["rank"])
+        self.assertIsNone(entry["popularity"])
+        self.assertIsNone(entry["members"])
+        self.assertIsNone(entry["favorites"])
+        self.assertEqual(entry["authors"], [])
+        self.assertIsNone(entry["serialization"])
+        self.assertEqual(entry["genres"], [])
+        self.assertIsNone(entry["chapters"])
+        self.assertIsNone(entry["startYear"])
+        self.assertIsNone(entry["endYear"])
+        self.assertEqual(entry["contentRating"], "safe")
+        self.assertIsNone(entry["malId"])
+        self.assertEqual(entry["library"]["library_status"], "reading")
+
+    def test_get_library_no_upstream_calls_no_n_plus_one(self):
+        """GET /users/me/library performs zero MangaService.get_by_id calls."""
+        no_manga_service = AsyncMock()
+        no_manga_service.get_by_id = AsyncMock(return_value=None)
+        self.app.dependency_overrides[get_manga_service] = lambda: no_manga_service
+
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-no-upstream-001",
+                title="No Upstream",
+                content_rating="safe",
+            )
+        )
+        asyncio.run(
+            UserService(self.db).add_to_library(
+                _FAKE_PAYLOAD.uid,
+                "manga-no-upstream-002",
+                title="No Upstream 2",
+                content_rating="safe",
+            )
+        )
+
+        with TestClient(self.app) as client:
+            response = client.get(
+                "/users/me/library",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(no_manga_service.get_by_id.await_count, 0)
+
+    def test_sqlite_migration_adds_new_columns(self):
+        """A legacy SQLite file gets all new columns after init_db."""
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                """CREATE TABLE user_library (
+                    firebase_uid TEXT NOT NULL,
+                    manga_id TEXT NOT NULL,
+                    added_at TEXT NOT NULL,
+                    PRIMARY KEY (firebase_uid, manga_id)
+                )"""
+            )
+            conn.execute(
+                "INSERT INTO user_library (firebase_uid, manga_id, added_at) "
+                "VALUES (?, ?, ?)",
+                (_FAKE_PAYLOAD.uid, "legacy-manga", "2024-01-01T00:00:00+00:00"),
+            )
+            conn.commit()
+            conn.close()
+
+            migrated_db = asyncio.run(init_db(db_path))
+            try:
+                rows = asyncio.run(
+                    migrated_db.fetchall("PRAGMA table_info(user_library)")
+                )
+                columns = {row["name"]: row for row in rows}
+                expected = [
+                    "description",
+                    "demographic",
+                    "status",
+                    "score",
+                    "rank",
+                    "popularity",
+                    "members",
+                    "favorites",
+                    "serialization",
+                    "genres",
+                    "chapters",
+                    "start_year",
+                    "end_year",
+                    "mal_id",
+                ]
+                for col in expected:
+                    self.assertIn(col, columns)
+
+                self.assertEqual(columns["genres"]["notnull"], 1)
+                self.assertEqual(columns["genres"]["dflt_value"], "'[]'")
+
+                legacy_row = asyncio.run(
+                    migrated_db.fetchone(
+                        "SELECT * FROM user_library WHERE manga_id = ?",
+                        "legacy-manga",
+                    )
+                )
+                self.assertIsNotNone(legacy_row)
+            finally:
+                asyncio.run(migrated_db.close())
+
+            # Repeated init must be idempotent.
+            migrated_db2 = asyncio.run(init_db(db_path))
+            try:
+                rows2 = asyncio.run(
+                    migrated_db2.fetchall("PRAGMA table_info(user_library)")
+                )
+                columns2 = {row["name"] for row in rows2}
+                for col in expected:
+                    self.assertIn(col, columns2)
+                legacy_row2 = asyncio.run(
+                    migrated_db2.fetchone(
+                        "SELECT * FROM user_library WHERE manga_id = ?",
+                        "legacy-manga",
+                    )
+                )
+                self.assertIsNotNone(legacy_row2)
+            finally:
+                asyncio.run(migrated_db2.close())
+        finally:
+            os.remove(db_path)
+
     # -- Library age filtering ------------------------------------------------
 
     def test_get_library_filters_by_age(self):
@@ -953,7 +1415,32 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["id"], "manga-safe-001")
+        entry = data[0]
+        self.assertEqual(entry["id"], "manga-safe-001")
+        # Assert complete Manga response shape on filtered results.
+        for field in (
+            "description",
+            "demographic",
+            "status",
+            "score",
+            "rank",
+            "popularity",
+            "members",
+            "favorites",
+            "serialization",
+            "chapters",
+            "startYear",
+            "endYear",
+            "malId",
+        ):
+            self.assertIn(field, entry)
+        for coll in ("authors", "genres"):
+            self.assertIn(coll, entry)
+            self.assertIsInstance(entry[coll], list)
+        self.assertIn("library", entry)
+        self.assertIn("contentRating", entry)
+        self.assertIn("coverUrl", entry)
+        self.assertNotIn("totalChaptersCount", entry)
 
     def test_get_library_allows_age_appropriate_content(self):
         """Library should show age-appropriate manga for users of sufficient age."""
@@ -998,6 +1485,30 @@ class LibraryEndpointTests(unittest.TestCase):
         ids = {m["id"] for m in data}
         self.assertIn("manga-safe-001", ids)
         self.assertIn("manga-erotica-001", ids)
+        # Assert complete Manga response shape on filtered results.
+        for entry in data:
+            for field in (
+                "description",
+                "demographic",
+                "status",
+                "score",
+                "rank",
+                "popularity",
+                "members",
+                "favorites",
+                "serialization",
+                "chapters",
+                "startYear",
+                "endYear",
+                "malId",
+            ):
+                self.assertIn(field, entry)
+            for coll in ("authors", "genres"):
+                self.assertIn(coll, entry)
+                self.assertIsInstance(entry[coll], list)
+            self.assertIn("library", entry)
+            self.assertIn("contentRating", entry)
+            self.assertNotIn("totalChaptersCount", entry)
 
     def test_get_library_guest_sees_only_safe(self):
         """Guest users (no birth_date) should only see safe manga in library."""
@@ -1030,7 +1541,31 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["id"], "manga-safe-001")
+        entry = data[0]
+        self.assertEqual(entry["id"], "manga-safe-001")
+        # Assert complete Manga response shape on guest-filtered results.
+        for field in (
+            "description",
+            "demographic",
+            "status",
+            "score",
+            "rank",
+            "popularity",
+            "members",
+            "favorites",
+            "serialization",
+            "chapters",
+            "startYear",
+            "endYear",
+            "malId",
+        ):
+            self.assertIn(field, entry)
+        for coll in ("authors", "genres"):
+            self.assertIn(coll, entry)
+            self.assertIsInstance(entry[coll], list)
+        self.assertIn("library", entry)
+        self.assertIn("contentRating", entry)
+        self.assertNotIn("totalChaptersCount", entry)
 
     def test_openapi_library_item_route_includes_patch(self):
         with TestClient(self.app) as client:
