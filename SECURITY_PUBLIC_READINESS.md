@@ -233,7 +233,7 @@ El audit de seguridad completo y sus correcciones están documentados en el issu
 | **Rate limiting** | Sliding-window in-memory: 30 req/min públicos, 60 auth, 10 CSP | `app/core/rate_limiter.py` |
 | **Token revocation** | `check_revoked=True` en `verify_id_token()` | `app/core/firebase_auth.py` |
 | **CSP origin validation** | Solo acepta reports desde origins permitidos | `app/api/security.py` |
-| **Output sanitization** | `html.escape()` en títulos, descripciones y autores | `manga_mapper.py`, `chapter_mapper.py`, `jikan_mapper.py` |
+| **Output sanitization** | Texto de upstreams sin escapar — el frontend sanitiza según su contexto de render | `(responsabilidad del frontend)` |
 | **LRU Cache** | `OrderedDict` con purga de expirados | `app/core/cache.py` |
 | **Error genéricos** | Mensajes unificados para prevenir user enumeration | `app/services/user_service.py` |
 | **Permissions-Policy** | Todas las features restringidas por defecto | `app/core/security_headers.py` |

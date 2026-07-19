@@ -106,7 +106,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 | **Cursor pagination** | Tamper-proof HMAC-signed cursor tokens |
 | **Rate limiting** | Sliding-window in-memory per IP (30 req/min public, 60 auth, 10 CSP). 429 responses include CORS headers. Keyed by route category, not path. `TRUSTED_PROXY` env var for Railway/Cloudflare |
 | **Security headers** | X-Content-Type-Options, X-Frame-Options, HSTS, CSP-RO, Permissions-Policy |
-| **Output sanitization** | `html.escape()` on all upstream text fields (XSS prevention) |
+| **Output sanitization** | Upstream text fields returned raw — frontend sanitizes per rendering context |
 | **Token revocation** | Firebase `check_revoked=True` — revoked sessions rejected immediately |
 | **Caching** | In-memory LRU cache with TTL (1000 entries max) |
 | **Quality gates** | Pre-commit hooks + pre-push (mypy, 318 tests) |
