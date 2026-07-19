@@ -40,7 +40,7 @@ def _extract_scanlation_group_name(item: dict[str, Any]) -> str | None:
         attributes = relationship.get("attributes", {})
         name = attributes.get("name") if isinstance(attributes, dict) else None
         if name:
-            return cast("str", html.escape(name))
+            return html.escape(name)
 
         fallback_id = relationship.get("id")
         if fallback_id:

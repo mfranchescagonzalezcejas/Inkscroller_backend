@@ -154,14 +154,13 @@ class RateLimitMiddleware:
         key = f"rl:{client}:{path}"
 
         if _store.is_limited(key, window, max_reqs):
-            headers_list: list[tuple[bytes, bytes]] = [
-                (b"content-type", b"application/json"),
-                (b"retry-after", str(window).encode()),
-            ]
             resp = JSONResponse(
                 status_code=429,
                 content={"error": "rate_limited", "detail": "Too many requests."},
-                headers=dict(headers_list),
+                headers={
+                    "content-type": "application/json",
+                    "retry-after": str(window),
+                },
             )
             await resp(scope, receive, send)
             return
