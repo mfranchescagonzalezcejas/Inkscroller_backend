@@ -15,8 +15,16 @@ First stable release — TFM delivery.
 - **Age-gated home feed**: `/chapters/latest` now filters by user age and demographic restrictions.
 - **Auth-only dependency**: Firebase auth extracted to a reusable dependency, improving testability.
 - **Tags service layer**: `/manga/tags` endpoint moved behind service layer, reuses shared httpx client.
-- **CI quality gates**: Pre-commit hooks (ruff lint, format) + pre-push (mypy, 279 tests, coverage).
+- **CI quality gates**: Pre-commit hooks (ruff lint, format) + pre-push (mypy, 318 tests, coverage).
 - **ReDoc documentation**: Full OpenAPI docs with server URLs, contact, license, and grouped tags.
+- **Rate limiting**: Sliding-window in-memory rate limiter (30 req/min public, 60 auth, 10 CSP).
+- **Token revocation**: `check_revoked=True` in Firebase `verify_id_token()` — revoked sessions rejected.
+- **CSP origin validation**: `/csp-report` only accepts reports from configured CORS origins.
+- **Output sanitization**: `html.escape()` on all upstream text fields (XSS prevention).
+- **LRU Cache**: Migrated from FIFO to proper LRU eviction with `OrderedDict`.
+- **Permissions-Policy header**: All browser features restricted by default.
+- **Debug lock**: `debug=False` forced in production-like environments.
+- **User enumeration prevention**: Generic error messages for username/birth-date conflicts.
 
 ### Fixes
 

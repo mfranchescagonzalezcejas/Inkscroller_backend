@@ -9,7 +9,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app)
-[![Tests](https://img.shields.io/badge/Tests-279%20%E2%9C%94-0d9488?style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/actions)
+[![Tests](https://img.shields.io/badge/Tests-318%20%E2%9C%94-0d9488?style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/actions)
 [![License](https://img.shields.io/badge/license-MIT-0d9488?style=for-the-badge)](LICENSE)
 
 <br/>
@@ -103,10 +103,13 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 | **Library** | Personal manga library with age-based filtering |
 | **Account deletion** | Full account and data deletion |
 | **Age-gated content** | Content + demographic enforcement by age |
-| **Cursor pagination** | Tamper-proof cursor tokens for union scans |
-| **Security headers** | X-Content-Type-Options, X-Frame-Options, HSTS, CSP |
-| **Caching** | In-memory TTL cache (1000 entries max) |
-| **Quality gates** | Pre-commit hooks + pre-push (mypy, 279 tests) |
+| **Cursor pagination** | Tamper-proof HMAC-signed cursor tokens |
+| **Rate limiting** | Sliding-window in-memory per IP (30 req/min public, 60 auth, 10 CSP) |
+| **Security headers** | X-Content-Type-Options, X-Frame-Options, HSTS, CSP-RO, Permissions-Policy |
+| **Output sanitization** | `html.escape()` on all upstream text fields (XSS prevention) |
+| **Token revocation** | Firebase `check_revoked=True` — revoked sessions rejected immediately |
+| **Caching** | In-memory LRU cache with TTL (1000 entries max) |
+| **Quality gates** | Pre-commit hooks + pre-push (mypy, 318 tests) |
 
 <br/>
 
@@ -127,7 +130,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 | Auth | Firebase Admin SDK |
 | Database | PostgreSQL (Railway) / SQLite (local) |
 | Runtime | Python 3.12 |
-| Testing | unittest (279 tests) |
+| Testing | unittest (318 tests) |
 | Linting | Ruff 0.15.9 |
 | Type checking | mypy |
 | Deployment | Railway (prod / dev / staging) |
@@ -158,7 +161,7 @@ The backend serves as the data layer for the [InkScroller Flutter app](https://g
 | `GET` | `/chapters/latest` | Latest chapters (age-filtered) |
 | `GET` | `/chapters/manga/{id}` | Chapter list by language |
 | `GET` | `/chapters/{id}/pages` | Page images via MangaDex@Home |
-| `POST` | `/csp-report` | CSP violation reports (PII-safe) |
+| `POST` | `/csp-report` | CSP violation reports (origin-validated, PII-safe) |
 
 ### Authenticated
 
@@ -267,8 +270,8 @@ Inkscroller_backend/
 | **ruff lint** | `git commit` | Static analysis, unused imports, bugs |
 | **ruff format** | `git commit` | Code style enforcement |
 | **mypy** | `git push` | Type correctness |
-| **unit tests** | `git push` | 279 tests — all green |
-| **GGA** | `git commit` | AI code review via OpenCode |
+| **unit tests** | `git push` | 318 tests — all green |
+| **GGA** | `git push` | AI code review via OpenCode |
 
 ```bash
 pip install pre-commit

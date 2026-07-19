@@ -9,7 +9,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app)
-[![Tests](https://img.shields.io/badge/Tests-279%20%E2%9C%94-0d9488?style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/actions)
+[![Tests](https://img.shields.io/badge/Tests-318%20%E2%9C%94-0d9488?style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/actions)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-0d9488?style=for-the-badge)](LICENSE)
 
 <br/>
@@ -103,10 +103,13 @@ El backend sirve como capa de datos para la [app Flutter de InkScroller](https:/
 | **Biblioteca** | CRUD con filtrado por edad |
 | **Borrado de cuenta** | Eliminación completa de datos |
 | **Control de edad** | Acceso restringido por contenido + demografía |
-| **Paginación cursor** | Tokens a prueba de manipulaciones |
-| **Cabeceras de seguridad** | X-Content-Type-Options, HSTS, CSP |
-| **Caché** | En memoria con TTL (1000 entradas máx) |
-| **Quality gates** | Pre-commit + pre-push (mypy, 279 tests) |
+| **Paginación cursor** | Tokens HMAC a prueba de manipulaciones |
+| **Rate limiting** | Ventana deslizante por IP (30 req/min público, 60 auth, 10 CSP) |
+| **Cabeceras de seguridad** | X-Content-Type-Options, HSTS, CSP-RO, Permissions-Policy |
+| **Sanitización output** | `html.escape()` en texto de upstreams (prevención XSS) |
+| **Revocación tokens** | `check_revoked=True` en Firebase — sesiones revocadas rechazadas |
+| **Caché** | En memoria LRU con TTL (1000 entradas máx) |
+| **Quality gates** | Pre-commit + pre-push (mypy, 318 tests) |
 
 <br/>
 
@@ -127,7 +130,7 @@ El backend sirve como capa de datos para la [app Flutter de InkScroller](https:/
 | Auth | Firebase Admin SDK |
 | Base de datos | PostgreSQL (Railway) / SQLite (local) |
 | Runtime | Python 3.12 |
-| Tests | unittest (279 tests) |
+| Tests | unittest (318 tests) |
 | Linting | Ruff 0.15.9 |
 | Type checking | mypy |
 | Despliegue | Railway (prod / dev / staging) |
@@ -266,8 +269,8 @@ Inkscroller_backend/
 | **ruff lint** | `git commit` | Análisis estático, imports no usados |
 | **ruff format** | `git commit` | Formato de código |
 | **mypy** | `git push` | Corrección de tipos |
-| **unit tests** | `git push` | 279 tests — todos verdes |
-| **GGA** | `git commit` | Code review con IA via OpenCode |
+| **unit tests** | `git push` | 318 tests — todos verdes |
+| **GGA** | `git push` | Code review con IA via OpenCode |
 
 ```bash
 pip install pre-commit

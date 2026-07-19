@@ -220,4 +220,31 @@ Ejecutar esta checklist por release y en auditorías periódicas:
 - Riesgo residual conocido: refs ocultos de MR/PR pueden conservar historial viejo.
 - Decisión operativa actual (portfolio): riesgo bajo aceptado + auditorías periódicas.
 
-_Última actualización: 2026-05-05 — documento migrado a estado post-publicación/mantenimiento_
+---
+
+## 7. Novedades — Security Audit v1.0.0 (Jul 2026)
+
+El audit de seguridad completo y sus correcciones están documentados en el issue [#129](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/issues/129) y PR [#130](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/pull/130).
+
+### Nuevas defensas implementadas
+
+| Medida | Descripción | Archivo clave |
+|--------|-------------|---------------|
+| **Rate limiting** | Sliding-window in-memory: 30 req/min públicos, 60 auth, 10 CSP | `app/core/rate_limiter.py` |
+| **Token revocation** | `check_revoked=True` en `verify_id_token()` | `app/core/firebase_auth.py` |
+| **CSP origin validation** | Solo acepta reports desde origins permitidos | `app/api/security.py` |
+| **Output sanitization** | `html.escape()` en títulos, descripciones y autores | `manga_mapper.py`, `chapter_mapper.py`, `jikan_mapper.py` |
+| **LRU Cache** | `OrderedDict` con purga de expirados | `app/core/cache.py` |
+| **Error genéricos** | Mensajes unificados para prevenir user enumeration | `app/services/user_service.py` |
+| **Permissions-Policy** | Todas las features restringidas por defecto | `app/core/security_headers.py` |
+| **debug forzado** | `debug=False` en entornos production-like | `app/core/config.py` |
+
+### Próximas mejoras recomendadas
+
+- Migrar rate limiter a Redis para soporte multi-instancia
+- Agregar sanitización HTML en frontend como defensa en profundidad
+- Monitorear logs de CSP reports para detectar ataques tempranos
+
+---
+
+_Última actualización: 2026-07-19 — post-audit v1.0.0_
