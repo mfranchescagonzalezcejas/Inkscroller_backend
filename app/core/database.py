@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS user_library (
     start_year     INTEGER,
     end_year       INTEGER,
     mal_id         INTEGER,
+    manga_type     TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -99,6 +100,7 @@ _POSTGRES_MIGRATIONS = [
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS start_year INTEGER",
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS end_year INTEGER",
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS mal_id INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS manga_type TEXT",
 ]
 
 _POSTGRES_DDL = """
@@ -151,6 +153,7 @@ CREATE TABLE IF NOT EXISTS user_library (
     start_year     INTEGER,
     end_year       INTEGER,
     mal_id         INTEGER,
+    manga_type     TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -245,6 +248,7 @@ async def _migrate_sqlite_columns(conn: object) -> None:
         ("start_year", "ALTER TABLE user_library ADD COLUMN start_year INTEGER"),
         ("end_year", "ALTER TABLE user_library ADD COLUMN end_year INTEGER"),
         ("mal_id", "ALTER TABLE user_library ADD COLUMN mal_id INTEGER"),
+        ("manga_type", "ALTER TABLE user_library ADD COLUMN manga_type TEXT"),
     ]
     for col, ddl in migrations:
         if col not in columns:

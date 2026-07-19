@@ -30,7 +30,9 @@ class FakeMangaService:
         self.search_queries = []
         self.list_calls = []
 
-    async def get_by_id(self, manga_id: str, **kwargs):
+    async def get_by_id(
+        self, manga_id: str, user_age=None, skip_age_filter=False, language=None
+    ):
         self.received_id = manga_id
         return {
             "id": manga_id,

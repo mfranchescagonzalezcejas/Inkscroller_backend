@@ -7,23 +7,33 @@ from typing import Any
 COVER_BASE_URL = "https://uploads.mangadex.org/covers"
 
 
-def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
+def map_mangadex_manga(
+    item: dict[str, Any],
+    language: str | None = None,
+) -> dict[str, Any]:
     """Map a raw MangaDex API item to a standardised manga dict.
 
     Extracts title, description, demographic, status, cover URL, content
     rating, and genre tags. Statistics fields are left as ``None`` and
     filled later by :func:`apply_statistics`.
+
+    When ``language`` is provided, resolves title and description in that
+    language, falling back to ``en`` then to the first available value.
     """
     attributes = item.get("attributes", {})
     relationships = item.get("relationships", [])
 
-    # Title
+    # Title (language-aware: requested → en → first available)
     titles = attributes.get("title", {})
-    title = titles.get("en") or next(iter(titles.values()), "Unknown")
+    title = (
+        titles.get(language)
+        or titles.get("en")
+        or next(iter(titles.values()), "Unknown")
+    )
 
-    # Description (base, Jikan la mejorará)
+    # Description (language-aware: requested → en → None)
     descriptions = attributes.get("description", {})
-    description = descriptions.get("en")
+    description = descriptions.get(language) or descriptions.get("en")
 
     # Demographic
     demographic = attributes.get("publicationDemographic")

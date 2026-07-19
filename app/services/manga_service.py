@@ -545,6 +545,7 @@ class MangaService:
         manga_id: str,
         user_age: int | None = None,
         skip_age_filter: bool = False,
+        language: str | None = None,
     ) -> dict | None:
         """Get a single manga by MangaDex ID with optional Jikan enrichment.
 
@@ -556,12 +557,14 @@ class MangaService:
             manga_id: MangaDex UUID.
             user_age: User age for content/demographic gating.
             skip_age_filter: Bypass age checks (internal use only).
+            language: Language code for title/description resolution.
 
         Returns:
             Mapped manga dict, or ``None`` if age-restricted or not found.
 
         """
-        cache_key = f"manga:{manga_id}"
+        lang_suffix = f":{language}" if language else ""
+        cache_key = f"manga:{manga_id}{lang_suffix}"
         cached = self._cache.get(cache_key)
 
         if cached is not None:
@@ -586,7 +589,7 @@ class MangaService:
             return None
 
         # Base MangaDex — always cache raw data
-        result = map_mangadex_manga(item)
+        result = map_mangadex_manga(item, language=language)
 
         # Apply MangaDex statistics (rating, follows) to populate score/popularity
         try:

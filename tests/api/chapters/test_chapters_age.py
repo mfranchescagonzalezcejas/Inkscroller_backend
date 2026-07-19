@@ -73,6 +73,7 @@ class FakeMangaServiceWithAge:
         manga_id: str,
         user_age: int | None = None,
         skip_age_filter: bool = False,
+        language: str | None = None,
     ) -> dict | None:
         manga = self.manga_db.get(manga_id)
         if manga is None:

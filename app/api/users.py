@@ -134,6 +134,7 @@ async def get_library(
             "favorites",
             "serialization",
             "chapters",
+            "type",
         ):
             val = enriched.get(key)
             if val is not None:
@@ -166,6 +167,7 @@ async def get_library(
             start_year=entry.get("start_year"),
             end_year=entry.get("end_year"),
             mal_id=entry.get("mal_id"),
+            manga_type=entry.get("type"),
         )
 
     # Filter by age
@@ -178,6 +180,7 @@ async def get_library(
         Manga(
             id=entry["manga_id"],
             title=entry["title"] or entry["manga_id"],
+            type=entry.get("type"),
             description=entry["description"],
             coverUrl=entry["cover_url"],
             demographic=entry["demographic"],
@@ -239,6 +242,7 @@ async def add_to_library(
         start_year=manga.get("startYear") if manga else None,
         end_year=manga.get("endYear") if manga else None,
         mal_id=manga.get("malId") if manga else None,
+        manga_type=manga.get("type") if manga else None,
     )
 
 
