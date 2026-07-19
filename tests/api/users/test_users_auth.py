@@ -1206,7 +1206,7 @@ class LibraryEndpointTests(unittest.TestCase):
         self.assertEqual(entry["library"]["library_status"], "reading")
 
     def test_get_library_partial_legacy_row_returns_valid_manga(self):
-        """Rows with only old columns still return valid Manga with nulls/empty lists."""
+        """Legacy rows get lazy-enriched on read; stored fields preserved."""
         asyncio.run(
             self.db.execute(
                 "INSERT INTO user_library (firebase_uid, manga_id, added_at, "
@@ -1238,39 +1238,44 @@ class LibraryEndpointTests(unittest.TestCase):
         data = response.json()
         self.assertEqual(len(data), 1)
         entry = data[0]
+        # Stored fields preserved (not overwritten by lazy enrichment).
         self.assertEqual(entry["id"], "manga-legacy-001")
-        self.assertEqual(entry["title"], "manga-legacy-001")
-        self.assertIsNone(entry["description"])
         self.assertIsNone(entry["coverUrl"])
-        self.assertIsNone(entry["demographic"])
-        self.assertIsNone(entry["status"])
-        self.assertIsNone(entry["score"])
-        self.assertIsNone(entry["rank"])
-        self.assertIsNone(entry["popularity"])
-        self.assertIsNone(entry["members"])
-        self.assertIsNone(entry["favorites"])
-        self.assertEqual(entry["authors"], [])
-        self.assertIsNone(entry["serialization"])
-        self.assertEqual(entry["genres"], [])
-        self.assertIsNone(entry["chapters"])
-        self.assertIsNone(entry["startYear"])
-        self.assertIsNone(entry["endYear"])
         self.assertEqual(entry["contentRating"], "safe")
-        self.assertIsNone(entry["malId"])
+        # Lazy enrichment filled metadata from _FAKE_MANGA mock.
+        self.assertEqual(entry["title"], "Test Manga")
+        self.assertEqual(entry["description"], "A test manga")
+        self.assertEqual(entry["demographic"], "shounen")
+        self.assertEqual(entry["status"], "reading")
+        self.assertEqual(entry["score"], 8.5)
+        self.assertEqual(entry["rank"], 12)
+        self.assertEqual(entry["popularity"], 150)
+        self.assertEqual(entry["members"], 2000)
+        self.assertEqual(entry["favorites"], 80)
+        self.assertEqual(entry["authors"], ["Test Author"])
+        self.assertEqual(entry["serialization"], "Weekly Shonen Jump")
+        self.assertEqual(entry["genres"], ["Action", "Adventure"])
+        self.assertEqual(entry["chapters"], 42)
+        self.assertEqual(entry["startYear"], 2020)
+        self.assertEqual(entry["endYear"], 2022)
+        self.assertEqual(entry["malId"], 12345)
+        # Library metadata preserved.
         self.assertEqual(entry["library"]["library_status"], "reading")
 
     def test_get_library_no_upstream_calls_no_n_plus_one(self):
-        """GET /users/me/library performs zero MangaService.get_by_id calls."""
+        """GET for already-enriched entries performs zero get_by_id calls."""
         no_manga_service = AsyncMock()
         no_manga_service.get_by_id = AsyncMock(return_value=None)
         self.app.dependency_overrides[get_manga_service] = lambda: no_manga_service
 
+        # Simulate already-enriched rows by setting score to non-NULL.
         asyncio.run(
             UserService(self.db).add_to_library(
                 _FAKE_PAYLOAD.uid,
                 "manga-no-upstream-001",
                 title="No Upstream",
                 content_rating="safe",
+                score=8.0,
             )
         )
         asyncio.run(
@@ -1279,6 +1284,7 @@ class LibraryEndpointTests(unittest.TestCase):
                 "manga-no-upstream-002",
                 title="No Upstream 2",
                 content_rating="safe",
+                score=7.5,
             )
         )
 

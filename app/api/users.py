@@ -90,14 +90,59 @@ async def update_preferences(
 # ── Library ───────────────────────────────────────────────────────────────────
 
 
+# Mapping from manga_service.get_by_id() camelCase keys to entry snake_case keys.
+_CAMEL_TO_SNAKE = {
+    "startYear": "start_year",
+    "endYear": "end_year",
+    "malId": "mal_id",
+}
+
+
 @router.get("/me/library", response_model=list[Manga])
 async def get_library(
     current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
+    manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ) -> list[Manga]:
     """Return the user's library from cached SQLite data — email verification required."""
     entries = await user_service.get_library_entries(current_user.uid)
+
+    # Lazy enrichment: entries with NULL score haven't been enriched yet.
+    # Fetch from MangaDex on read and backfill the entry dict in place.
+    for entry in entries:
+        if entry.get("score") is not None:
+            continue
+        enriched = await manga_service.get_by_id(
+            entry["manga_id"], skip_age_filter=True
+        )
+        if not enriched:
+            continue
+        for camel, snake in _CAMEL_TO_SNAKE.items():
+            val = enriched.get(camel)
+            if val is not None:
+                entry[snake] = val
+        for key in (
+            "title",
+            "description",
+            "demographic",
+            "status",
+            "score",
+            "rank",
+            "popularity",
+            "members",
+            "favorites",
+            "serialization",
+            "chapters",
+        ):
+            val = enriched.get(key)
+            if val is not None:
+                entry[key] = val
+        if enriched.get("authors"):
+            entry["authors"] = enriched["authors"]
+        if enriched.get("genres"):
+            entry["genres"] = enriched["genres"]
+
     # Filter by age
     filtered = []
     for entry in entries:
