@@ -65,31 +65,47 @@ class TestFilterByAge(unittest.TestCase):
         self.service = MangaService(self.client, self.jikan, self.cache)
 
     def test_filter_by_age_guest(self) -> None:
-        """Filter by age guest."""
+        """Filter by age guest.
+
+        Safe content without demographic is now accessible (#128 fix).
+        """
         manga_list = [
             {"id": "1", "contentRating": "safe", "demographic": "shounen"},
             {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
             {"id": "3", "contentRating": None, "demographic": "shounen"},
-            {"id": "4", "contentRating": "safe", "demographic": None},  # doujinshi
+            {
+                "id": "4",
+                "contentRating": "safe",
+                "demographic": None,
+            },  # doujinshi (now OK)
         ]
         result = self.service._filter_by_age(manga_list, None)
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result), 3)
         self.assertEqual(result[0]["id"], "1")
         self.assertEqual(result[1]["id"], "3")
+        self.assertEqual(result[2]["id"], "4")
 
     def test_filter_by_age_16(self) -> None:
-        """Filter by age 16."""
+        """Filter by age 16.
+
+        Safe content without demographic is now accessible (#128 fix).
+        """
         manga_list = [
             {"id": "1", "contentRating": "safe", "demographic": "shounen"},
             {"id": "2", "contentRating": "suggestive", "demographic": "shounen"},
             {"id": "3", "contentRating": None, "demographic": "shounen"},
-            {"id": "4", "contentRating": "safe", "demographic": None},  # doujinshi
+            {
+                "id": "4",
+                "contentRating": "safe",
+                "demographic": None,
+            },  # doujinshi (now OK)
         ]
         result = self.service._filter_by_age(manga_list, 16)
-        self.assertEqual(len(result), 3)
+        self.assertEqual(len(result), 4)
         self.assertEqual(result[0]["id"], "1")
         self.assertEqual(result[1]["id"], "2")
         self.assertEqual(result[2]["id"], "3")
+        self.assertEqual(result[3]["id"], "4")
 
     def test_filter_by_age_18_with_doujinshi(self) -> None:
         """Filter by age 18 with doujinshi."""
@@ -213,16 +229,15 @@ class TestSearchByAge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["data"][0]["id"], "1")
 
     async def test_search_guest_filters_doujinshi(self) -> None:
-        """Guest (user_age=None) does NOT see content without demographic."""
+        """Guest sees safe content without demographic (#128 fix)."""
         raw_items = [
             _raw_mangadex_item("1", "safe", "shounen"),
-            _raw_mangadex_item("2", "safe", None),  # doujinshi
+            _raw_mangadex_item("2", "safe", None),  # doujinshi, but safe → now OK
         ]
         self.client.search_manga.return_value = {"data": raw_items, "total": 2}
 
         result = await self.service.search("test", user_age=None)
-        self.assertEqual(len(result["data"]), 1)
-        self.assertEqual(result["data"][0]["id"], "1")
+        self.assertEqual(len(result["data"]), 2)
 
     async def test_search_18_sees_doujinshi(self) -> None:
         """User 18+ sees doujinshi content."""

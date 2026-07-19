@@ -66,7 +66,11 @@ async def _require_manga_access(
                 ),
             )
 
-        if not can_access_demographic(full_manga.get("demographic"), user_age):
+        if not can_access_demographic(
+            full_manga.get("demographic"),
+            user_age,
+            full_manga.get("contentRating"),
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="This manga is age-restricted due to its demographic content",
