@@ -204,7 +204,8 @@ class MangaService:
 
         Applies two gates:
         1. Demographic: titles without a publication demographic (doujinshi/self-published)
-           are restricted to registered adults (18+).
+           are restricted to registered adults (18+), unless the content rating is already
+           ``safe`` — in which case the demographic gate is skipped (#128).
         2. Content rating: standard age-tiered access (safe/suggestive/erotica/pornographic).
         """
         return [
