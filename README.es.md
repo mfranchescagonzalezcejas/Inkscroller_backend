@@ -104,7 +104,7 @@ El backend sirve como capa de datos para la [app Flutter de InkScroller](https:/
 | **Borrado de cuenta** | Eliminación completa de datos |
 | **Control de edad** | Acceso restringido por contenido + demografía |
 | **Paginación cursor** | Tokens HMAC a prueba de manipulaciones |
-| **Rate limiting** | Ventana deslizante por IP (30 req/min público, 60 auth, 10 CSP) |
+| **Rate limiting** | Ventana deslizante por IP (30 req/min público, 60 auth, 10 CSP). Responses 429 incluyen CORS. Key por categoría de ruta. `TRUSTED_PROXY` para Railway/Cloudflare |
 | **Cabeceras de seguridad** | X-Content-Type-Options, HSTS, CSP-RO, Permissions-Policy |
 | **Sanitización output** | `html.escape()` en texto de upstreams (prevención XSS) |
 | **Revocación tokens** | `check_revoked=True` en Firebase — sesiones revocadas rechazadas |

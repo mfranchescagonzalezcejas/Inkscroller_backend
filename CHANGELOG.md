@@ -25,6 +25,11 @@ First stable release — TFM delivery.
 - **Permissions-Policy header**: All browser features restricted by default.
 - **Debug lock**: `debug=False` forced in production-like environments.
 - **User enumeration prevention**: Generic error messages for username/birth-date conflicts.
+- **Rate-limit CORS**: 429 responses include `Access-Control-Allow-Origin` so browsers surface the error to frontend code.
+- **Trusted proxy support**: `TRUSTED_PROXY` env var to use `X-Forwarded-For` behind Railway/Cloudflare.
+- **Path-churn prevention**: Rate-limiter keys by route category, not raw path (max 3 buckets per client).
+- **Body middleware O(n)**: Replaced `list.pop(0)` (quadratic) with index counter (linear).
+- **CSP log sanitizer**: Strips all control characters below `0x20` except tab.
 
 ### Fixes
 

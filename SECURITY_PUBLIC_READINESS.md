@@ -238,13 +238,18 @@ El audit de seguridad completo y sus correcciones están documentados en el issu
 | **Error genéricos** | Mensajes unificados para prevenir user enumeration | `app/services/user_service.py` |
 | **Permissions-Policy** | Todas las features restringidas por defecto | `app/core/security_headers.py` |
 | **debug forzado** | `debug=False` en entornos production-like | `app/core/config.py` |
+| **Trusted proxy** | `TRUSTED_PROXY` env var — Railway/Cloudflare pasa IP real via X-Forwarded-For | `app/core/rate_limiter.py` |
+| **CORS en 429** | Rate-limit responses incluyen `Access-Control-Allow-Origin` | `app/core/rate_limiter.py` |
+| **Path-churn prevention** | Rate-limiter key por categoría, no por path (máx 3 buckets/cliente) | `app/core/rate_limiter.py` |
+| **Body middleware O(n)** | `list.pop(0)` reemplazado por índice — evita costo cuadrático | `main.py` |
+| **CSP log hardening** | Caracteres de control < 0x20 (excepto tab) eliminados del log | `app/api/security.py` |
 
 ### Próximas mejoras recomendadas
 
-- Migrar rate limiter a Redis para soporte multi-instancia
+- Migrar rate limiter a Redis para soporte multi-instancia (actualmente in-memory, se pierde al reiniciar)
 - Agregar sanitización HTML en frontend como defensa en profundidad
 - Monitorear logs de CSP reports para detectar ataques tempranos
 
 ---
 
-_Última actualización: 2026-07-19 — post-audit v1.0.0_
+_Última actualización: 2026-07-19 — post-audit v1.0.0 — todos los hallazgos corregidos_
