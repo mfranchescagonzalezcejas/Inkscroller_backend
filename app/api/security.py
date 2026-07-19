@@ -30,9 +30,14 @@ class CSPReportEnvelope(BaseModel):
     csp_report: dict[str, object] = Field(alias="csp-report")
 
 
+_CONTROL_CHARS = str.maketrans({chr(c): " " for c in range(32) if c not in (9, 10, 13)})
+
+
 def _sanitize(value: object) -> str:
     """Truncate and strip control chars from a loggable field value."""
     s = str(value)[:_MAX_LOG_FIELD_LENGTH]
+    # ponytail: strip all control chars < 0x20 except \t, \n, \r
+    s = s.translate(_CONTROL_CHARS)
     return s.replace("\n", " ").replace("\r", " ")
 
 

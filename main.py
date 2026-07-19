@@ -125,6 +125,7 @@ class RequestBodyLimitMiddleware:
 
         total = 0
         messages: list[dict] = []
+        msg_index = 0
         more_body = True
 
         while more_body:
@@ -143,8 +144,11 @@ class RequestBodyLimitMiddleware:
             more_body = message.get("more_body", False)
 
         async def wrapped_receive() -> dict:
-            if messages:
-                return messages.pop(0)
+            nonlocal msg_index
+            if msg_index < len(messages):
+                idx = msg_index
+                msg_index += 1
+                return messages[idx]
             return cast("dict", await receive())
 
         await self.app(scope, wrapped_receive, send)

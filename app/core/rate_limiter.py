@@ -4,6 +4,7 @@ No external dependencies — uses ``time.monotonic()`` and a dict of
 (deque of timestamps) per key.  Auto-evicts stale entries on access.
 """
 
+import os
 import time
 from collections import defaultdict, deque
 
@@ -17,6 +18,13 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 PUBLIC_ENDPOINT_LIMIT: tuple[int, int] = (60, 30)  # 30 req/min
 AUTH_ENDPOINT_LIMIT: tuple[int, int] = (60, 60)  # 60 req/min (more generous)
 STRICT_LIMIT: tuple[int, int] = (60, 10)  # 10 req/min (CSP report, etc.)
+
+# ── Trusted proxy detection ─────────────────────────────────────────────────
+# When behind a reverse proxy that validates and strips external
+# X-Forwarded-For (e.g. Railway, Cloudflare), set TRUSTED_PROXY=true
+# so the rate limiter uses the original client IP, not the proxy IP.
+
+_TRUSTED_PROXY = os.getenv("TRUSTED_PROXY", "").lower() in {"1", "true", "yes"}
 
 # ── Route category helpers ──────────────────────────────────────────────────
 
@@ -41,14 +49,12 @@ _MAX_BUCKETS = 10_000
 class _SlidingWindowStore:
     """Dict-of-deques backed sliding window rate counter.
 
-    Bounded to ``_MAX_BUCKETS`` distinct keys.  When the limit is reached
-    the oldest-bucket scan evicts one — O(n) per eviction, acceptable for
-    a single worker since subsequent calls skip the scan until the map
-    fills again.
+    Each key is ``rl:<client-host>:<category>`` — at most 3 buckets per
+    client (public, auth, strict), preventing path-churn attacks.
 
-    Thread-safe enough for GIL-protected ASGI because individual dict/
-    deque operations are atomic under the GIL and we never iterate while
-    mutating (each request touches exactly one key at a time).
+    Bounded to ``_MAX_BUCKETS`` distinct keys.  Thread-safe enough for
+    GIL-protected ASGI because individual dict/deque operations are
+    atomic under the GIL.
     """
 
     def __init__(self) -> None:
@@ -92,17 +98,55 @@ def reset_for_tests() -> None:
     _store.reset()
 
 
+# ── Client-IP resolution ────────────────────────────────────────────────────
+
+
+def _client_ip_from_scope(scope: Scope) -> str:
+    """Resolve the effective client IP from the ASGI scope.
+
+    When ``TRUSTED_PROXY=true`` the ``X-Forwarded-For`` header is used
+    (the proxy is responsible for stripping external headers).
+    Otherwise the direct TCP peer address is used — unspoofable but
+    behind a proxy it identifies the proxy, not the end user.
+    """
+    if _TRUSTED_PROXY:
+        headers = dict(scope.get("headers", []))
+        forwarded = headers.get(b"x-forwarded-for", b"").decode()
+        return forwarded.split(",")[0].strip() or "unknown"
+    client = scope.get("client")
+    return client[0] if client else "unknown"
+
+
+def _rate_key(scope: Scope, path: str) -> str:
+    """Build a rate-limit key scoped by client and route category.
+
+    Using the route category instead of the raw path prevents path-churn
+    attacks (unlimited unique buckets per client).
+    """
+    cat = _route_category(path)
+    return f"rl:{_client_ip_from_scope(scope)}:{cat[0]}s:{cat[1]}r"
+
+
+# ── CORS helpers for 429 responses ──────────────────────────────────────────
+
+
+def _cors_headers(scope: Scope) -> dict[str, str]:
+    """Return CORS headers matching the request's Origin, if allowed."""
+    headers = dict(scope.get("headers", []))
+    origin = headers.get(b"origin", b"").decode()
+    if not origin:
+        return {}
+    allowed = os.getenv("CORS_ORIGINS", "")
+    if "*" in allowed.split(","):
+        return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+    for trusted in allowed.split(","):
+        trusted = trusted.strip()
+        if trusted and trusted == origin:
+            return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+    return {}
+
+
 # ── Callable dependency for FastAPI routes ──────────────────────────────────
-
-# We use the direct TCP peer address (``request.client``) — a direct caller
-# can spoof ``X-Forwarded-For`` to bypass limits, so we never trust it
-# unless the deployment validates it at the reverse-proxy layer.
-
-
-def _client_key(request: Request) -> str:
-    """Build a rate-limit key from the direct TCP peer IP."""
-    client = request.client
-    return f"rl:{client.host}" if client else "rl:unknown"
 
 
 async def rate_limit(
@@ -111,9 +155,6 @@ async def rate_limit(
     max_requests: int | None = None,
 ) -> None:
     """FastAPI dependency: reject with 429 if the client exceeds the limit.
-
-    Uses the direct TCP peer address — callers cannot bypass limits by
-    spoofing ``X-Forwarded-For``.
 
     Usage::
 
@@ -131,7 +172,7 @@ async def rate_limit(
     """
     if window is None or max_requests is None:
         window, max_requests = _route_category(request.url.path)
-    key = _client_key(request) + request.url.path
+    key = _rate_key(request.scope, request.url.path)
     if _store.is_limited(key, window, max_requests):
         raise _RateLimitError()
 
@@ -144,13 +185,11 @@ class _RateLimitError(Exception):
 
 
 class RateLimitMiddleware:
-    """ASGI middleware that applies sliding-window rate limits per IP + path.
+    """ASGI middleware that applies sliding-window rate limits per client + route category.
 
-    Uses the direct TCP peer address from ``scope["client"]`` — callers
-    cannot bypass limits by spoofing ``X-Forwarded-For``.
-
-    Falls back to the per-route defaults from PUBLIC_ENDPOINT_LIMIT,
-    AUTH_ENDPOINT_LIMIT, and STRICT_LIMIT.
+    Keyed by route category (public/auth/strict) instead of raw path to
+    prevent path-churn bucket exhaustion.  Includes CORS headers in 429
+    responses so browsers can surface the rate-limit error to frontend code.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -163,17 +202,18 @@ class RateLimitMiddleware:
 
         path = scope.get("path", "/")
         window, max_reqs = _route_category(path)
-        client = scope.get("client", ("unknown", 0))
-        key = f"rl:{client[0]}:{path}"
+        key = _rate_key(scope, path)
 
         if _store.is_limited(key, window, max_reqs):
+            headers: dict[str, str] = {
+                "content-type": "application/json",
+                "retry-after": str(window),
+            }
+            headers.update(_cors_headers(scope))
             resp = JSONResponse(
                 status_code=429,
                 content={"error": "rate_limited", "detail": "Too many requests."},
-                headers={
-                    "content-type": "application/json",
-                    "retry-after": str(window),
-                },
+                headers=headers,
             )
             await resp(scope, receive, send)
             return
