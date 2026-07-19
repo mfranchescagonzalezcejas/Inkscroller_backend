@@ -11,6 +11,7 @@ def _make_manga(manga_id: str, content_rating: str | None = None) -> dict:
     return {
         "id": manga_id,
         "title": f"Manga {manga_id}",
+        "type": None,
         "description": None,
         "coverUrl": None,
         "demographic": None,

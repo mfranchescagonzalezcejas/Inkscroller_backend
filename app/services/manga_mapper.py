@@ -64,6 +64,17 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
         attributes.get("availableTranslatedLanguages") or []
     )
 
+    # Type mapping from originalLanguage
+    _ORIGINAL_LANGUAGE_TO_TYPE = {
+        "ja": "manga",
+        "ko": "manhwa",
+        "zh": "manhua",
+    }
+    original_language = attributes.get("originalLanguage")
+    manga_type = (
+        _ORIGINAL_LANGUAGE_TO_TYPE.get(original_language) if original_language else None
+    )
+
     # Tags - extract genre names from attributes
     tags = attributes.get("tags", [])
     genre_names = [
@@ -75,6 +86,7 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": item.get("id"),
         "title": title,
+        "type": manga_type,
         "description": description,
         "coverUrl": cover_url,
         "demographic": demographic,
