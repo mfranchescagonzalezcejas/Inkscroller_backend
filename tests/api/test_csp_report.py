@@ -87,6 +87,35 @@ class CSPReportTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 204)
 
+    def test_post_csp_report_rejects_untrusted_origin_in_production_mode(
+        self,
+    ):
+        """CSP reports from untrusted origins are rejected in production mode with explicit CORS origins."""
+        import os
+        from unittest.mock import patch as mock_patch
+
+        with mock_patch.dict(
+            os.environ,
+            {
+                "ENVIRONMENT": "production",
+                "CORS_ORIGINS": "https://frontend.example.com",
+            },
+            clear=True,
+        ):
+            from app.core.config import Settings
+
+            prod_settings = Settings()
+
+        with mock_patch("app.api.security.settings", prod_settings):
+            with TestClient(self.app) as client:
+                response = client.post(
+                    "/csp-report",
+                    json={"csp-report": {"effective-directive": "script-src"}},
+                    headers=self._headers("https://evil.com"),
+                )
+
+        self.assertEqual(response.status_code, 204)
+
     def test_post_csp_report_sanitizes_field_values(self):
         """Values with newlines or >200 chars are truncated/cleaned."""
         with patch("app.api.security.logger") as mock_logger:

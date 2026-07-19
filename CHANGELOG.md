@@ -50,7 +50,7 @@ First stable release — TFM delivery.
 Dual adversarial review results:
 - `total` pagination metadata now reflects age-filtered count
 - Jikan enrichment no longer overwrites `demographic` or `contentRating`
-- `SimpleCache` bounded to 1000 entries with FIFO eviction
+- `SimpleCache` bounded to 1000 entries (later upgraded to LRU eviction in security audit #129)
 - `/chapters/latest` age-gating properly normalizes demographic values
 
 ### Docs
