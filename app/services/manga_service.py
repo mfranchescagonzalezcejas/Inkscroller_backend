@@ -68,11 +68,13 @@ class MangaService:
         demographics: list[str],
         user_age: int | None,
         order: str | None = None,
-        max_offset: int = 1000,
+        max_offset: int = 400,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page.
 
         Scans up to ``max_offset`` items per fetch to limit upstream requests.
+        Default 400 (4 pages @ 100 items) avoids long timeouts when the
+        user has broad filters (all demographics + all content ratings).
         """
         merged: dict[str, dict] = {}
         for fetch in fetches:
