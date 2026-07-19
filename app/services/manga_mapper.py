@@ -79,6 +79,7 @@ def map_mangadex_manga(
         "ja": "manga",
         "ko": "manhwa",
         "zh": "manhua",
+        "zh-hk": "manhua",
     }
     original_language = attributes.get("originalLanguage")
     manga_type = (

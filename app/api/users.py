@@ -134,7 +134,6 @@ async def get_library(
             "favorites",
             "serialization",
             "chapters",
-            "type",
         ):
             val = enriched.get(key)
             if val is not None:
@@ -143,6 +142,10 @@ async def get_library(
             entry["authors"] = enriched["authors"]
         if enriched.get("genres"):
             entry["genres"] = enriched["genres"]
+        # Map enriched "type" (from mapper) to DB column "manga_type"
+        manga_type_val = enriched.get("type")
+        if manga_type_val is not None:
+            entry["manga_type"] = manga_type_val
 
         # Persist the enriched data back to user_library so subsequent
         # reads are fast and don't depend on the lazy enrichment path.
@@ -167,7 +170,7 @@ async def get_library(
             start_year=entry.get("start_year"),
             end_year=entry.get("end_year"),
             mal_id=entry.get("mal_id"),
-            manga_type=entry.get("type"),
+            manga_type=entry.get("manga_type"),
         )
 
     # Filter by age
@@ -180,7 +183,7 @@ async def get_library(
         Manga(
             id=entry["manga_id"],
             title=entry["title"] or entry["manga_id"],
-            type=entry.get("type"),
+            type=entry.get("manga_type"),
             description=entry["description"],
             coverUrl=entry["cover_url"],
             demographic=entry["demographic"],

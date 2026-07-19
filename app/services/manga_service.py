@@ -70,11 +70,25 @@ class MangaService:
         max_offset: int,
         user_age: int | None,
     ) -> list[dict]:
-        """Scan one demographic group and return all mapped items (no dedup)."""
+        """Scan one demographic group and return all mapped items (no dedup).
+
+        If the upstream call fails, logs a warning and returns whatever items
+        were collected so far — one failed demographic does not block the
+        entire union scan.
+        """
         items: list[dict] = []
         offset = 0
         while True:
-            payload = await fetch(offset)
+            try:
+                payload = await fetch(offset)
+            except Exception:
+                logger.warning(
+                    "Union scan fetch failed at offset %d — returning %d items",
+                    offset,
+                    len(items),
+                    exc_info=True,
+                )
+                return items
             raw_items = payload.get("data", []) if isinstance(payload, dict) else []
             # ponytail: skip statistics during scan — full stats are fetched
             # later for the page the user actually requests.
@@ -107,11 +121,18 @@ class MangaService:
         with broad demographic+content-rating filters.
         """
         all_fetch_results = await asyncio.gather(
-            *[self._scan_fetch(fetch, max_offset, user_age) for fetch in fetches]
+            *[self._scan_fetch(fetch, max_offset, user_age) for fetch in fetches],
+            return_exceptions=True,
         )
 
         merged: dict[str, dict] = {}
         for item_list in all_fetch_results:
+            if isinstance(item_list, BaseException):
+                logger.warning(
+                    "Union scan fetch failed entirely — skipping its results",
+                    exc_info=item_list,
+                )
+                continue
             for manga in item_list:
                 if (
                     self._matches_demographic(manga, demographics)
