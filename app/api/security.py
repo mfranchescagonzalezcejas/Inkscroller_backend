@@ -27,6 +27,12 @@ _MAX_LOG_FIELD_LENGTH = 200
 
 
 class CSPReportEnvelope(BaseModel):
+    """Pydantic model for a CSP violation report envelope sent by browsers.
+
+    The browser sends ``csp-report`` (hyphenated) as the outer key; Pydantic
+    aliasing maps it to ``csp_report`` for Python access.
+    """
+
     csp_report: dict[str, object] = Field(alias="csp-report")
 
 

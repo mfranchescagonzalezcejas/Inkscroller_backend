@@ -58,6 +58,7 @@ class _SlidingWindowStore:
     """
 
     def __init__(self) -> None:
+        """Initialise the store with an empty default-dict of deques."""
         self._buckets: dict[str, deque[float]] = defaultdict(deque)
 
     def _evict_one(self) -> None:
@@ -193,9 +194,11 @@ class RateLimitMiddleware:
     """
 
     def __init__(self, app: ASGIApp) -> None:
+        """Wrap the downstream ASGI application."""
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Inspect the request scope and reject with 429 if over the rate limit."""
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
