@@ -52,6 +52,20 @@ CREATE TABLE IF NOT EXISTS user_library (
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
     chapters_read  INTEGER NOT NULL DEFAULT 0,
+    description    TEXT,
+    demographic    TEXT,
+    status         TEXT,
+    score          REAL,
+    rank           INTEGER,
+    popularity     INTEGER,
+    members        INTEGER,
+    favorites      INTEGER,
+    serialization  TEXT,
+    genres         TEXT  NOT NULL DEFAULT '[]',
+    chapters       INTEGER,
+    start_year     INTEGER,
+    end_year       INTEGER,
+    mal_id         INTEGER,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -71,6 +85,20 @@ _POSTGRES_MIGRATIONS = [
     "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS demographic_filter TEXT",
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS content_rating TEXT",
     "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS chapters_read INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS description TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS demographic TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS status TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS score REAL",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS rank INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS popularity INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS members INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS favorites INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS serialization TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS genres TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS chapters INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS start_year INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS end_year INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS mal_id INTEGER",
 ]
 
 _POSTGRES_DDL = """
@@ -109,6 +137,20 @@ CREATE TABLE IF NOT EXISTS user_library (
     authors        TEXT  NOT NULL DEFAULT '[]',
     content_rating TEXT,
     chapters_read  INTEGER NOT NULL DEFAULT 0,
+    description    TEXT,
+    demographic    TEXT,
+    status         TEXT,
+    score          REAL,
+    rank           INTEGER,
+    popularity     INTEGER,
+    members        INTEGER,
+    favorites      INTEGER,
+    serialization  TEXT,
+    genres         TEXT  NOT NULL DEFAULT '[]',
+    chapters       INTEGER,
+    start_year     INTEGER,
+    end_year       INTEGER,
+    mal_id         INTEGER,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -186,6 +228,23 @@ async def _migrate_sqlite_columns(conn: object) -> None:
             "chapters_read",
             "ALTER TABLE user_library ADD COLUMN chapters_read INTEGER NOT NULL DEFAULT 0",
         ),
+        ("description", "ALTER TABLE user_library ADD COLUMN description TEXT"),
+        ("demographic", "ALTER TABLE user_library ADD COLUMN demographic TEXT"),
+        ("status", "ALTER TABLE user_library ADD COLUMN status TEXT"),
+        ("score", "ALTER TABLE user_library ADD COLUMN score REAL"),
+        ("rank", "ALTER TABLE user_library ADD COLUMN rank INTEGER"),
+        ("popularity", "ALTER TABLE user_library ADD COLUMN popularity INTEGER"),
+        ("members", "ALTER TABLE user_library ADD COLUMN members INTEGER"),
+        ("favorites", "ALTER TABLE user_library ADD COLUMN favorites INTEGER"),
+        ("serialization", "ALTER TABLE user_library ADD COLUMN serialization TEXT"),
+        (
+            "genres",
+            "ALTER TABLE user_library ADD COLUMN genres TEXT NOT NULL DEFAULT '[]'",
+        ),
+        ("chapters", "ALTER TABLE user_library ADD COLUMN chapters INTEGER"),
+        ("start_year", "ALTER TABLE user_library ADD COLUMN start_year INTEGER"),
+        ("end_year", "ALTER TABLE user_library ADD COLUMN end_year INTEGER"),
+        ("mal_id", "ALTER TABLE user_library ADD COLUMN mal_id INTEGER"),
     ]
     for col, ddl in migrations:
         if col not in columns:

@@ -90,14 +90,84 @@ async def update_preferences(
 # ── Library ───────────────────────────────────────────────────────────────────
 
 
+# Mapping from manga_service.get_by_id() camelCase keys to entry snake_case keys.
+_CAMEL_TO_SNAKE = {
+    "startYear": "start_year",
+    "endYear": "end_year",
+    "malId": "mal_id",
+}
+
+
 @router.get("/me/library", response_model=list[Manga])
 async def get_library(
     current_user: FirebaseTokenPayload = Depends(get_current_user_verified),
     user_service: UserService = Depends(get_user_service),
+    manga_service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ) -> list[Manga]:
     """Return the user's library from cached SQLite data — email verification required."""
     entries = await user_service.get_library_entries(current_user.uid)
+
+    # Lazy enrichment: entries with NULL score haven't been enriched yet.
+    # Fetch from MangaDex on read and backfill the entry dict in place.
+    for entry in entries:
+        if entry.get("score") is not None:
+            continue
+        enriched = await manga_service.get_by_id(
+            entry["manga_id"], skip_age_filter=True
+        )
+        if not enriched:
+            continue
+        for camel, snake in _CAMEL_TO_SNAKE.items():
+            val = enriched.get(camel)
+            if val is not None:
+                entry[snake] = val
+        for key in (
+            "title",
+            "description",
+            "demographic",
+            "status",
+            "score",
+            "rank",
+            "popularity",
+            "members",
+            "favorites",
+            "serialization",
+            "chapters",
+        ):
+            val = enriched.get(key)
+            if val is not None:
+                entry[key] = val
+        if enriched.get("authors"):
+            entry["authors"] = enriched["authors"]
+        if enriched.get("genres"):
+            entry["genres"] = enriched["genres"]
+
+        # Persist the enriched data back to user_library so subsequent
+        # reads are fast and don't depend on the lazy enrichment path.
+        await user_service.add_to_library(
+            current_user.uid,
+            entry["manga_id"],
+            title=entry.get("title"),
+            cover_url=entry.get("cover_url"),
+            authors=entry.get("authors"),
+            content_rating=entry.get("content_rating"),
+            description=entry.get("description"),
+            demographic=entry.get("demographic"),
+            status=entry.get("status"),
+            score=entry.get("score"),
+            rank=entry.get("rank"),
+            popularity=entry.get("popularity"),
+            members=entry.get("members"),
+            favorites=entry.get("favorites"),
+            serialization=entry.get("serialization"),
+            genres=entry.get("genres"),
+            chapters=entry.get("chapters"),
+            start_year=entry.get("start_year"),
+            end_year=entry.get("end_year"),
+            mal_id=entry.get("mal_id"),
+        )
+
     # Filter by age
     filtered = []
     for entry in entries:
@@ -108,8 +178,23 @@ async def get_library(
         Manga(
             id=entry["manga_id"],
             title=entry["title"] or entry["manga_id"],
+            description=entry["description"],
             coverUrl=entry["cover_url"],
+            demographic=entry["demographic"],
+            status=entry["status"],
+            score=entry["score"],
+            rank=entry["rank"],
+            popularity=entry["popularity"],
+            members=entry["members"],
+            favorites=entry["favorites"],
             authors=entry["authors"],
+            serialization=entry["serialization"],
+            genres=entry["genres"],
+            chapters=entry["chapters"],
+            startYear=entry["start_year"],
+            endYear=entry["end_year"],
+            contentRating=entry["content_rating"],
+            malId=entry["mal_id"],
             library=LibraryMetadata(
                 library_status=entry["library_status"],
                 chapters_read=entry.get("chapters_read", 0),
@@ -140,6 +225,20 @@ async def add_to_library(
         cover_url=manga.get("coverUrl") if manga else None,
         authors=manga.get("authors") if manga else None,
         content_rating=manga.get("contentRating") if manga else None,
+        description=manga.get("description") if manga else None,
+        demographic=manga.get("demographic") if manga else None,
+        status=manga.get("status") if manga else None,
+        score=manga.get("score") if manga else None,
+        rank=manga.get("rank") if manga else None,
+        popularity=manga.get("popularity") if manga else None,
+        members=manga.get("members") if manga else None,
+        favorites=manga.get("favorites") if manga else None,
+        serialization=manga.get("serialization") if manga else None,
+        genres=manga.get("genres") if manga else None,
+        chapters=manga.get("chapters") if manga else None,
+        start_year=manga.get("startYear") if manga else None,
+        end_year=manga.get("endYear") if manga else None,
+        mal_id=manga.get("malId") if manga else None,
     )
 
 

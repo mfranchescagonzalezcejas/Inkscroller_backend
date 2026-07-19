@@ -499,7 +499,9 @@ class UserService:
     async def get_library_entries(self, firebase_uid: str) -> list[dict]:
         """Return user-library rows with cached manga metadata, newest first."""
         rows = await self._db.fetchall(
-            "SELECT manga_id, library_status, chapters_read, added_at, updated_at, title, cover_url, authors, content_rating "
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at, title, cover_url, "
+            "authors, content_rating, description, demographic, status, score, rank, popularity, "
+            "members, favorites, serialization, genres, chapters, start_year, end_year, mal_id "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -514,6 +516,20 @@ class UserService:
                 "cover_url": row["cover_url"],
                 "authors": json.loads(row["authors"] or "[]"),
                 "content_rating": row.get("content_rating"),
+                "description": row["description"],
+                "demographic": row["demographic"],
+                "status": row["status"],
+                "score": row["score"],
+                "rank": row["rank"],
+                "popularity": row["popularity"],
+                "members": row["members"],
+                "favorites": row["favorites"],
+                "serialization": row["serialization"],
+                "genres": json.loads(row["genres"] or "[]"),
+                "chapters": row["chapters"],
+                "start_year": row["start_year"],
+                "end_year": row["end_year"],
+                "mal_id": row["mal_id"],
             }
             for row in rows
         ]
@@ -531,6 +547,20 @@ class UserService:
         cover_url: str | None = None,
         authors: list[str] | None = None,
         content_rating: str | None = None,
+        description: str | None = None,
+        demographic: str | None = None,
+        status: str | None = None,
+        score: float | None = None,
+        rank: int | None = None,
+        popularity: int | None = None,
+        members: int | None = None,
+        favorites: int | None = None,
+        serialization: str | None = None,
+        genres: list[str] | None = None,
+        chapters: int | None = None,
+        start_year: int | None = None,
+        end_year: int | None = None,
+        mal_id: int | None = None,
     ) -> None:
         """Save a manga to the user's library, caching its metadata.
 
@@ -538,16 +568,37 @@ class UserService:
         metadata without resetting the library status or added_at timestamp.
         """
         now = _utc_now()
-        authors_json = json.dumps(authors or [])
+        # ponytail: pass None for empty/missing collections so COALESCE
+        # in ON CONFLICT preserves stored data when re-adding with no data.
+        authors_json = json.dumps(authors) if authors else None
+        genres_json = json.dumps(genres) if genres else None
         await self._db.execute(
             "INSERT INTO user_library "
-            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors, content_rating) "
-            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?, ?) "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, "
+            "authors, chapters_read, content_rating, description, demographic, status, score, "
+            "rank, popularity, members, favorites, serialization, genres, chapters, "
+            "start_year, end_year, mal_id) "
+            "VALUES (?, ?, ?, 'reading', ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?, ?, ?, "
+            "?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
             "title = COALESCE(excluded.title, user_library.title), "
             "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
             "authors = COALESCE(excluded.authors, user_library.authors), "
-            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating)",
+            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating), "
+            "description = COALESCE(excluded.description, user_library.description), "
+            "demographic = COALESCE(excluded.demographic, user_library.demographic), "
+            "status = COALESCE(excluded.status, user_library.status), "
+            "score = COALESCE(excluded.score, user_library.score), "
+            "rank = COALESCE(excluded.rank, user_library.rank), "
+            "popularity = COALESCE(excluded.popularity, user_library.popularity), "
+            "members = COALESCE(excluded.members, user_library.members), "
+            "favorites = COALESCE(excluded.favorites, user_library.favorites), "
+            "serialization = COALESCE(excluded.serialization, user_library.serialization), "
+            "genres = COALESCE(excluded.genres, user_library.genres), "
+            "chapters = COALESCE(excluded.chapters, user_library.chapters), "
+            "start_year = COALESCE(excluded.start_year, user_library.start_year), "
+            "end_year = COALESCE(excluded.end_year, user_library.end_year), "
+            "mal_id = COALESCE(excluded.mal_id, user_library.mal_id)",
             firebase_uid,
             manga_id,
             now,
@@ -555,7 +606,22 @@ class UserService:
             title,
             cover_url,
             authors_json,
+            0,
             content_rating,
+            description,
+            demographic,
+            status,
+            score,
+            rank,
+            popularity,
+            members,
+            favorites,
+            serialization,
+            genres_json,
+            chapters,
+            start_year,
+            end_year,
+            mal_id,
         )
         await self._db.commit()
 
