@@ -96,12 +96,18 @@ async def search_manga(
 @router.get("/{manga_id}", response_model=Manga)
 async def get_manga(
     manga_id: str,
+    language: str | None = Query(None, min_length=2, max_length=10),
     service: MangaService = Depends(get_manga_service),
     user_age: int | None = Depends(get_user_age),
 ) -> Manga:
-    """Return manga detail, blocking if the caller is too young."""
+    """Return manga detail, blocking if the caller is too young.
+
+    Optionally specify ``language`` (e.g. ``es``, ``ja``) to get the
+    title and description in that language. Falls back to English then
+    to the first available value.
+    """
     manga_id = manga_id.strip()
-    manga = await service.get_by_id(manga_id, user_age=user_age)
+    manga = await service.get_by_id(manga_id, user_age=user_age, language=language)
     if manga is None:
         # Check if it exists but is blocked by age restriction
         full_manga = await service.get_by_id(manga_id, skip_age_filter=True)

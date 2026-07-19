@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
 from app.core.age import can_access_content, can_access_demographic
@@ -62,40 +64,81 @@ class MangaService:
                 logger.warning("Failed to fetch manga statistics", exc_info=True)
         return self._filter_by_age(result, user_age)
 
+    async def _scan_fetch(
+        self,
+        fetch: Callable[[int], Awaitable[dict]],
+        max_offset: int,
+        user_age: int | None,
+    ) -> list[dict]:
+        """Scan one demographic group and return all mapped items (no dedup).
+
+        If the upstream call fails, logs a warning and returns whatever items
+        were collected so far — one failed demographic does not block the
+        entire union scan.
+        """
+        items: list[dict] = []
+        offset = 0
+        while True:
+            try:
+                payload = await fetch(offset)
+            except Exception:
+                logger.warning(
+                    "Union scan fetch failed at offset %d — returning %d items",
+                    offset,
+                    len(items),
+                    exc_info=True,
+                )
+                return items
+            raw_items = payload.get("data", []) if isinstance(payload, dict) else []
+            # ponytail: skip statistics during scan — full stats are fetched
+            # later for the page the user actually requests.
+            mapped = await self._map_and_filter(
+                raw_items, user_age, skip_statistics=True
+            )
+            items.extend(mapped)
+            offset += len(raw_items)
+            if (
+                not raw_items
+                or offset >= payload.get("total", offset)
+                or offset >= max_offset
+            ):
+                break
+        return items
+
     async def _scan_union(
         self,
         fetches: list,
         demographics: list[str],
         user_age: int | None,
         order: str | None = None,
-        max_offset: int = 1000,
+        max_offset: int = 100,
     ) -> list[dict]:
         """Build the complete authorized union before exposing its first page.
 
-        Scans up to ``max_offset`` items per fetch to limit upstream requests.
+        Runs all demographic fetches in parallel (typically named + ``none``)
+        and deduplicates by manga ID. Scans up to ``max_offset`` items per
+        fetch (default 100 = 1 page) so the endpoint responds in < 2s even
+        with broad demographic+content-rating filters.
         """
+        all_fetch_results = await asyncio.gather(
+            *[self._scan_fetch(fetch, max_offset, user_age) for fetch in fetches],
+            return_exceptions=True,
+        )
+
         merged: dict[str, dict] = {}
-        for fetch in fetches:
-            offset = 0
-            while True:
-                payload = await fetch(offset)
-                raw_items = payload.get("data", []) if isinstance(payload, dict) else []
-                mapped = await self._map_and_filter(
-                    raw_items, user_age, skip_statistics=True
+        for item_list in all_fetch_results:
+            if isinstance(item_list, BaseException):
+                logger.warning(
+                    "Union scan fetch failed entirely — skipping its results",
+                    exc_info=item_list,
                 )
-                for manga in mapped:
-                    if (
-                        self._matches_demographic(manga, demographics)
-                        and manga["id"] not in merged
-                    ):
-                        merged[manga["id"]] = manga
-                offset += len(raw_items)
+                continue
+            for manga in item_list:
                 if (
-                    not raw_items
-                    or offset >= payload.get("total", offset)
-                    or offset >= max_offset
+                    self._matches_demographic(manga, demographics)
+                    and manga["id"] not in merged
                 ):
-                    break
+                    merged[manga["id"]] = manga
         items = list(merged.values())
         if order:
             _order_fields = {
@@ -545,6 +588,7 @@ class MangaService:
         manga_id: str,
         user_age: int | None = None,
         skip_age_filter: bool = False,
+        language: str | None = None,
     ) -> dict | None:
         """Get a single manga by MangaDex ID with optional Jikan enrichment.
 
@@ -556,12 +600,14 @@ class MangaService:
             manga_id: MangaDex UUID.
             user_age: User age for content/demographic gating.
             skip_age_filter: Bypass age checks (internal use only).
+            language: Language code for title/description resolution.
 
         Returns:
             Mapped manga dict, or ``None`` if age-restricted or not found.
 
         """
-        cache_key = f"manga:{manga_id}"
+        lang_suffix = f":{language}" if language else ""
+        cache_key = f"manga:{manga_id}{lang_suffix}"
         cached = self._cache.get(cache_key)
 
         if cached is not None:
@@ -586,7 +632,7 @@ class MangaService:
             return None
 
         # Base MangaDex — always cache raw data
-        result = map_mangadex_manga(item)
+        result = map_mangadex_manga(item, language=language)
 
         # Apply MangaDex statistics (rating, follows) to populate score/popularity
         try:

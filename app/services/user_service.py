@@ -502,7 +502,8 @@ class UserService:
         rows = await self._db.fetchall(
             "SELECT manga_id, library_status, chapters_read, added_at, updated_at, title, cover_url, "
             "authors, content_rating, description, demographic, status, score, rank, popularity, "
-            "members, favorites, serialization, genres, chapters, start_year, end_year, mal_id "
+            "members, favorites, serialization, genres, chapters, start_year, end_year, mal_id, "
+            "manga_type "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -531,6 +532,7 @@ class UserService:
                 "start_year": row["start_year"],
                 "end_year": row["end_year"],
                 "mal_id": row["mal_id"],
+                "manga_type": row.get("manga_type"),
             }
             for row in rows
         ]
@@ -562,6 +564,7 @@ class UserService:
         start_year: int | None = None,
         end_year: int | None = None,
         mal_id: int | None = None,
+        manga_type: str | None = None,
     ) -> None:
         """Save a manga to the user's library, caching its metadata.
 
@@ -578,9 +581,9 @@ class UserService:
             "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, "
             "authors, chapters_read, content_rating, description, demographic, status, score, "
             "rank, popularity, members, favorites, serialization, genres, chapters, "
-            "start_year, end_year, mal_id) "
+            "start_year, end_year, mal_id, manga_type) "
             "VALUES (?, ?, ?, 'reading', ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?, ?, ?, "
-            "?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?) "
+            "?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
             "title = COALESCE(excluded.title, user_library.title), "
             "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
@@ -599,7 +602,8 @@ class UserService:
             "chapters = COALESCE(excluded.chapters, user_library.chapters), "
             "start_year = COALESCE(excluded.start_year, user_library.start_year), "
             "end_year = COALESCE(excluded.end_year, user_library.end_year), "
-            "mal_id = COALESCE(excluded.mal_id, user_library.mal_id)",
+            "mal_id = COALESCE(excluded.mal_id, user_library.mal_id), "
+            "manga_type = COALESCE(excluded.manga_type, user_library.manga_type)",
             firebase_uid,
             manga_id,
             now,
@@ -623,6 +627,7 @@ class UserService:
             start_year,
             end_year,
             mal_id,
+            manga_type,
         )
         await self._db.commit()
 

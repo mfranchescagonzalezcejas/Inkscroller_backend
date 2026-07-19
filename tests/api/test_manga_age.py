@@ -67,6 +67,7 @@ class FakeMangaServiceWithAge:
         manga_id: str,
         user_age: int | None = None,
         skip_age_filter: bool = False,
+        language: str | None = None,
     ) -> dict | None:
         self.calls.append(
             {
@@ -74,6 +75,7 @@ class FakeMangaServiceWithAge:
                 "manga_id": manga_id,
                 "user_age": user_age,
                 "skip_age_filter": skip_age_filter,
+                "language": language,
             }
         )
         manga = self.manga_db.get(manga_id)

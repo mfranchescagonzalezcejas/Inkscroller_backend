@@ -21,6 +21,10 @@ class Manga(BaseModel):
 
     id: str
     title: str
+
+    # Format type (from MangaDex originalLanguage mapping)
+    type: str | None = None
+
     description: str | None = None
     coverUrl: str | None = None
 
