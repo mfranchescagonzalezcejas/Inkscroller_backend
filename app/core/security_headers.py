@@ -23,4 +23,13 @@ def get_security_headers(is_production: bool) -> dict[str, str]:
     if is_production:
         headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
+    headers["Permissions-Policy"] = (
+        "accelerometer=(), autoplay=(), camera=(), display-capture=(), "
+        "document-domain=(), encrypted-media=(), fullscreen=(), "
+        "geolocation=(), gyroscope=(), magnetometer=(), microphone=(), "
+        "midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), "
+        "screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), "
+        "xr-spatial-tracking=()"
+    )
+
     return headers

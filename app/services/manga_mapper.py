@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 COVER_BASE_URL = "https://uploads.mangadex.org/covers"
@@ -19,11 +20,13 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
 
     # Title
     titles = attributes.get("title", {})
-    title = titles.get("en") or next(iter(titles.values()), "Unknown")
+    title = html.escape(titles.get("en") or next(iter(titles.values()), "Unknown"))
 
     # Description (base, Jikan la mejorará)
     descriptions = attributes.get("description", {})
-    description = descriptions.get("en")
+    description = (
+        html.escape(descriptions.get("en")) if descriptions.get("en") else None
+    )
 
     # Demographic
     demographic = attributes.get("publicationDemographic")
@@ -67,7 +70,7 @@ def map_mangadex_manga(item: dict[str, Any]) -> dict[str, Any]:
     # Tags - extract genre names from attributes
     tags = attributes.get("tags", [])
     genre_names = [
-        tag.get("attributes", {}).get("name", {}).get("en", "")
+        html.escape(tag.get("attributes", {}).get("name", {}).get("en", ""))
         for tag in tags
         if tag.get("attributes", {}).get("group") == "genre"
     ]

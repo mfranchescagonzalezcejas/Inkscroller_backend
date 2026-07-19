@@ -127,7 +127,7 @@ async def verify_firebase_token(token: str) -> FirebaseTokenPayload:
         raise AuthenticationError("No authentication token provided.")
 
     try:
-        decoded = firebase_auth_sdk.verify_id_token(token)
+        decoded = firebase_auth_sdk.verify_id_token(token, check_revoked=True)
     except firebase_auth_sdk.ExpiredIdTokenError:
         raise AuthenticationError("Firebase ID token has expired.")
     except firebase_auth_sdk.RevokedIdTokenError:

@@ -8,6 +8,8 @@ from fastapi import Request as FastAPIRequest
 from pydantic import BaseModel, Field, ValidationError
 from starlette.responses import Response
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["security"])
 
@@ -40,7 +42,14 @@ async def receive_csp_report(request: FastAPIRequest) -> Response:
     Accepts ``application/json`` and ``application/csp-report`` content types
     by parsing the raw body directly (browsers send ``application/csp-report``).
     Logs only allowlisted non-PII metadata.
+
+    Only accepts reports from origins listed in CORS_ORIGINS as a basic
+    anti-abuse measure (attacker cannot spoof Origin on a browser CSP POST).
     """
+    origin = request.headers.get("origin") or request.headers.get("referer", "")
+    if not any(trusted in origin for trusted in settings.cors_origins):
+        return Response(status_code=204)
+
     # ponytail: telemetry input — discard bad payloads silently
     try:
         body = await request.body()

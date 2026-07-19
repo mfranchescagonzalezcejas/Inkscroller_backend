@@ -187,18 +187,18 @@ class UserService:
             and current.birth_date is not None
             and new_birth_date != current.birth_date
         ):
-            raise ProfileConflictError(
-                "Birth date is immutable once set and cannot be changed."
-            )
+            # ponytail: generic message — don't reveal whether the field is already set
+            raise ProfileConflictError("Profile metadata conflict.")
 
         if new_username is not None:
-            username_owner = await self._db.fetchone(
+            _ = await self._db.fetchone(
                 "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
                 new_username,
                 firebase_uid,
             )
-            if username_owner is not None:
-                raise ProfileConflictError("Username is already in use.")
+            # ponytail: no early return on conflict — let the DB constraint fail so
+            # the error message is the same regardless of whether the username
+            # exists, preventing enumeration.
 
         birth_date_value = _serialize_birth_date_for_db(new_birth_date, self._db)
 
@@ -212,7 +212,8 @@ class UserService:
             await self._db.commit()
         except Exception as exc:
             if _is_unique_constraint_violation(exc):
-                raise ProfileConflictError("Username is already in use.") from exc
+                # ponytail: generic message — don't reveal which field conflicted
+                raise ProfileConflictError("Profile metadata conflict.") from exc
             raise
 
         return await self._get_user(firebase_uid)

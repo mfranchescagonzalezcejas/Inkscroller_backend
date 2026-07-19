@@ -1,5 +1,6 @@
 """Map raw MangaDex chapter API items to internal dict format."""
 
+import html
 from datetime import datetime
 from typing import Any, cast
 
@@ -18,7 +19,7 @@ def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": item.get("id"),
         "number": attr.get("chapter"),
-        "title": attr.get("title"),
+        "title": html.escape(attr.get("title")) if attr.get("title") else None,
         "date": date,
         "scanlation_group": _extract_scanlation_group_name(item),
         "language": attr.get("translatedLanguage", ""),
@@ -39,7 +40,7 @@ def _extract_scanlation_group_name(item: dict[str, Any]) -> str | None:
         attributes = relationship.get("attributes", {})
         name = attributes.get("name") if isinstance(attributes, dict) else None
         if name:
-            return cast("str", name)
+            return cast("str", html.escape(name))
 
         fallback_id = relationship.get("id")
         if fallback_id:

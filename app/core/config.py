@@ -60,8 +60,11 @@ class Settings:
             "user preferences, personal manga libraries, and demographic filtering."
         )
         self.version: str = "1.0.0"
-        self.debug: bool = _parse_bool(os.getenv("DEBUG", "false"))
         self.environment: str = _runtime_environment()
+        raw_debug = _parse_bool(os.getenv("DEBUG", "false"))
+        self.debug: bool = (
+            raw_debug and self.environment not in PRODUCTION_LIKE_ENVIRONMENTS
+        )
 
         self.mangadex_base_url: str = os.getenv(
             "MANGADEX_BASE_URL", "https://api.mangadex.org"
