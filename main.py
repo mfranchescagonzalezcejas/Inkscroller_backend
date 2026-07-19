@@ -17,6 +17,11 @@ from app.core.database import init_db
 from app.core.exceptions import register_exception_handlers
 from app.core.firebase_auth import init_firebase_admin
 from app.core.logging import setup_logging
+from app.core.rate_limiter import (
+    RateLimitMiddleware,
+    handle_rate_limit_error,
+    _RateLimitError,
+)
 from app.core.security_headers import get_security_headers
 from app.services.user_service import UserService
 from fastapi import FastAPI
@@ -120,6 +125,7 @@ class RequestBodyLimitMiddleware:
 
         total = 0
         messages: list[dict] = []
+        msg_index = 0
         more_body = True
 
         while more_body:
@@ -138,8 +144,11 @@ class RequestBodyLimitMiddleware:
             more_body = message.get("more_body", False)
 
         async def wrapped_receive() -> dict:
-            if messages:
-                return messages.pop(0)
+            nonlocal msg_index
+            if msg_index < len(messages):
+                idx = msg_index
+                msg_index += 1
+                return messages[idx]
             return cast("dict", await receive())
 
         await self.app(scope, wrapped_receive, send)
@@ -268,9 +277,11 @@ def create_app(
         max_bytes=settings.max_request_body_mb * 1024 * 1024,
     )
     app.add_middleware(TimeoutMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
 
     register_exception_handlers(app)
+    app.add_exception_handler(_RateLimitError, handle_rate_limit_error)  # type: ignore[arg-type]
 
     app.include_router(health_router)
     app.include_router(security_router)

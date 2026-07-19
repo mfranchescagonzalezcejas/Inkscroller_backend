@@ -133,6 +133,7 @@ One backend image serves all flavors — change environment variables per Railwa
 | `DATABASE_URL` | ✅ (Railway) | — | PostgreSQL connection string from Railway Postgres |
 | `DB_PATH` | — | `./inkscroller.db` | SQLite path for local fallback only |
 | `CORS_ORIGINS` | — | explicit frontend origins | Comma-separated allowed frontend origins; `*` is local-development only |
+| `TRUSTED_PROXY` | — | `false` | Set `true` when behind Railway/Cloudflare — rate limiter uses `X-Forwarded-For` instead of direct peer IP |
 | `CACHE_TTL_SECONDS` | — | `300` | In-memory cache TTL |
 | `MANGADEX_BASE_URL` | — | `https://api.mangadex.org` | MangaDex base URL |
 | `JIKAN_BASE_URL` | — | `https://api.jikan.moe/v4` | Jikan base URL |
