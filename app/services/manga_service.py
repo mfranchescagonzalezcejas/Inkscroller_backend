@@ -583,6 +583,13 @@ class MangaService:
         # Base MangaDex — always cache raw data
         result = map_mangadex_manga(item)
 
+        # Apply MangaDex statistics (rating, follows) to populate score/popularity
+        stats = await self._client.get_statistics([manga_id])
+        stats_dict = (stats or {}).get("statistics", {})
+        entry_stats = stats_dict.get(manga_id, {})
+        if entry_stats:
+            apply_statistics(result, entry_stats)
+
         # 🔥 Enriquecimiento con Jikan (rellenar huecos) — feature flag
         if settings.enable_jikan_enrichment:
             try:
