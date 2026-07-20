@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.core.security_headers import get_security_headers
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from httpx import ConnectError, HTTPStatusError, TimeoutException
+from httpx import HTTPStatusError, TransportError
 
 logger = logging.getLogger(__name__)
 
@@ -50,18 +50,10 @@ async def handle_http_status_error(
     )
 
 
-async def handle_timeout(request: Request, exc: TimeoutException) -> JSONResponse:
-    """Return a 504 Gateway Timeout when an upstream API does not respond in time."""
-    logger.error("Upstream timeout: %s", exc)
-    return _error_response(504, "timeout", "Upstream service did not respond in time.")
-
-
-async def handle_connect_error(request: Request, exc: ConnectError) -> JSONResponse:
-    """Return a 502 Bad Gateway when the backend cannot reach an upstream API."""
-    logger.error("Upstream connection failed: %s", exc)
-    return _error_response(
-        502, "connection_error", "Could not connect to upstream service."
-    )
+async def handle_transport_error(request: Request, exc: TransportError) -> JSONResponse:
+    """Return the standard 502 response for upstream transport failures."""
+    logger.error("Upstream transport failed: %s", exc)
+    return _error_response(502, "upstream_error", "Upstream service is unavailable.")
 
 
 async def handle_upstream_service_error(
@@ -160,8 +152,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     # exception subclass. The runtime contract is correct; mypy can't
     # prove the contravariance through this dispatcher.
     app.add_exception_handler(HTTPStatusError, handle_http_status_error)  # type: ignore[arg-type]
-    app.add_exception_handler(TimeoutException, handle_timeout)  # type: ignore[arg-type]
-    app.add_exception_handler(ConnectError, handle_connect_error)  # type: ignore[arg-type]
+    app.add_exception_handler(TransportError, handle_transport_error)  # type: ignore[arg-type]
     app.add_exception_handler(UpstreamServiceError, handle_upstream_service_error)  # type: ignore[arg-type]
     app.add_exception_handler(AuthError, handle_auth_error)  # type: ignore[arg-type]
     app.add_exception_handler(
