@@ -1,11 +1,19 @@
 """Tests for the MangaDex client query contract."""
 
+import asyncio
 import unittest
+from time import monotonic
+from unittest.mock import AsyncMock, patch
 
-from app.sources.mangadex_client import MangaDexClient
+import httpx
+
+from app.sources.mangadex_client import MangaDexClient, _MangaDexRateLimiter
 
 
 class _FakeResponse:
+    headers: dict[str, str] = {}
+    status_code = 200
+
     def raise_for_status(self):
         return None
 
@@ -20,6 +28,38 @@ class _RecordingAsyncClient:
     async def get(self, path, params=None):
         self.requests.append((path, params or {}))
         return _FakeResponse()
+
+
+class _ThrottledAsyncClient(_RecordingAsyncClient):
+    async def get(
+        self, path: str, params: dict[str, object] | None = None
+    ) -> _FakeResponse:
+        await super().get(path, params)
+        return _FakeResponse()
+
+
+class _RateLimitedResponse:
+    def __init__(self, retry_after: str | None = None) -> None:
+        self.headers = {} if retry_after is None else {"Retry-After": retry_after}
+        self.status_code = 429
+
+    def raise_for_status(self) -> None:
+        response = httpx.Response(
+            429,
+            headers=self.headers,
+            request=httpx.Request("GET", "https://api.mangadex.org/manga"),
+        )
+        raise httpx.HTTPStatusError(
+            "Too Many Requests", request=response.request, response=response
+        )
+
+
+class _FakeLoop:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def time(self) -> float:
+        return self.now
 
 
 class TestMangaDexClientGetChapters(unittest.IsolatedAsyncioTestCase):
@@ -56,6 +96,59 @@ class TestMangaDexClientGetChapters(unittest.IsolatedAsyncioTestCase):
         path, params = recorder.requests[0]
         self.assertEqual(path, "/chapter")
         self.assertEqual(params.get("translatedLanguage[]"), "es")
+
+
+class TestMangaDexClientThrottling(unittest.IsolatedAsyncioTestCase):
+    async def test_clients_share_rate_limit(self) -> None:
+        limiter = _MangaDexRateLimiter(interval_seconds=0.01)
+        primary_requests = _ThrottledAsyncClient()
+        worker_requests = _ThrottledAsyncClient()
+        primary = MangaDexClient(primary_requests, limiter)
+        worker = MangaDexClient(worker_requests, limiter)
+
+        started_at = monotonic()
+        await asyncio.gather(primary.get_tags(), worker.get_tags())
+
+        self.assertEqual(len(primary_requests.requests), 1)
+        self.assertEqual(len(worker_requests.requests), 1)
+        self.assertGreaterEqual(monotonic() - started_at, 0.009)
+
+    async def test_429_is_not_retried(self) -> None:
+        requester = _RecordingAsyncClient()
+        requester.get = AsyncMock(return_value=_RateLimitedResponse("1"))
+        limiter = _MangaDexRateLimiter(0)
+        client = MangaDexClient(requester, limiter)
+
+        with patch("app.core.resilience.asyncio.sleep", new=AsyncMock()):
+            with self.assertRaises(httpx.HTTPStatusError):
+                await client.get_tags()
+
+        requester.get.assert_awaited_once()
+        self.assertGreater(limiter._next_request_at, asyncio.get_running_loop().time())
+
+    async def test_pre_reserved_request_waits_for_new_cooldown(self) -> None:
+        clock = _FakeLoop()
+        limiter = _MangaDexRateLimiter(interval_seconds=0.25)
+        limiter._next_request_at = 0.25
+        requester = _RecordingAsyncClient()
+        client = MangaDexClient(requester, limiter)
+
+        async def advance_clock(delay: float) -> None:
+            if clock.now == 0:
+                await limiter.cooldown(1)
+            clock.now += delay
+
+        with (
+            patch(
+                "app.sources.mangadex_client.asyncio.get_running_loop",
+                return_value=clock,
+            ),
+            patch("app.sources.mangadex_client.asyncio.sleep", new=advance_clock),
+        ):
+            await client._get("/manga")
+
+        self.assertEqual(clock.time(), 1)
+        self.assertEqual(len(requester.requests), 1)
 
 
 if __name__ == "__main__":

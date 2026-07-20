@@ -70,6 +70,7 @@ def build_lifespan(
                     httpx.AsyncClient(
                         base_url=settings.mangadex_worker_url,
                         timeout=httpx.Timeout(10.0),
+                        headers={"User-Agent": user_agent},
                     )
                 )
             app.state.cache = SimpleCache(ttl_seconds=settings.cache_ttl_seconds)
