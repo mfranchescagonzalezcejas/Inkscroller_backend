@@ -1,5 +1,6 @@
 """Retry decorator with exponential backoff for upstream API calls."""
 
+import asyncio
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -9,7 +10,7 @@ from httpx import ConnectError, HTTPStatusError, TimeoutException
 logger = logging.getLogger(__name__)
 
 # Retry-worthy status codes (transient errors)
-RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 # Default retry config
 DEFAULT_MAX_RETRIES = 3
@@ -30,24 +31,30 @@ def with_retry(
     max_retries: int = DEFAULT_MAX_RETRIES,
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
+    retryable_status_codes: frozenset[int] = RETRYABLE_STATUS_CODES,
 ) -> Callable:
     """Retry an async function with exponential backoff on transient errors.
 
-    Only retries on timeouts, connection errors, and 429/5xx HTTP status codes.
+    Only retries on timeouts, connection errors, and configured HTTP status codes.
     """
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args: object, **kwargs: object) -> object:
-            import asyncio
-
             last_exc: BaseException | None = None
             for attempt in range(max_retries + 1):
                 try:
                     return await func(*args, **kwargs)
                 except Exception as exc:
                     last_exc = exc
-                    if not _is_retryable(exc) or attempt == max_retries:
+                    if (
+                        not _is_retryable(exc)
+                        or (
+                            isinstance(exc, HTTPStatusError)
+                            and exc.response.status_code not in retryable_status_codes
+                        )
+                        or attempt == max_retries
+                    ):
                         raise
 
                     delay = min(base_delay * (2**attempt), max_delay)

@@ -6,17 +6,85 @@ from typing import Any, cast
 import httpx
 from app.core.resilience import with_retry
 
+_REQUEST_INTERVAL_SECONDS = 0.25
+_MAX_RETRY_AFTER_SECONDS = 60.0
+_RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504})
+
+
+class _MangaDexRateLimiter:
+    """Reserve evenly spaced request slots shared by all MangaDex clients."""
+
+    def __init__(self, interval_seconds: float = _REQUEST_INTERVAL_SECONDS) -> None:
+        self._interval_seconds = interval_seconds
+        self._lock = asyncio.Lock()
+        self._next_request_at = 0.0
+        self._cooldown_until = 0.0
+
+    async def wait(self) -> None:
+        """Wait for this request's slot without holding the scheduling lock."""
+        loop = asyncio.get_running_loop()
+        async with self._lock:
+            now = loop.time()
+            scheduled_at = max(now, self._next_request_at)
+            self._next_request_at = scheduled_at + self._interval_seconds
+
+        while True:
+            delay = scheduled_at - loop.time()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            async with self._lock:
+                if scheduled_at >= self._cooldown_until:
+                    return
+                scheduled_at = max(loop.time(), self._next_request_at)
+                self._next_request_at = scheduled_at + self._interval_seconds
+
+    async def cooldown(self, seconds: float) -> None:
+        """Delay all later requests after an upstream throttle response."""
+        async with self._lock:
+            self._cooldown_until = max(
+                self._cooldown_until, asyncio.get_running_loop().time() + seconds
+            )
+            self._next_request_at = max(self._next_request_at, self._cooldown_until)
+
+
+_shared_rate_limiter = _MangaDexRateLimiter()
+
 
 class MangaDexClient:
     """HTTP client for the MangaDex v5 REST API with per-method retry support."""
 
     _ALLOWED_CONTENT_RATINGS = ["safe", "suggestive", "erotica", "pornographic"]
 
-    def __init__(self, client: httpx.AsyncClient):
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        rate_limiter: _MangaDexRateLimiter = _shared_rate_limiter,
+    ) -> None:
         """Initialise with an ``httpx.AsyncClient`` pre-configured with base URL and auth headers."""
         self.client = client
+        self._rate_limiter = rate_limiter
 
-    @with_retry()
+    async def _get(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> httpx.Response:
+        """Rate-limit every MangaDex request, including retries and worker traffic."""
+        await self._rate_limiter.wait()
+        if params is None:
+            response = await self.client.get(path)
+        else:
+            response = await self.client.get(path, params=params)
+        retry_after = getattr(response, "headers", {}).get("Retry-After")
+        if (
+            getattr(response, "status_code", None) == 429
+            and retry_after
+            and retry_after.isdecimal()
+        ):
+            await self._rate_limiter.cooldown(
+                min(float(retry_after), _MAX_RETRY_AFTER_SECONDS)
+            )
+        return response
+
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def search_manga(
         self,
         query: str,
@@ -35,17 +103,17 @@ class MangaDexClient:
         }
         if demographic:
             params["publicationDemographic[]"] = demographic
-        response = await self.client.get(
+        response = await self._get(
             "/manga",
             params=params,
         )
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_manga(self, manga_id: str) -> dict[str, Any]:
         """Fetch a single manga by its MangaDex UUID, including cover-art relationship."""
-        response = await self.client.get(
+        response = await self._get(
             f"/manga/{manga_id}",
             params={
                 "includes[]": ["cover_art"],
@@ -54,7 +122,7 @@ class MangaDexClient:
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_chapters(
         self,
         manga_id: str,
@@ -76,16 +144,16 @@ class MangaDexClient:
         }
         if language is not None:
             params["translatedLanguage[]"] = language
-        response = await self.client.get("/chapter", params=params)
+        response = await self._get("/chapter", params=params)
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_latest_chapters(
         self, language: str = "en", limit: int = 10
     ) -> dict[str, Any]:
         """Fetch the latest published chapters across all manga, ordered by ``readableAt``."""
-        response = await self.client.get(
+        response = await self._get(
             "/chapter",
             params={
                 "translatedLanguage[]": language,
@@ -99,13 +167,13 @@ class MangaDexClient:
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_manga_list_by_ids(self, manga_ids: list[str]) -> dict[str, Any]:
         """Bulk-fetch multiple manga by their UUIDs (max 100 per call). Returns cover-art relationships."""
         if not manga_ids:
             return {"data": []}
 
-        response = await self.client.get(
+        response = await self._get(
             "/manga",
             params={
                 "ids[]": manga_ids,
@@ -118,21 +186,21 @@ class MangaDexClient:
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_chapter(self, chapter_id: str) -> dict:
         """Fetch chapter metadata including manga relationship."""
-        response = await self.client.get(f"/chapter/{chapter_id}")
+        response = await self._get(f"/chapter/{chapter_id}")
         response.raise_for_status()
         return cast("dict", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_chapter_pages(self, chapter_id: str) -> dict:
         """Fetch the MangaDex@Home server URLs for a chapter's page images."""
-        response = await self.client.get(f"/at-home/server/{chapter_id}")
+        response = await self._get(f"/at-home/server/{chapter_id}")
         response.raise_for_status()
         return cast("dict", response.json())
 
-    @with_retry(max_retries=1)
+    @with_retry(max_retries=1, retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_tags(self) -> dict[str, Any]:
         """Fetch all available manga tags from MangaDex.
 
@@ -143,11 +211,11 @@ class MangaDexClient:
         - The default 3-retry budget (~33s) exceeds the app-level 30s
           request timeout, producing a 504 before the fallback.
         """
-        response = await self.client.get("/manga/tag")
+        response = await self._get("/manga/tag")
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def list_manga(
         self,
         limit: int,
@@ -195,11 +263,11 @@ class MangaDexClient:
         if included_tags:
             params["includedTags[]"] = included_tags
 
-        response = await self.client.get("/manga", params=params)
+        response = await self._get("/manga", params=params)
         response.raise_for_status()
         return cast("dict[str, Any]", response.json())
 
-    @with_retry()
+    @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_statistics(self, manga_ids: list[str]) -> dict[str, Any]:
         """Fetch statistics (rating, follows) for multiple manga IDs.
 
@@ -211,7 +279,7 @@ class MangaDexClient:
         # Fetch all stats in parallel
         async def fetch_one(manga_id: str) -> tuple[str, dict]:
             try:
-                response = await self.client.get(f"/statistics/manga/{manga_id}")
+                response = await self._get(f"/statistics/manga/{manga_id}")
                 response.raise_for_status()
                 data = response.json()
                 stats = data.get("statistics", {}).get(manga_id, {})
