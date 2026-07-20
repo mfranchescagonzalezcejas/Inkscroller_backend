@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 from importlib.util import find_spec
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
 
@@ -334,6 +336,40 @@ class AppSmokeTests(unittest.TestCase):
             response = client.get("/manga?demographic=unspecified&cursor=expired")
 
         self.assertEqual(response.status_code, 409)
+
+    def test_list_manga_transport_failure_returns_safe_upstream_error(self):
+        class FailingMangaService:
+            async def list_manga(self, **kwargs):
+                raise httpx.RemoteProtocolError(
+                    "MangaDex internal protocol failure",
+                    request=httpx.Request("GET", "https://api.mangadex.org/manga"),
+                )
+
+        self.app.dependency_overrides[get_manga_service] = FailingMangaService
+
+        with TestClient(self.app, raise_server_exceptions=False) as client:
+            response = client.get("/manga?limit=1")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["error"], "upstream_error")
+        self.assertNotIn("MangaDex internal protocol failure", response.text)
+
+    def test_manga_detail_timeout_returns_safe_upstream_error(self):
+        class FailingMangaService:
+            async def get_by_id(self, *args, **kwargs):
+                raise httpx.TimeoutException(
+                    "MangaDex internal timeout",
+                    request=httpx.Request("GET", "https://api.mangadex.org/manga/id"),
+                )
+
+        self.app.dependency_overrides[get_manga_service] = FailingMangaService
+
+        with TestClient(self.app, raise_server_exceptions=False) as client:
+            response = client.get("/manga/id")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["error"], "upstream_error")
+        self.assertNotIn("MangaDex internal timeout", response.text)
 
     def test_cursor_continues_across_real_dependency_instances(self):
         client = MagicMock()

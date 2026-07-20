@@ -584,6 +584,26 @@ class TestUnspecifiedDemographic(unittest.IsolatedAsyncioTestCase):
         _, kwargs = self.client.search_manga.call_args
         self.assertEqual(kwargs["demographic"], ["none"])
 
+    async def test_search_union_keeps_primary_results_when_worker_fails(self) -> None:
+        """A throttled worker branch must not discard the primary catalogue page."""
+        worker = MagicMock()
+        worker.search_manga = AsyncMock(side_effect=ConnectionError("throttled"))
+        self.service._worker_client = worker
+        self.client.search_manga.return_value = {
+            "data": [_raw_mangadex_item("named", "safe", "seinen")],
+            "total": 1,
+        }
+
+        result = await self.service.search(
+            "test",
+            limit=1,
+            user_age=18,
+            demographic=["seinen", "unspecified"],
+        )
+
+        self.assertEqual([item["id"] for item in result["data"]], ["named"])
+        worker.search_manga.assert_awaited_once()
+
     async def test_cursor_reuses_snapshot_without_rescanning(self) -> None:
         """Cursor reuses snapshot without rescanning."""
         self.client.list_manga.return_value = {
