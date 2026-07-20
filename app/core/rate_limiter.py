@@ -133,17 +133,15 @@ def _rate_key(scope: Scope, path: str) -> str:
 
 def _cors_headers(scope: Scope) -> dict[str, str]:
     """Return CORS headers matching the request's Origin, if allowed."""
+    from app.core.config import settings
+
     headers = dict(scope.get("headers", []))
     origin = headers.get(b"origin", b"").decode()
     if not origin:
         return {}
-    allowed = os.getenv("CORS_ORIGINS", "")
-    if "*" in allowed.split(","):
+    allowed = settings.cors_origins
+    if "*" in allowed or origin in allowed:
         return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
-    for trusted in allowed.split(","):
-        trusted = trusted.strip()
-        if trusted and trusted == origin:
-            return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
     return {}
 
 

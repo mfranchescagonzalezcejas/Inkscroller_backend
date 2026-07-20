@@ -191,14 +191,10 @@ class UserService:
             raise ProfileConflictError("Profile metadata conflict.")
 
         if new_username is not None:
-            _ = await self._db.fetchone(
-                "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
-                new_username,
-                firebase_uid,
-            )
-            # ponytail: no early return on conflict — let the DB constraint fail so
+            # ponytail: no early check — let the DB unique constraint fail so
             # the error message is the same regardless of whether the username
             # exists, preventing enumeration.
+            pass
 
         birth_date_value = _serialize_birth_date_for_db(new_birth_date, self._db)
 
@@ -452,12 +448,12 @@ class UserService:
 
         new_mode = req.default_reader_mode or current.default_reader_mode
         new_lang = req.default_language or current.default_language
+        # ponytail: model_fields_set distinguishes "sent as null" from "omitted"
         new_filter = (
             req.content_rating_filter
-            if req.content_rating_filter is not None
+            if "content_rating_filter" in req.model_fields_set
             else current.content_rating_filter
         )
-        # ponytail: model_fields_set distinguishes "sent as null" from "omitted"
         new_demographic = (
             req.demographic_filter
             if "demographic_filter" in req.model_fields_set
