@@ -141,7 +141,7 @@ Production and development custom-domain `/ping` checks return `200 {"ok": true}
 | Security audit hardening | High | ✅ Complete — rate limiting, CSP, output contract, token revocation, debug lock |
 | P0-B1..P0-B8 compliance closure | High | ✅ Complete — evidence tracked against Railway runbooks/logs |
 | Library response documentation | Medium | ✅ Complete — README updated with LibraryMetadata model and progress endpoint |
-| Documentation audit & stale cleanup | Low | ⏳ Pending — CHANGELOG, PROJECT_STATUS, DEPLOYMENT updates for release |
+| Documentation audit & stale cleanup | Low | ✅ Complete — CHANGELOG, PROJECT_STATUS, DEPLOYMENT, READMEs updated; .gga removed |
 
 ---
 
