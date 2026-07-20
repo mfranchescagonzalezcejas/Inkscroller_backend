@@ -6,6 +6,14 @@ from typing import Any
 
 COVER_BASE_URL = "https://uploads.mangadex.org/covers"
 
+# Type mapping from MangaDex originalLanguage values
+_ORIGINAL_LANGUAGE_TO_TYPE: dict[str, str] = {
+    "ja": "manga",
+    "ko": "manhwa",
+    "zh": "manhua",
+    "zh-hk": "manhua",
+}
+
 
 def map_mangadex_manga(
     item: dict[str, Any],
@@ -74,13 +82,6 @@ def map_mangadex_manga(
         attributes.get("availableTranslatedLanguages") or []
     )
 
-    # Type mapping from originalLanguage
-    _ORIGINAL_LANGUAGE_TO_TYPE = {
-        "ja": "manga",
-        "ko": "manhwa",
-        "zh": "manhua",
-        "zh-hk": "manhua",
-    }
     original_language = attributes.get("originalLanguage")
     manga_type = (
         _ORIGINAL_LANGUAGE_TO_TYPE.get(original_language) if original_language else None

@@ -66,4 +66,11 @@ module = [
     "app/services/chapter_service",
     "app/services/chapter_pages_service",
 ]
-ignore_errors = true
+# ponytail: narrow error-code suppressions instead of blanket ignore_errors
+disallow_untyped_defs = false
+disable_error_code = [
+    "no-any-return",
+    "unused-ignore",
+    "arg-type",
+    "operator",
+]
