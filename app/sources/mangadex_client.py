@@ -6,15 +6,34 @@ from typing import Any, cast
 import httpx
 from app.core.resilience import with_retry
 
+# Default slot spacing: 0.25 s → maximum 4 requests per second,
+# safely under MangaDex's documented ~5 req/s per-IP limit.
 _REQUEST_INTERVAL_SECONDS = 0.25
+# Cap for the Retry-After cooldown so a single 429 never silences
+# the client for longer than one minute.
 _MAX_RETRY_AFTER_SECONDS = 60.0
+# HTTP status codes the MangaDex client will retry.  429 is excluded
+# because MangaDex explicitly escalates repeated 429 traffic to a
+# temporary IP ban (403) and eventual disconnection.
 _RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504})
 
 
 class _MangaDexRateLimiter:
-    """Reserve evenly spaced request slots shared by all MangaDex clients."""
+    """Async rate limiter that reserves evenly spaced request slots shared by all MangaDex clients.
+
+    Uses ``asyncio.Lock`` to guard the scheduling clock so concurrent
+    callers never overlap.  A 429 ``Retry-After``
+    (see :meth:`cooldown`) temporarily pauses **all** future requests
+    through this limiter, regardless of which client triggered it.
+    """
 
     def __init__(self, interval_seconds: float = _REQUEST_INTERVAL_SECONDS) -> None:
+        """Initialise the rate limiter with a fixed interval between requests.
+
+        Args:
+            interval_seconds: Minimum gap between consecutive outbound
+                requests (default: 0.25 s → 4 req/s).
+        """
         self._interval_seconds = interval_seconds
         self._lock = asyncio.Lock()
         self._next_request_at = 0.0
@@ -47,6 +66,9 @@ class _MangaDexRateLimiter:
             self._next_request_at = max(self._next_request_at, self._cooldown_until)
 
 
+# Singleton rate limiter — the primary client and the worker (union-scan)
+# client share the same instance so their combined traffic honours the
+# 4 req/s ceiling.
 _shared_rate_limiter = _MangaDexRateLimiter()
 
 
@@ -60,7 +82,15 @@ class MangaDexClient:
         client: httpx.AsyncClient,
         rate_limiter: _MangaDexRateLimiter = _shared_rate_limiter,
     ) -> None:
-        """Initialise with an ``httpx.AsyncClient`` pre-configured with base URL and auth headers."""
+        """Initialise with an ``httpx.AsyncClient`` pre-configured with base URL and auth headers.
+
+        Args:
+            client: Pre-configured ``httpx.AsyncClient`` with base URL
+                and auth headers.
+            rate_limiter: Shared or dedicated rate limiter.  Defaults to
+                the module-level singleton so primary and worker clients
+                honour the same ceiling.
+        """
         self.client = client
         self._rate_limiter = rate_limiter
 

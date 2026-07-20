@@ -18,12 +18,21 @@ DEFAULT_BASE_DELAY = 0.5  # seconds
 DEFAULT_MAX_DELAY = 5.0  # seconds
 
 
-def _is_retryable(exc: Exception) -> bool:
-    """Check whether the exception is a transient error worth retrying."""
+def _is_retryable(
+    exc: Exception,
+    retryable_status_codes: frozenset[int] = RETRYABLE_STATUS_CODES,
+) -> bool:
+    """Check whether the exception is a transient error worth retrying.
+
+    Transport-layer failures (timeout, connection refused) are always
+    retried. HTTP errors are retried only when their status code is in
+    *retryable_status_codes*, which callers may narrow from the global
+    default set.
+    """
     if isinstance(exc, (TimeoutException, ConnectError)):
         return True
     if isinstance(exc, HTTPStatusError):
-        return exc.response.status_code in RETRYABLE_STATUS_CODES
+        return exc.response.status_code in retryable_status_codes
     return False
 
 
@@ -35,7 +44,10 @@ def with_retry(
 ) -> Callable:
     """Retry an async function with exponential backoff on transient errors.
 
-    Only retries on timeouts, connection errors, and configured HTTP status codes.
+    Only retries on timeouts, connection errors, and the configured HTTP
+    status codes.  Passing *retryable_status_codes* lets callers narrow
+    the global default (e.g. exclude 429 for MangaDex, where a 429
+    escalates to an IP ban on repeated attempts).
     """
 
     def decorator(func: Callable) -> Callable:
@@ -48,11 +60,7 @@ def with_retry(
                 except Exception as exc:
                     last_exc = exc
                     if (
-                        not _is_retryable(exc)
-                        or (
-                            isinstance(exc, HTTPStatusError)
-                            and exc.response.status_code not in retryable_status_codes
-                        )
+                        not _is_retryable(exc, retryable_status_codes)
                         or attempt == max_retries
                     ):
                         raise
