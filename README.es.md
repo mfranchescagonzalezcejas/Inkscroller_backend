@@ -172,10 +172,26 @@ El backend sirve como capa de datos para la [app Flutter de InkScroller](https:/
 | `DELETE` | `/users/me` | Eliminar cuenta |
 | `GET` | `/users/me/preferences` | Ver preferencias |
 | `PUT` | `/users/me/preferences` | Actualizar preferencias |
-| `GET` | `/users/me/library` | Listar biblioteca |
-| `POST` | `/users/me/library/{manga_id}` | Añadir a biblioteca |
-| `PATCH` | `/users/me/library/{manga_id}` | Actualizar entrada |
+| `GET` | `/users/me/library` | Listar biblioteca (filtrado por edad) — devuelve objetos manga enriquecidos con metadatos `library` |
+| `POST` | `/users/me/library/{manga_id}` | Añadir a biblioteca (almacena metadatos al insertar) |
+| `PATCH` | `/users/me/library/{manga_id}` | Actualizar estado (`reading`, `completed`, `paused`) |
+| `PATCH` | `/users/me/library/{manga_id}/progress` | Actualizar progreso de lectura (`chapters_read`) |
 | `DELETE` | `/users/me/library/{manga_id}` | Eliminar de biblioteca |
+
+> **Modelo de respuesta de biblioteca:** `GET /users/me/library` devuelve objetos [`Manga`](app/models/manga.py) completos con campos enriquecidos de MangaDex + Jikan (`malId`, `chapters`, `score`, `authors`, `genres`, `demographic`, `status`, etc.) más un objeto `library` anidado:
+>
+> ```json
+> {
+>   "library": {
+>     "library_status": "reading",
+>     "chapters_read": 42,
+>     "added_at": "2026-07-01T12:00:00",
+>     "updated_at": "2026-07-20T15:30:00"
+>   }
+> }
+> ```
+>
+> `PATCH /users/me/library/{manga_id}/progress` acepta `{"chapters_read": <int>}` y devuelve el mismo modelo `LibraryMetadata`.
 
 <br/>
 
@@ -247,7 +263,7 @@ Inkscroller_backend/
 │   ├── services/               # Lógica de negocio
 │   └── sources/                # Clientes API externos
 │
-├── tests/                      # 279 tests
+├── tests/                      # 318+ tests
 ├── docs/                       # Documentación
 ├── README.md
 ├── CHANGELOG.md
@@ -298,9 +314,8 @@ pre-commit install && pre-commit install --hook-type pre-push
 <tr><td>⚙️ <b>Repo backend</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/Inkscroller_backend">mfranchescagonzalezcejas/Inkscroller_backend</a></td></tr>
 <tr><td>📦 <b>Releases app</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/inkscroller_frontend/releases">GitHub Releases</a></td></tr>
 <tr><td>🔌 <b>API backend</b></td><td><a href="https://api.inkscroller.devdigi.dev">api.inkscroller.devdigi.dev</a> · <a href="https://api.inkscroller.devdigi.dev/redoc">ReDoc</a></td></tr>
-<tr><td>📽️ <b>Slides</b></td><td>En progreso</td></tr>
-<tr><td>🎬 <b>Vídeo demo</b></td><td>En progreso</td></tr>
-<tr><td>👤 <b>Usuario prueba</b></td><td>No requerido — registrarse desde la app</td></tr>
+<tr><td>👤 <b>Usuario prueba</b></td><td><code>testuserdevdigi@proton.me</code> / <code>1234qweASD-</code> (ya verificado). Para probar el flujo de verificación de email, registrarse con un email propio.</td></tr>
+<tr><td>📽️ <b>Slides & demo</b></td><td>Ver <a href="https://github.com/mfranchescagonzalezcejas/inkscroller_frontend">repo frontend</a></td></tr>
 </tbody>
 </table>
 

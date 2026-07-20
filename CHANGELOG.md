@@ -20,7 +20,7 @@ First stable release — TFM delivery.
 - **Rate limiting**: Sliding-window in-memory rate limiter (30 req/min public, 60 auth, 10 CSP).
 - **Token revocation**: `check_revoked=True` in Firebase `verify_id_token()` — revoked sessions rejected.
 - **CSP origin validation**: `/csp-report` only accepts reports from configured CORS origins.
-- **Output sanitization**: `html.escape()` on all upstream text fields (XSS prevention).
+- **Output sanitization**: Upstream text returned raw — frontend sanitizes per rendering context.
 - **LRU Cache**: Migrated from FIFO to proper LRU eviction with `OrderedDict`.
 - **Permissions-Policy header**: All browser features restricted by default.
 - **Debug lock**: `debug=False` forced in production-like environments.
