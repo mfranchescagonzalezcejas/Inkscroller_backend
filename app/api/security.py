@@ -77,7 +77,7 @@ async def receive_csp_report(request: FastAPIRequest) -> Response:
         body = await request.body()
         data = json.loads(body)
         envelope = CSPReportEnvelope(**data)
-    except (json.JSONDecodeError, ValidationError):
+    except (json.JSONDecodeError, ValidationError, TypeError):
         return Response(status_code=204)
 
     report = envelope.csp_report

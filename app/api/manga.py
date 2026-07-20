@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.age import CONTENT_AGE_LIMITS, can_access_content
 from app.core.config import settings
 from app.core.dependencies import get_manga_service, get_tag_service, get_user_age
+from app.core.exceptions import PreferencesValidationError
 from app.core.manga_tags import GENRE_TAG_UUIDS
 from app.models.manga import Manga
 from app.services.manga_service import MangaService
@@ -23,7 +24,7 @@ def _validate_demographics(
     if not demographics:
         return None
     if any(token not in _SUPPORTED_DEMOGRAPHICS for token in demographics):
-        raise HTTPException(status_code=422, detail="Unsupported demographic")
+        raise PreferencesValidationError("Unsupported demographic")
     return list(dict.fromkeys(demographics))
 
 

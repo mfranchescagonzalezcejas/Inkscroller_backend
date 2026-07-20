@@ -76,7 +76,8 @@ async def handle_upstream_service_error(
 
 async def handle_unhandled(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all handler that returns a 500 for any unhandled exception."""
-    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    safe_path = request.url.path.translate(str.maketrans("", "", "\r\n"))
+    logger.exception("Unhandled exception on %s %s", request.method, safe_path)
     response = _error_response(500, "internal_error", "An unexpected error occurred.")
     response.headers.update(get_security_headers(settings.is_production_like()))
     return response
@@ -111,9 +112,9 @@ class ProfileConflictError(Exception):
 
 async def handle_auth_error(request: Request, exc: AuthError) -> JSONResponse:
     """Return a 401 response for authentication and authorization failures."""
-    logger.warning(
-        "Auth error on %s %s: %s", request.method, request.url.path, exc.detail
-    )
+    safe_path = request.url.path.translate(str.maketrans("", "", "\r\n"))
+    safe_detail = exc.detail.translate(str.maketrans("", "", "\r\n"))
+    logger.warning("Auth error on %s %s: %s", request.method, safe_path, safe_detail)
     return _error_response(401, "authentication_error", exc.detail)
 
 

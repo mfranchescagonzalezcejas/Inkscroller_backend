@@ -12,8 +12,7 @@
 3. [Jikan API / MyAnimeList](#3-jikan-api--myanimelist)
 4. [Shared Rules](#4-shared-rules)
 5. [Takedown Process](#5-takedown-process)
-6. [Review Log](#6-review-log)
-6. [Registro de revisión](#6-registro-de-revisión)
+6. [Review Log](#6-review-log) / [Registro de revisión](#6-registro-de-revisión)
 
 ---
 
