@@ -2,7 +2,7 @@
 
 > **Source of truth for public readers:** this repository (`README`, `docs/PROJECT_STATUS.md`, `docs/DEPLOYMENT.md`)
 > **Repo role:** backend implementation and operational status for the FastAPI service
-> **Last updated:** 2026-07-12 (quality gates, AI code review, pre-commit hooks, GGA)
+> **Last updated:** 2026-07-20 (v1.0.0 release readiness)
 
 ---
 
@@ -24,7 +24,7 @@ This file is the public status reference for backend implementation and operatio
 | Backend phase state | **Sprint 3 active — compliance/release support + hardening** |
 | Current sprint mirror | Sprint 3 — **active** |
 | Repo status | Active |
-| Current branch | `develop` |
+| Current branch | `release/v1.0.0` (promoting to `main`) |
 | Docker image | ✅ Created (`Dockerfile`, `.dockerignore`) |
 
 ---
@@ -55,11 +55,12 @@ Production and development custom-domain `/ping` checks return `200 {"ok": true}
 
 ### M2 — Personal Library
 
-- `GET /users/me/library` — list saved manga with age-based filtering
-- `POST /users/me/library/{manga_id}` — add manga to library with content_rating storage
-- `PATCH /users/me/library/{manga_id}` — update library status (reading/completed/plan_to_read/dropped/on_hold)
+- `GET /users/me/library` — list saved manga with age-based filtering, returns enriched `Manga` objects with `LibraryMetadata` (`library_status`, `chapters_read`, `added_at`, `updated_at`)
+- `POST /users/me/library/{manga_id}` — add manga to library, caches complete metadata at insert time (title, cover, authors, genres, score, malId, chapters, etc.)
+- `PATCH /users/me/library/{manga_id}` — update library status (`reading`/`completed`/`paused`)
+- `PATCH /users/me/library/{manga_id}/progress` — update reading progress (`chapters_read`)
 - `DELETE /users/me/library/{manga_id}` — remove manga from library
-- Library tests exist with age-filtering scenarios
+- Library tests exist with age-filtering scenarios, enriched metadata, and progress tracking
 
 ### M3 — Age-gated content access
 
@@ -78,9 +79,10 @@ Production and development custom-domain `/ping` checks return `200 {"ok": true}
 | `/docs` | — | Swagger UI |
 | `/openapi.json` | — | OpenAPI spec |
 | `/manga` | GET | Paginated manga list with filters |
-| `/manga/search` | GET | Search by query (max 5 results) |
-| `/manga/{id}` | GET | Manga detail with MangaDex + Jikan enrichment |
+| `/manga/search` | GET | Search by query with pagination (max 100 results, enriched with ratings/demographics) |
+| `/manga/{id}` | GET | Manga detail with MangaDex + Jikan enrichment (optional `?language=` param) |
 | `/manga/tags` | GET | MangaDex filter tags |
+| `/manga/capabilities` | GET | API capability contract (demographic filter version, cursor support) |
 | `/chapters/latest` | GET | Latest chapters for the home feed |
 | `/chapters/manga/{id}` | GET | Chapter list filtered by language (age-gated) |
 | `/chapters/{id}/pages` | GET | Page URLs via MangaDex@Home (age-gated) |
@@ -89,9 +91,10 @@ Production and development custom-domain `/ping` checks return `200 {"ok": true}
 | `/users/me` | DELETE | Delete account and all associated data |
 | `/users/me/preferences` | GET | Get reading preferences |
 | `/users/me/preferences` | PUT | Update reading preferences |
-| `/users/me/library` | GET | List library entries (age-filtered) |
-| `/users/me/library/{manga_id}` | POST | Add manga to library |
-| `/users/me/library/{manga_id}` | PATCH | Update library status |
+| `/users/me/library` | GET | List library entries (age-filtered, enriched Manga objects) |
+| `/users/me/library/{manga_id}` | POST | Add manga to library (caches metadata) |
+| `/users/me/library/{manga_id}` | PATCH | Update library status (reading/completed/paused) |
+| `/users/me/library/{manga_id}/progress` | PATCH | Update reading progress (`chapters_read`) |
 | `/users/me/library/{manga_id}` | DELETE | Remove manga from library |
 
 ### Infrastructure
@@ -117,24 +120,28 @@ Production and development custom-domain `/ping` checks return `200 {"ok": true}
 ### Repo hygiene
 
 - `.env.example` documents Railway/Firebase/Postgres variables
-- Deployment workflow simplified: GitLab is source workflow, GitHub mirror feeds Railway deploys by branch/environment
+- Deployment workflow: GitHub is source of truth, Railway deploys directly from branches/environments
 - Frontend cloud environments should target the custom Railway API domains for dev/staging/prod
 
 ---
 
 ## 4. Remaining work in this repo
 
-| Item | Priority | Notes |
-|------|----------|-------|
+| Item | Priority | Status |
+|------|----------|--------|
 | Deploy strategy | High | ✅ Complete — Railway + Postgres + Firebase per environment |
 | Profile metadata | Medium | ✅ Complete — username, birth_date with immutability |
 | Account deletion | Medium | ✅ Complete — DELETE /users/me with Firebase cleanup |
-| Age-gated content enforcement | High | ✅ Complete — full route/service/middleware stack |
-| Library CRUD | Medium | ✅ Complete — with content_rating storage and age filtering |
-| Sprint 3 compliance pack | High | Active — backend support for release/legal evidence tracking |
-| P0-B1..P0-B8 compliance closure | High | Active — evidence tracked against Railway runbooks/logs |
-| MangaDex language configurable by user preference | Medium | Currently hardcoded to `en` |
-| End-to-end validation with Flutter | Low | Dev/staging/prod Railway URLs validated; continue broader functional smoke coverage |
+| Age-gated content enforcement | High | ✅ Complete — full route/service/middleware stack, including safe-content demographic fix |
+| Language preference for manga content | High | ✅ Complete — language-aware title/description resolution via `?language=` param |
+| Manga type enrichment | Medium | ✅ Complete — `type` field populated from MangaDex originalLanguage mapping |
+| Library enriched metadata | High | ✅ Complete — full Manga model cached at insert time, returned on library read |
+| Reading progress tracking | Medium | ✅ Complete — `PATCH .../progress` with chapters_read, persisted in DB |
+| Jikan enrichment by MAL ID | High | ✅ Complete — malId, chapters, score, rank via Jikan with MAL ID resolution |
+| Security audit hardening | High | ✅ Complete — rate limiting, CSP, output contract, token revocation, debug lock |
+| P0-B1..P0-B8 compliance closure | High | ✅ Complete — evidence tracked against Railway runbooks/logs |
+| Library response documentation | Medium | ✅ Complete — README updated with LibraryMetadata model and progress endpoint |
+| Documentation audit & stale cleanup | Low | ⏳ Pending — CHANGELOG, PROJECT_STATUS, DEPLOYMENT updates for release |
 
 ---
 
