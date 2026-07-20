@@ -31,7 +31,9 @@ class _RecordingAsyncClient:
 
 
 class _ThrottledAsyncClient(_RecordingAsyncClient):
-    async def get(self, path, params=None):
+    async def get(
+        self, path: str, params: dict[str, object] | None = None
+    ) -> _FakeResponse:
         await super().get(path, params)
         return _FakeResponse()
 
@@ -41,7 +43,7 @@ class _RateLimitedResponse:
         self.headers = {} if retry_after is None else {"Retry-After": retry_after}
         self.status_code = 429
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         response = httpx.Response(
             429,
             headers=self.headers,
@@ -97,7 +99,7 @@ class TestMangaDexClientGetChapters(unittest.IsolatedAsyncioTestCase):
 
 
 class TestMangaDexClientThrottling(unittest.IsolatedAsyncioTestCase):
-    async def test_clients_share_rate_limit(self):
+    async def test_clients_share_rate_limit(self) -> None:
         limiter = _MangaDexRateLimiter(interval_seconds=0.01)
         primary_requests = _ThrottledAsyncClient()
         worker_requests = _ThrottledAsyncClient()
@@ -111,7 +113,7 @@ class TestMangaDexClientThrottling(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(worker_requests.requests), 1)
         self.assertGreaterEqual(monotonic() - started_at, 0.009)
 
-    async def test_429_is_not_retried(self):
+    async def test_429_is_not_retried(self) -> None:
         requester = _RecordingAsyncClient()
         requester.get = AsyncMock(return_value=_RateLimitedResponse("1"))
         limiter = _MangaDexRateLimiter(0)
@@ -124,7 +126,7 @@ class TestMangaDexClientThrottling(unittest.IsolatedAsyncioTestCase):
         requester.get.assert_awaited_once()
         self.assertGreater(limiter._next_request_at, asyncio.get_running_loop().time())
 
-    async def test_pre_reserved_request_waits_for_new_cooldown(self):
+    async def test_pre_reserved_request_waits_for_new_cooldown(self) -> None:
         clock = _FakeLoop()
         limiter = _MangaDexRateLimiter(interval_seconds=0.25)
         limiter._next_request_at = 0.25
