@@ -1,8 +1,8 @@
 """Retry decorator with exponential backoff for upstream API calls."""
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 from httpx import ConnectError, HTTPStatusError, TimeoutException
 
@@ -18,7 +18,7 @@ DEFAULT_MAX_DELAY = 5.0  # seconds
 
 
 def _is_retryable(exc: Exception) -> bool:
-    """Determine if an exception is worth retrying."""
+    """Check whether the exception is a transient error worth retrying."""
     if isinstance(exc, (TimeoutException, ConnectError)):
         return True
     if isinstance(exc, HTTPStatusError):
@@ -31,17 +31,17 @@ def with_retry(
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
 ) -> Callable:
-    """Decorator that retries async functions with exponential backoff.
+    """Retry an async function with exponential backoff on transient errors.
 
-    Only retries on transient errors (timeouts, connection errors, 429/5xx).
+    Only retries on timeouts, connection errors, and 429/5xx HTTP status codes.
     """
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: object, **kwargs: object) -> object:
             import asyncio
 
-            last_exc = None
+            last_exc: BaseException | None = None
             for attempt in range(max_retries + 1):
                 try:
                     return await func(*args, **kwargs)

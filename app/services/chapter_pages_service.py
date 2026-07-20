@@ -1,14 +1,21 @@
-from app.sources.mangadex_client import MangaDexClient
-from app.core.cache import SimpleCache
+"""Service for fetching and caching chapter page image data."""
+
 from httpx import HTTPStatusError
+
+from app.core.cache import SimpleCache
+from app.sources.mangadex_client import MangaDexClient
 
 
 class ChapterPagesService:
+    """Fetches and caches chapter image page data from the MangaDex at-home server."""
+
     def __init__(self, client: MangaDexClient, cache: SimpleCache):
+        """Initialise with a MangaDex client and a shared cache instance."""
         self._client = client
         self._cache = cache
 
     async def get_pages(self, chapter_id: str) -> dict:
+        """Fetch and cache MangaDex@Home page image URLs for a chapter. Returns ``readable`` / ``pages`` / ``external``."""
         chapter_id = chapter_id.strip()
         cache_key = f"pages:{chapter_id}"
 

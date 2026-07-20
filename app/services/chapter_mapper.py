@@ -1,8 +1,11 @@
+"""Map raw MangaDex chapter API items to internal dict format."""
+
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 
 def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
+    """Map a raw MangaDex chapter item to the internal chapter dict format."""
     attr = item.get("attributes", {})
 
     pages = attr.get("pages", 0)
@@ -18,6 +21,7 @@ def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
         "title": attr.get("title"),
         "date": date,
         "scanlation_group": _extract_scanlation_group_name(item),
+        "language": attr.get("translatedLanguage", ""),
         # 🔑 LO IMPORTANTE
         "readable": pages > 0,
         "external": external_url is not None,
@@ -26,6 +30,7 @@ def map_mangadex_chapter(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_scanlation_group_name(item: dict[str, Any]) -> str | None:
+    """Extract the scanlation group name from a raw MangaDex chapter item's relationships."""
     relationships = item.get("relationships", [])
     for relationship in relationships:
         if relationship.get("type") != "scanlation_group":
@@ -34,10 +39,10 @@ def _extract_scanlation_group_name(item: dict[str, Any]) -> str | None:
         attributes = relationship.get("attributes", {})
         name = attributes.get("name") if isinstance(attributes, dict) else None
         if name:
-            return name
+            return cast("str", name)
 
         fallback_id = relationship.get("id")
         if fallback_id:
-            return fallback_id
+            return cast("str", fallback_id)
 
     return None

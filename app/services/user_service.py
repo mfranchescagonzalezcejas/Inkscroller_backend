@@ -4,8 +4,7 @@ import asyncio
 import json
 import logging
 import sqlite3
-from asyncio import TimeoutError as AsyncTimeoutError
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import firebase_admin
 from firebase_admin import auth as firebase_auth_sdk
@@ -17,6 +16,7 @@ from app.core.exceptions import (
     UpstreamServiceError,
 )
 from app.core.firebase_auth import FirebaseTokenPayload
+from app.models.manga import LibraryMetadata
 from app.models.user import (
     ReadingPreferences,
     UpdatePreferencesRequest,
@@ -26,13 +26,16 @@ from app.models.user import (
 
 _VALID_READER_MODES = frozenset({"vertical", "paged"})
 _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it", "ja", "ko", "zh"})
+_VALID_CONTENT_RATINGS = frozenset({"safe", "suggestive", "all"})
 _VALID_LIBRARY_STATUSES = frozenset({"reading", "completed", "paused"})
+_VALID_DEMOGRAPHICS = frozenset({"shounen", "shoujo", "seinen", "josei", "unspecified"})
 
 logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    """Return the current UTC datetime as an ISO-8601 string."""
+    return datetime.now(UTC).isoformat()
 
 
 def _mask_uid(uid: str) -> str:
@@ -41,6 +44,7 @@ def _mask_uid(uid: str) -> str:
 
 
 def _is_unique_constraint_violation(exc: Exception) -> bool:
+    """Check whether the exception represents a SQL unique-constraint violation across DB backends."""
     if isinstance(exc, sqlite3.IntegrityError):
         return "unique" in str(exc).lower()
 
@@ -54,14 +58,16 @@ def _is_unique_constraint_violation(exc: Exception) -> bool:
 def _serialize_birth_date_for_db(
     value: object | None, db: DatabaseAdapter
 ) -> object | None:
+    """Serialize a ``date`` to ISO string for SQLite; pass through for other backends."""
     if isinstance(value, date) and isinstance(db, SqliteAdapter):
         return value.isoformat()
     return value
 
 
 def _model_field_was_provided(model: UpdateUserProfileRequest, field_name: str) -> bool:
-    fields_set = getattr(model, "model_fields_set", None)
-    if fields_set is None:
+    """Check if a Pydantic v2 model field was explicitly provided (not omitted) in the request."""
+    fields_set: set[str] = getattr(model, "model_fields_set", set()) or set()
+    if not fields_set:
         fields_set = getattr(model, "__fields_set__", set())
     return field_name in fields_set
 
@@ -70,6 +76,7 @@ class UserService:
     """Handles local user bootstrap and preferences persistence."""
 
     def __init__(self, db: DatabaseAdapter) -> None:
+        """Initialise with a database adapter for local user and preferences storage."""
         self._db = db
 
     async def get_or_create_user(self, payload: FirebaseTokenPayload) -> UserProfile:
@@ -81,14 +88,46 @@ class UserService:
 
         if row is None:
             now = _utc_now()
-            await self._db.execute(
-                "INSERT INTO users (firebase_uid, email, display_name, created_at) VALUES (?, ?, ?, ?)",
-                payload.uid,
-                payload.email,
-                payload.display_name,
-                now,
-            )
-            await self._db.commit()
+            try:
+                await self._db.execute(
+                    "INSERT INTO users (firebase_uid, email, display_name, created_at) VALUES (?, ?, ?, ?)",
+                    payload.uid,
+                    payload.email,
+                    payload.display_name,
+                    now,
+                )
+                await self._db.commit()
+            except Exception as exc:
+                if _is_unique_constraint_violation(exc):
+                    row = await self._db.fetchone(
+                        "SELECT firebase_uid, email, display_name, username, birth_date, created_at "
+                        "FROM users WHERE firebase_uid = ?",
+                        payload.uid,
+                    )
+                    if row is None:
+                        logger.exception(
+                            "Race-condition re-query failed for UID %s",
+                            _mask_uid(payload.uid),
+                        )
+                        raise
+                    logger.info(
+                        "Raced on bootstrap for UID %s — using existing row",
+                        _mask_uid(payload.uid),
+                    )
+                    await self._db.commit()
+                    return UserProfile(
+                        firebase_uid=row["firebase_uid"],
+                        email=row["email"],
+                        display_name=row["display_name"],
+                        username=row["username"],
+                        birth_date=row["birth_date"],
+                        created_at=row["created_at"],
+                    )
+                logger.exception(
+                    "Failed to bootstrap user for UID %s",
+                    _mask_uid(payload.uid),
+                )
+                raise
             logger.info(
                 "Bootstrapped new local user for Firebase UID %s",
                 _mask_uid(payload.uid),
@@ -119,12 +158,12 @@ class UserService:
     ) -> UserProfile:
         """Update authenticated profile metadata and return the current profile."""
         if req is None:
-            update_data = {}
+            update_data: dict[str, object] = {}
             if username is not None:
                 update_data["username"] = username
             if birth_date is not None:
                 update_data["birth_date"] = birth_date
-            profile_update = UpdateUserProfileRequest(**update_data)
+            profile_update = UpdateUserProfileRequest(**update_data)  # type: ignore[arg-type]
         else:
             profile_update = req
         current = await self._get_user(firebase_uid)
@@ -148,18 +187,18 @@ class UserService:
             and current.birth_date is not None
             and new_birth_date != current.birth_date
         ):
-            raise ProfileConflictError(
-                "Birth date is immutable once set and cannot be changed."
-            )
+            # ponytail: generic message — don't reveal whether the field is already set
+            raise ProfileConflictError("Profile metadata conflict.")
 
         if new_username is not None:
-            username_owner = await self._db.fetchone(
+            _ = await self._db.fetchone(
                 "SELECT firebase_uid FROM users WHERE username = ? AND firebase_uid <> ?",
                 new_username,
                 firebase_uid,
             )
-            if username_owner is not None:
-                raise ProfileConflictError("Username is already in use.")
+            # ponytail: no early return on conflict — let the DB constraint fail so
+            # the error message is the same regardless of whether the username
+            # exists, preventing enumeration.
 
         birth_date_value = _serialize_birth_date_for_db(new_birth_date, self._db)
 
@@ -173,7 +212,8 @@ class UserService:
             await self._db.commit()
         except Exception as exc:
             if _is_unique_constraint_violation(exc):
-                raise ProfileConflictError("Username is already in use.") from exc
+                # ponytail: generic message — don't reveal which field conflicted
+                raise ProfileConflictError("Profile metadata conflict.") from exc
             raise
 
         return await self._get_user(firebase_uid)
@@ -232,7 +272,7 @@ class UserService:
             logger.info("Deleted Firebase Auth user.")
         except firebase_auth_sdk.UserNotFoundError:
             logger.info("Firebase user already deleted.")
-        except AsyncTimeoutError:
+        except TimeoutError:
             # The request may have succeeded on Firebase's side even though
             # we timed out locally — flag so reconciliation can check later.
             logger.warning(
@@ -318,7 +358,7 @@ class UserService:
                 "Reconciled pending deletion: user %s already gone.",
                 _mask_uid(firebase_uid),
             )
-        except (AsyncTimeoutError, Exception):
+        except (TimeoutError, Exception):
             # Retry failed — keep the pending flag for next time.
             logger.warning(
                 "Reconciliation retry failed for %s — will retry on next call.",
@@ -348,7 +388,7 @@ class UserService:
     async def get_preferences(self, firebase_uid: str) -> ReadingPreferences:
         """Return reading preferences, creating defaults on first call."""
         row = await self._db.fetchone(
-            "SELECT firebase_uid, default_reader_mode, default_language, updated_at "
+            "SELECT firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at "
             "FROM reading_preferences WHERE firebase_uid = ?",
             firebase_uid,
         )
@@ -356,10 +396,15 @@ class UserService:
         if row is None:
             return await self._create_default_preferences(firebase_uid)
 
+        demographic = (
+            json.loads(row["demographic_filter"]) if row["demographic_filter"] else None
+        )
         return ReadingPreferences(
             firebase_uid=row["firebase_uid"],
             default_reader_mode=row["default_reader_mode"],
             default_language=row["default_language"],
+            content_rating_filter=row["content_rating_filter"],
+            demographic_filter=demographic,
             updated_at=row["updated_at"],
         )
 
@@ -383,23 +428,60 @@ class UserService:
                 f"Invalid language '{req.default_language}'. "
                 f"Accepted values: {sorted(_VALID_LANGUAGES)}."
             )
+        if (
+            req.content_rating_filter is not None
+            and req.content_rating_filter not in _VALID_CONTENT_RATINGS
+        ):
+            raise PreferencesValidationError(
+                f"Invalid content rating filter '{req.content_rating_filter}'. "
+                f"Accepted values: {sorted(_VALID_CONTENT_RATINGS)}."
+            )
+
+        if req.demographic_filter is not None:
+            invalid = [
+                d for d in req.demographic_filter if d not in _VALID_DEMOGRAPHICS
+            ]
+            if invalid:
+                raise PreferencesValidationError(
+                    f"Invalid demographic values: {invalid}. "
+                    f"Accepted values: {sorted(_VALID_DEMOGRAPHICS)}."
+                )
 
         current = await self.get_preferences(firebase_uid)
         now = _utc_now()
 
         new_mode = req.default_reader_mode or current.default_reader_mode
         new_lang = req.default_language or current.default_language
+        new_filter = (
+            req.content_rating_filter
+            if req.content_rating_filter is not None
+            else current.content_rating_filter
+        )
+        # ponytail: model_fields_set distinguishes "sent as null" from "omitted"
+        new_demographic = (
+            req.demographic_filter
+            if "demographic_filter" in req.model_fields_set
+            else current.demographic_filter
+        )
+        demographic_json = (
+            json.dumps(new_demographic) if new_demographic is not None else None
+        )
 
         await self._db.execute(
-            """INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, updated_at)
-               VALUES (?, ?, ?, ?)
+            """INSERT INTO reading_preferences
+                   (firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(firebase_uid) DO UPDATE SET
-                   default_reader_mode = excluded.default_reader_mode,
-                   default_language    = excluded.default_language,
-                   updated_at          = excluded.updated_at""",
+                   default_reader_mode     = excluded.default_reader_mode,
+                   default_language        = excluded.default_language,
+                   content_rating_filter   = excluded.content_rating_filter,
+                   demographic_filter      = excluded.demographic_filter,
+                   updated_at              = excluded.updated_at""",
             firebase_uid,
             new_mode,
             new_lang,
+            new_filter,
+            demographic_json,
             now,
         )
         await self._db.commit()
@@ -408,6 +490,8 @@ class UserService:
             firebase_uid=firebase_uid,
             default_reader_mode=new_mode,
             default_language=new_lang,
+            content_rating_filter=new_filter,
+            demographic_filter=new_demographic,
             updated_at=now,
         )
 
@@ -416,7 +500,10 @@ class UserService:
     async def get_library_entries(self, firebase_uid: str) -> list[dict]:
         """Return user-library rows with cached manga metadata, newest first."""
         rows = await self._db.fetchall(
-            "SELECT manga_id, library_status, added_at, updated_at, title, cover_url, authors, content_rating "
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at, title, cover_url, "
+            "authors, content_rating, description, demographic, status, score, rank, popularity, "
+            "members, favorites, serialization, genres, chapters, start_year, end_year, mal_id, "
+            "manga_type "
             "FROM user_library WHERE firebase_uid = ? ORDER BY added_at DESC",
             firebase_uid,
         )
@@ -424,12 +511,28 @@ class UserService:
             {
                 "manga_id": row["manga_id"],
                 "library_status": row["library_status"],
+                "chapters_read": row["chapters_read"],
                 "added_at": row["added_at"],
                 "updated_at": row["updated_at"],
                 "title": row["title"] or "",
                 "cover_url": row["cover_url"],
                 "authors": json.loads(row["authors"] or "[]"),
                 "content_rating": row.get("content_rating"),
+                "description": row["description"],
+                "demographic": row["demographic"],
+                "status": row["status"],
+                "score": row["score"],
+                "rank": row["rank"],
+                "popularity": row["popularity"],
+                "members": row["members"],
+                "favorites": row["favorites"],
+                "serialization": row["serialization"],
+                "genres": json.loads(row["genres"] or "[]"),
+                "chapters": row["chapters"],
+                "start_year": row["start_year"],
+                "end_year": row["end_year"],
+                "mal_id": row["mal_id"],
+                "manga_type": row.get("manga_type"),
             }
             for row in rows
         ]
@@ -447,6 +550,21 @@ class UserService:
         cover_url: str | None = None,
         authors: list[str] | None = None,
         content_rating: str | None = None,
+        description: str | None = None,
+        demographic: str | None = None,
+        status: str | None = None,
+        score: float | None = None,
+        rank: int | None = None,
+        popularity: int | None = None,
+        members: int | None = None,
+        favorites: int | None = None,
+        serialization: str | None = None,
+        genres: list[str] | None = None,
+        chapters: int | None = None,
+        start_year: int | None = None,
+        end_year: int | None = None,
+        mal_id: int | None = None,
+        manga_type: str | None = None,
     ) -> None:
         """Save a manga to the user's library, caching its metadata.
 
@@ -454,16 +572,38 @@ class UserService:
         metadata without resetting the library status or added_at timestamp.
         """
         now = _utc_now()
-        authors_json = json.dumps(authors or [])
+        # ponytail: pass None for empty/missing collections so COALESCE
+        # in ON CONFLICT preserves stored data when re-adding with no data.
+        authors_json = json.dumps(authors) if authors else None
+        genres_json = json.dumps(genres) if genres else None
         await self._db.execute(
             "INSERT INTO user_library "
-            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, authors, content_rating) "
-            "VALUES (?, ?, ?, 'reading', ?, ?, ?, ?, ?) "
+            "(firebase_uid, manga_id, added_at, library_status, updated_at, title, cover_url, "
+            "authors, chapters_read, content_rating, description, demographic, status, score, "
+            "rank, popularity, members, favorites, serialization, genres, chapters, "
+            "start_year, end_year, mal_id, manga_type) "
+            "VALUES (?, ?, ?, 'reading', ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?, ?, ?, "
+            "?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?, ?, ?) "
             "ON CONFLICT(firebase_uid, manga_id) DO UPDATE SET "
             "title = COALESCE(excluded.title, user_library.title), "
             "cover_url = COALESCE(excluded.cover_url, user_library.cover_url), "
             "authors = COALESCE(excluded.authors, user_library.authors), "
-            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating)",
+            "content_rating = COALESCE(excluded.content_rating, user_library.content_rating), "
+            "description = COALESCE(excluded.description, user_library.description), "
+            "demographic = COALESCE(excluded.demographic, user_library.demographic), "
+            "status = COALESCE(excluded.status, user_library.status), "
+            "score = COALESCE(excluded.score, user_library.score), "
+            "rank = COALESCE(excluded.rank, user_library.rank), "
+            "popularity = COALESCE(excluded.popularity, user_library.popularity), "
+            "members = COALESCE(excluded.members, user_library.members), "
+            "favorites = COALESCE(excluded.favorites, user_library.favorites), "
+            "serialization = COALESCE(excluded.serialization, user_library.serialization), "
+            "genres = COALESCE(excluded.genres, user_library.genres), "
+            "chapters = COALESCE(excluded.chapters, user_library.chapters), "
+            "start_year = COALESCE(excluded.start_year, user_library.start_year), "
+            "end_year = COALESCE(excluded.end_year, user_library.end_year), "
+            "mal_id = COALESCE(excluded.mal_id, user_library.mal_id), "
+            "manga_type = COALESCE(excluded.manga_type, user_library.manga_type)",
             firebase_uid,
             manga_id,
             now,
@@ -471,7 +611,23 @@ class UserService:
             title,
             cover_url,
             authors_json,
+            0,
             content_rating,
+            description,
+            demographic,
+            status,
+            score,
+            rank,
+            popularity,
+            members,
+            favorites,
+            serialization,
+            genres_json,
+            chapters,
+            start_year,
+            end_year,
+            mal_id,
+            manga_type,
         )
         await self._db.commit()
 
@@ -497,7 +653,7 @@ class UserService:
             return None
 
         row = await self._db.fetchone(
-            "SELECT manga_id, library_status, added_at, updated_at "
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at "
             "FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
             firebase_uid,
             manga_id,
@@ -509,9 +665,47 @@ class UserService:
         return {
             "manga_id": row["manga_id"],
             "library_status": row["library_status"],
+            "chapters_read": row["chapters_read"],
             "added_at": row["added_at"],
             "updated_at": row["updated_at"],
         }
+
+    async def update_reading_progress(
+        self, firebase_uid: str, manga_id: str, chapters_read: int
+    ) -> LibraryMetadata | None:
+        """Update ``chapters_read`` for a manga in the user's library.
+
+        Returns the updated metadata, or ``None`` if the manga is not in the library.
+        """
+        now = _utc_now()
+        rowcount = await self._db.execute(
+            "UPDATE user_library SET chapters_read = ?, updated_at = ? "
+            "WHERE firebase_uid = ? AND manga_id = ?",
+            chapters_read,
+            now,
+            firebase_uid,
+            manga_id,
+        )
+        await self._db.commit()
+
+        if rowcount == 0:
+            return None
+
+        row = await self._db.fetchone(
+            "SELECT manga_id, library_status, chapters_read, added_at, updated_at "
+            "FROM user_library WHERE firebase_uid = ? AND manga_id = ?",
+            firebase_uid,
+            manga_id,
+        )
+        if row is None:
+            return None
+
+        return LibraryMetadata(
+            library_status=row["library_status"],
+            chapters_read=row["chapters_read"],
+            added_at=row["added_at"],
+            updated_at=row["updated_at"],
+        )
 
     async def remove_from_library(self, firebase_uid: str, manga_id: str) -> bool:
         """Remove a manga from the user's library. Returns True if it existed."""
@@ -527,16 +721,51 @@ class UserService:
         self, firebase_uid: str
     ) -> ReadingPreferences:
         now = _utc_now()
-        await self._db.execute(
-            "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, updated_at) "
-            "VALUES (?, 'vertical', 'en', ?)",
-            firebase_uid,
-            now,
-        )
-        await self._db.commit()
+        try:
+            await self._db.execute(
+                "INSERT INTO reading_preferences (firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at) "
+                "VALUES (?, 'vertical', 'en', NULL, NULL, ?)",
+                firebase_uid,
+                now,
+            )
+            await self._db.commit()
+        except Exception as exc:
+            if _is_unique_constraint_violation(exc):
+                row = await self._db.fetchone(
+                    "SELECT firebase_uid, default_reader_mode, default_language, content_rating_filter, demographic_filter, updated_at "
+                    "FROM reading_preferences WHERE firebase_uid = ?",
+                    firebase_uid,
+                )
+                if row is not None:
+                    demographic = (
+                        json.loads(row["demographic_filter"])
+                        if row["demographic_filter"]
+                        else None
+                    )
+                    await self._db.commit()
+                    return ReadingPreferences(
+                        firebase_uid=row["firebase_uid"],
+                        default_reader_mode=row["default_reader_mode"],
+                        default_language=row["default_language"],
+                        content_rating_filter=row["content_rating_filter"],
+                        demographic_filter=demographic,
+                        updated_at=row["updated_at"],
+                    )
+                logger.exception(
+                    "Race-condition re-query for preferences failed for UID %s",
+                    _mask_uid(firebase_uid),
+                )
+                raise
+            logger.exception(
+                "Failed to create default preferences for UID %s",
+                _mask_uid(firebase_uid),
+            )
+            raise
         return ReadingPreferences(
             firebase_uid=firebase_uid,
             default_reader_mode="vertical",
             default_language="en",
+            content_rating_filter=None,
+            demographic_filter=None,
             updated_at=now,
         )

@@ -1,7 +1,7 @@
 # Deployment — InkScroller Backend
 
 > **Target:** Railway (3 environments)  
-> **Last updated:** 2026-06-27
+> **Last updated:** 2026-07-20
 
 ---
 
@@ -51,18 +51,16 @@ Railway injects `PORT` dynamically; the Dockerfile already respects `${PORT:-808
 
 ## Deploy to Railway
 
-Railway deploys automatically from the connected GitHub mirror branch.
+Railway deploys automatically from the connected GitHub branch.
 
 Canonical flow:
 
-1. Changes are developed/reviewed in **GitLab** (Jira + Merge Requests)
-2. Approved branch state is mirrored to **GitHub**
-3. **Railway** autodeploys from GitHub (`develop` for dev/staging, `main` for production)
+1. Changes are developed/reviewed in GitHub (Issues + Pull Requests)
+2. Merged branches are pushed to GitHub
+3. **Railway** autodeploys from GitHub (`develop`/`release/*` for dev/staging, `main` for production)
 
-- `dev` / `staging` use the `develop` branch
+- `dev` / `staging` use the `develop` or `release/*` branch
 - `production` uses the `main` branch
-
-GitHub Actions validates mirror state; Railway remains the runtime deployment authority.
 
 ### Per-environment Railway setup
 
@@ -133,6 +131,7 @@ One backend image serves all flavors — change environment variables per Railwa
 | `DATABASE_URL` | ✅ (Railway) | — | PostgreSQL connection string from Railway Postgres |
 | `DB_PATH` | — | `./inkscroller.db` | SQLite path for local fallback only |
 | `CORS_ORIGINS` | — | explicit frontend origins | Comma-separated allowed frontend origins; `*` is local-development only |
+| `TRUSTED_PROXY` | — | `false` | Set `true` when behind Railway/Cloudflare — rate limiter uses `X-Forwarded-For` instead of direct peer IP |
 | `CACHE_TTL_SECONDS` | — | `300` | In-memory cache TTL |
 | `MANGADEX_BASE_URL` | — | `https://api.mangadex.org` | MangaDex base URL |
 | `JIKAN_BASE_URL` | — | `https://api.jikan.moe/v4` | Jikan base URL |
@@ -162,7 +161,7 @@ Before closing a release, confirm in Railway logs and via the custom domain that
 ## Scope note
 
 This repository uses Railway as the active runtime and deployment path for all releases.
-GitHub acts as deployment mirror; GitLab remains the primary collaboration workflow.
+GitHub is the primary collaboration and deployment workflow.
 
 ---
 

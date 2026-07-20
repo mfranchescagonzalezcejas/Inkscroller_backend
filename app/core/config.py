@@ -1,6 +1,11 @@
+"""Application configuration loaded from environment variables."""
+
+import logging
 import os
 
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -14,14 +19,17 @@ PRODUCTION_LIKE_ENVIRONMENTS = {"production", "prod", "staging", "stage"}
 
 
 def _parse_csv(value: str) -> list[str]:
+    """Split a comma-separated string into a trimmed list, skipping empty items."""
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def _parse_bool(value: str) -> bool:
+    """Parse common truthy string representations to a boolean."""
     return value.lower() in {"1", "true", "yes", "on"}
 
 
 def _runtime_environment() -> str:
+    """Detect the runtime environment from ENVIRONMENT / RAILWAY_ENVIRONMENT_NAME / RAILWAY_ENVIRONMENT."""
     environment_values = [
         os.getenv("ENVIRONMENT"),
         os.getenv("RAILWAY_ENVIRONMENT_NAME"),
@@ -39,15 +47,29 @@ def _runtime_environment() -> str:
 
 
 class Settings:
-    def __init__(self):
+    """Application settings loaded from environment variables with sensible defaults."""
+
+    def __init__(self) -> None:
+        """Load all settings from environment variables, falling back to defaults."""
         self.app_name: str = "Inkscroller API"
-        self.version: str = "0.1.0"
-        self.debug: bool = _parse_bool(os.getenv("DEBUG", "false"))
+        self.app_description: str = (
+            "Backend API for InkScroller, a full-stack manga reading platform. "
+            "Proxies and enriches data from MangaDex (catalogue, chapters, pages) "
+            "and Jikan/MyAnimeList (metadata enrichment). "
+            "Features Firebase authentication, age-gated content access, "
+            "user preferences, personal manga libraries, and demographic filtering."
+        )
+        self.version: str = "1.0.0"
         self.environment: str = _runtime_environment()
+        raw_debug = _parse_bool(os.getenv("DEBUG", "false"))
+        self.debug: bool = (
+            raw_debug and self.environment not in PRODUCTION_LIKE_ENVIRONMENTS
+        )
 
         self.mangadex_base_url: str = os.getenv(
             "MANGADEX_BASE_URL", "https://api.mangadex.org"
         )
+        self.mangadex_worker_url: str = os.getenv("MANGADEX_WORKER_URL", "")
         self.jikan_base_url: str = os.getenv(
             "JIKAN_BASE_URL", "https://api.jikan.moe/v4"
         )
@@ -60,6 +82,12 @@ class Settings:
         self.cache_ttl_seconds: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
         self.readyz_timeout_seconds: int = max(1, int(os.getenv("READYZ_TIMEOUT", "5")))
 
+        # Request resource limits
+        self.request_timeout_seconds: int = int(
+            os.getenv("REQUEST_TIMEOUT_SECONDS", "30")
+        )
+        self.max_request_body_mb: int = int(os.getenv("MAX_REQUEST_BODY_MB", "5"))
+
         self.cors_allow_credentials: bool = True
         self.cors_origins: list[str] = _parse_csv(
             os.getenv("CORS_ORIGINS", ",".join(DEFAULT_CORS_ORIGINS))
@@ -67,6 +95,15 @@ class Settings:
 
         # Phase 5 — Firebase Auth Foundation
         self.firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
+        self.mangadex_contact: str = os.getenv("MANGADEX_CONTACT", "")
+
+        # ── Cursor signing key ────────────────────────────────────────
+        self.cursor_secret: str = os.getenv("CURSOR_SECRET", "")
+        if not self.cursor_secret:
+            logger.info(
+                "CURSOR_SECRET not set — cursor-based pagination is disabled. "
+                "Set CURSOR_SECRET to enable tamper-proof cursor tokens."
+            )
 
         # ── Database ──────────────────────────────────────────────────
         # SQLite (local dev): set DB_PATH or leave default.
@@ -88,9 +125,11 @@ class Settings:
         self.db_name: str = os.getenv("DB_NAME", "inkscroller")
 
     def is_production_like(self) -> bool:
+        """Check whether the current environment is production-like (prod/staging)."""
         return self.environment in PRODUCTION_LIKE_ENVIRONMENTS
 
     def validate_cors_configuration(self) -> None:
+        """Raise ``RuntimeError`` if the CORS config is unsafe for production-like environments."""
         if self.is_production_like() and not self.cors_origins:
             raise RuntimeError(
                 "Unsafe CORS configuration: CORS_ORIGINS must include at least one "

@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - CI/dev sin deps completas
     httpx = types.ModuleType("httpx")
 
-    class _AsyncClient:  # noqa: D401 - stub mínimo para imports
+    class _AsyncClient:
         pass
 
     class _ConnectError(Exception):
@@ -33,7 +33,6 @@ except ModuleNotFoundError:  # pragma: no cover - CI/dev sin deps completas
 
 from app.sources.jikan_client import JikanClient
 from app.sources.mangadex_client import MangaDexClient
-
 
 PII_PARAM_KEYWORDS = {
     "uid",
@@ -74,7 +73,9 @@ def _flatten_param_names(params: dict) -> set[str]:
 class TestUpstreamPrivacyBehavior(unittest.IsolatedAsyncioTestCase):
     """P0-B7: anti-fragile checks centrados en payload HTTP saliente."""
 
-    def assert_no_pii_in_outbound_params(self, client_name: str, path: str, params: dict):
+    def assert_no_pii_in_outbound_params(
+        self, client_name: str, path: str, params: dict
+    ):
         outbound_keys = _flatten_param_names(params)
         violations = {
             f"{key} contains {keyword}"

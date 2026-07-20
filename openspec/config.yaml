@@ -1,33 +1,36 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Python 3.12.10 / FastAPI 0.128.0 / Uvicorn
-  Architecture: Service-layer with FastAPI dependency injection
+  Tech stack: Python 3.12+ / FastAPI 0.128.0 / Uvicorn
+  Architecture: Clean Architecture — api/ → services/ → sources/
   Auth: Firebase Admin SDK 6.8.0
-  Database: SQLite (dev/test) / PostgreSQL via asyncpg + Cloud SQL (prod)
-  Testing: unittest (python -m unittest discover)
-  Quality: Ruff 0.15.9 (lint + format)
-  CI: GitHub Actions + GitLab CI (validate job)
+  Database: SQLite via aiosqlite (dev/test) / PostgreSQL via asyncpg + Cloud SQL (prod)
+  Testing: pytest 9.0.3 + pytest-cov 7.1.0 (75% threshold)
+  Quality: Ruff 0.15.9 (lint + format), mypy 2.3.0 (type check)
+  CI: GitLab CI (validate stage on MR/develop/main)
+  Conventions: Conventional commits, Pydantic v2, async/await, hermetic test app pattern
 
 testing:
   strict_tdd: true
-  test_command: "python -m unittest discover -s tests -v"
-  coverage_available: false
-  coverage_command: ""
+  test_command: "pytest tests/"
+  coverage_available: true
+  coverage_command: "pytest --cov=app --cov-report=term-missing tests/"
+  coverage_threshold: 75
   layers:
     unit: true
     integration: true
+    compliance: true
     e2e: false
   quality_tools:
     linter:
       available: true
-      command: "ruff check app/ main.py"
+      command: "ruff check app/ main.py tests/"
     formatter:
       available: true
-      command: "ruff format --check app/ main.py"
+      command: "ruff format --check app/ main.py tests/"
     type_checker:
-      available: false
-      command: ""
+      available: true
+      command: "mypy app/ main.py"
 
 rules:
   proposal:
@@ -46,14 +49,14 @@ rules:
     - Tag tasks with test layer (unit/integration/compliance)
   apply:
     tdd: true
-    test_command: "python -m unittest discover -s tests -v"
+    test_command: "pytest tests/ -x"
     guidelines:
       - Follow existing code patterns
       - Use hermetic test app pattern from tests/api/helpers.py
       - Maintain compliance test coverage
   verify:
-    test_command: "python -m unittest discover -s tests -v"
-    build_command: "ruff check app/ main.py && ruff format --check app/ main.py"
-    coverage_threshold: 0
+    test_command: "pytest --cov=app --cov-report=term-missing tests/"
+    build_command: "ruff check app/ main.py tests/ && ruff format --check app/ main.py tests/ && mypy app/ main.py"
+    coverage_threshold: 75
   archive:
     - Warn before merging destructive deltas

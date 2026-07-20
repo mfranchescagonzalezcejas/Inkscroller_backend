@@ -1,11 +1,11 @@
-import logging
+"""FastAPI dependency-injection helpers for services, auth, and cache."""
 
-from fastapi import Depends, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import logging
+from typing import cast
 
 from app.core.cache import SimpleCache
 from app.core.db_adapter import DatabaseAdapter
-from app.core.exceptions import AuthError
+from app.core.exceptions import AuthError, EmailNotVerifiedError
 from app.core.firebase_auth import (
     AuthenticationError,
     FirebaseTokenPayload,
@@ -14,9 +14,12 @@ from app.core.firebase_auth import (
 from app.services.chapter_pages_service import ChapterPagesService
 from app.services.chapter_service import ChapterService
 from app.services.manga_service import MangaService
+from app.services.tag_service import TagService
 from app.services.user_service import UserService
 from app.sources.jikan_client import JikanClient
 from app.sources.mangadex_client import MangaDexClient
+from fastapi import Depends, Query, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +27,13 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_shared_cache(request: Request) -> SimpleCache:
-    return request.app.state.cache
+    """Return the shared application cache stored in ``app.state.cache``."""
+    return cast(SimpleCache, request.app.state.cache)
 
 
 def get_db(request: Request) -> DatabaseAdapter:
     """Return the shared database adapter stored in ``app.state.db``."""
-    return request.app.state.db
+    return cast(DatabaseAdapter, request.app.state.db)
 
 
 def get_user_service(db: DatabaseAdapter = Depends(get_db)) -> UserService:
@@ -60,15 +64,68 @@ async def get_current_user(
     return payload
 
 
+async def get_current_user_no_bootstrap(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> FirebaseTokenPayload:
+    """Verify the Bearer token without bootstrapping the local user row.
+
+    Unlike :func:`get_current_user`, this dependency does **not** bootstrap or
+    look up the local user row. Use it for endpoints that only need Firebase
+    identity verification (e.g. account deletion).
+
+    Raises :class:`~app.core.exceptions.AuthError` for any authentication
+    failure so the registered handler emits a consistent
+    ``{"error": "authentication_error", "detail": "..."}`` 401 response.
+    """
+    if credentials is None:
+        raise AuthError("Authentication required.")
+
+    try:
+        return await verify_firebase_token(credentials.credentials)
+    except AuthenticationError as exc:
+        raise AuthError(str(exc)) from exc
+
+
+async def get_current_user_verified(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    user_service: UserService = Depends(get_user_service),
+) -> FirebaseTokenPayload:
+    """Verify the Bearer token, bootstrap the local user, and enforce email verification.
+
+    Like :func:`get_current_user` but also checks that the Firebase account
+    has a verified email address. Raises :class:`EmailNotVerifiedError` (403)
+    if the email is not verified.
+
+    Use this for sensitive endpoints that require verified accounts.
+    """
+    user = await get_current_user(credentials, user_service)
+    if not user.email_verified:
+        raise EmailNotVerifiedError("Email not verified.")
+    return user
+
+
 def get_manga_service(request: Request) -> MangaService:
+    """Build a :class:`MangaService` with MangaDex, Jikan clients, and optional worker HTTP for the current request."""
+    worker_http = getattr(request.app.state, "mangadex_worker_http", None)
+    worker_client = MangaDexClient(worker_http) if worker_http else None
     return MangaService(
         client=MangaDexClient(request.app.state.mangadex_http),
+        worker_client=worker_client,
         jikan=JikanClient(request.app.state.jikan_http),
         cache=get_shared_cache(request),
     )
 
 
+def get_tag_service(request: Request) -> TagService:
+    """Build a :class:`TagService` with the shared MangaDex client and cache for the current request."""
+    return TagService(
+        client=MangaDexClient(request.app.state.mangadex_http),
+        cache=get_shared_cache(request),
+    )
+
+
 def get_chapter_service(request: Request) -> ChapterService:
+    """Build a :class:`ChapterService` with the shared MangaDex client and cache for the current request."""
     return ChapterService(
         client=MangaDexClient(request.app.state.mangadex_http),
         cache=get_shared_cache(request),
@@ -76,6 +133,7 @@ def get_chapter_service(request: Request) -> ChapterService:
 
 
 def get_chapter_pages_service(request: Request) -> ChapterPagesService:
+    """Build a :class:`ChapterPagesService` with the shared MangaDex client and cache for the current request."""
     return ChapterPagesService(
         client=MangaDexClient(request.app.state.mangadex_http),
         cache=get_shared_cache(request),
@@ -115,3 +173,22 @@ async def get_user_age(
     from app.core.age import compute_age
 
     return compute_age(profile.birth_date)
+
+
+async def get_user_language(
+    lang: str | None = Query(None),
+    user: FirebaseTokenPayload | None = Depends(get_current_user_optional),
+    user_service: UserService = Depends(get_user_service),
+) -> str:
+    """Resolve the requested chapter language.
+
+    Precedence: non-empty ``lang`` query param, authenticated user's
+    ``ReadingPreferences.default_language``, then ``"en"`` for guests.
+    """
+    if lang is not None and lang.strip():
+        return lang.strip()
+    if user is not None:
+        await user_service.get_or_create_user(user)
+        preferences = await user_service.get_preferences(user.uid)
+        return preferences.default_language
+    return "en"

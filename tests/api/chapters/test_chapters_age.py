@@ -8,22 +8,20 @@ Strategy:
 
 import unittest
 from importlib.util import find_spec
-from unittest.mock import AsyncMock
 
 if find_spec("fastapi") is None:
     raise unittest.SkipTest("fastapi is not installed")
 
-from fastapi.testclient import TestClient
-
 from app.core.age import can_access_content
 from app.core.dependencies import (
+    get_chapter_pages_service,
     get_chapter_service,
     get_manga_service,
     get_user_age,
+    get_user_language,
 )
-from app.core.dependencies import get_chapter_pages_service
+from fastapi.testclient import TestClient
 from tests.api.helpers import create_hermetic_test_app
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,6 +49,7 @@ def _make_manga(
     manga_id: str,
     title: str = "Test Manga",
     content_rating: str | None = "safe",
+    available_translated_languages: list[str] | None = None,
 ) -> dict:
     """Build a minimal mapped-manga dict matching MangaService output shape."""
     return {
@@ -59,6 +58,7 @@ def _make_manga(
         "description": None,
         "coverUrl": None,
         "contentRating": content_rating,
+        "availableTranslatedLanguages": available_translated_languages or [],
     }
 
 
@@ -73,6 +73,7 @@ class FakeMangaServiceWithAge:
         manga_id: str,
         user_age: int | None = None,
         skip_age_filter: bool = False,
+        language: str | None = None,
     ) -> dict | None:
         manga = self.manga_db.get(manga_id)
         if manga is None:
@@ -90,20 +91,56 @@ class FakeChapterService:
     def __init__(self, chapters: list[dict] | None = None):
         self._chapters = chapters or []
         self._chapter_manga_map: dict[str, str] = {}
+        self.latest_user_age: int | None = None
 
     def set_chapter_manga_map(self, mapping: dict[str, str]):
         self._chapter_manga_map = mapping
 
-    async def get_chapters(self, manga_id: str, language: str = "en") -> list[dict]:
-        return list(self._chapters)
+    async def get_chapters(
+        self, manga_id: str, language: str | None = "en"
+    ) -> list[dict]:
+        self._last_language = language
+        if language is None:
+            return list(self._chapters)
+        return [ch for ch in self._chapters if ch.get("language") == language]
+
+    async def get_available_languages(self, manga_id: str) -> list[str]:
+        return sorted({chapter.get("language", "en") for chapter in self._chapters})
 
     async def get_manga_id_for_chapter(self, chapter_id: str) -> str | None:
         return self._chapter_manga_map.get(chapter_id)
+
+    async def get_latest_home_chapters(
+        self, language: str = "en", limit: int = 10, user_age: int | None = None
+    ) -> list[dict]:
+        self.latest_user_age = user_age
+        return []
 
 
 # ---------------------------------------------------------------------------
 # Test Suites
 # ---------------------------------------------------------------------------
+
+
+class TestLatestHomeChaptersAgeRestriction(unittest.TestCase):
+    """GET /chapters/latest forwards the caller age to the service."""
+
+    def setUp(self):
+        self.app = create_hermetic_test_app()
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+
+    def test_latest_chapters_passes_user_age_to_service(self):
+        chapter_service = FakeChapterService()
+        self.app.dependency_overrides[get_chapter_service] = lambda: chapter_service
+        self.app.dependency_overrides[get_user_age] = lambda: 12
+
+        with TestClient(self.app) as client:
+            response = client.get("/chapters/latest")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(chapter_service.latest_user_age, 12)
 
 
 class TestChaptersAgeRestriction(unittest.TestCase):
@@ -121,6 +158,7 @@ class TestChaptersAgeRestriction(unittest.TestCase):
             "number": "1",
             "title": "Chapter 1",
             "date": "2026-01-01T00:00:00Z",
+            "language": "en",
             "readable": True,
             "external": False,
             "externalUrl": None,
@@ -130,6 +168,7 @@ class TestChaptersAgeRestriction(unittest.TestCase):
             "number": "2",
             "title": "Chapter 2",
             "date": "2026-01-02T00:00:00Z",
+            "language": "en",
             "readable": True,
             "external": False,
             "externalUrl": None,
@@ -143,8 +182,8 @@ class TestChaptersAgeRestriction(unittest.TestCase):
         self.app.dependency_overrides.clear()
 
     def _override(self, user_age=None):
-        self.app.dependency_overrides[get_manga_service] = lambda: FakeMangaServiceWithAge(
-            self.MANGA_DB
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
         )
         self.app.dependency_overrides[get_chapter_service] = lambda: FakeChapterService(
             self.CHAPTERS
@@ -243,6 +282,37 @@ class TestChaptersAgeRestriction(unittest.TestCase):
         detail = response.json()["detail"]
         self.assertIn("18", detail)
 
+    def test_empty_chapters_returns_200_not_404(self):
+        """Accessible manga with no eligible chapters returns empty list."""
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
+        )
+        self.app.dependency_overrides[get_chapter_service] = lambda: FakeChapterService(
+            []
+        )
+        self.app.dependency_overrides[get_user_age] = lambda: None
+
+        with TestClient(self.app) as client:
+            response = client.get("/chapters/manga/safe-1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_language_resolution_uses_dependency(self):
+        """Resolved language is passed to the chapter service."""
+        chapter_service = FakeChapterService(self.CHAPTERS)
+        self.app.dependency_overrides[get_manga_service] = lambda: (
+            FakeMangaServiceWithAge(self.MANGA_DB)
+        )
+        self.app.dependency_overrides[get_chapter_service] = lambda: chapter_service
+        self.app.dependency_overrides[get_user_age] = lambda: None
+        self.app.dependency_overrides[get_user_language] = lambda: "es"
+
+        with TestClient(self.app) as client:
+            response = client.get("/chapters/manga/safe-1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(chapter_service._last_language, "es")
 
 
 class TestChapterPagesAgeRestriction(unittest.TestCase):

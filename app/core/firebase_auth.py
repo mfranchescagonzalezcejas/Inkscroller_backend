@@ -12,10 +12,9 @@ import os
 from dataclasses import dataclass
 
 import firebase_admin
+from app.core.config import settings
 from firebase_admin import auth as firebase_auth_sdk
 from firebase_admin import credentials
-
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +26,7 @@ class FirebaseTokenPayload:
     uid: str
     email: str
     display_name: str | None = None
+    email_verified: bool = False
 
 
 class AuthenticationError(Exception):
@@ -121,12 +121,13 @@ async def verify_firebase_token(token: str) -> FirebaseTokenPayload:
     Raises:
         :class:AuthenticationError: If the token is empty, expired, or fails
             Firebase verification.
+
     """
     if not token:
         raise AuthenticationError("No authentication token provided.")
 
     try:
-        decoded = firebase_auth_sdk.verify_id_token(token)
+        decoded = firebase_auth_sdk.verify_id_token(token, check_revoked=True)
     except firebase_auth_sdk.ExpiredIdTokenError:
         raise AuthenticationError("Firebase ID token has expired.")
     except firebase_auth_sdk.RevokedIdTokenError:
@@ -140,10 +141,16 @@ async def verify_firebase_token(token: str) -> FirebaseTokenPayload:
     uid: str = decoded.get("uid", "")
     email: str = decoded.get("email", "")
     display_name: str | None = decoded.get("name")
+    email_verified: bool = bool(decoded.get("email_verified", False))
 
     if not uid or not email:
         raise AuthenticationError(
             "Firebase token missing required claims (uid, email)."
         )
 
-    return FirebaseTokenPayload(uid=uid, email=email, display_name=display_name)
+    return FirebaseTokenPayload(
+        uid=uid,
+        email=email,
+        display_name=display_name,
+        email_verified=email_verified,
+    )

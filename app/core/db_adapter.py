@@ -70,13 +70,16 @@ class SqliteAdapter(DatabaseAdapter):
     """Wraps an ``aiosqlite.Connection`` for local development and tests."""
 
     def __init__(self, conn: Any) -> None:  # aiosqlite.Connection
+        """Initialise with an ``aiosqlite.Connection``."""
         self._conn = conn
 
     async def execute(self, query: str, *args: Any) -> int:
+        """Execute a DML statement and return the number of affected rows."""
         cursor = await self._conn.execute(query, args)
         return cursor.rowcount  # type: ignore[return-value]
 
     async def fetchone(self, query: str, *args: Any) -> dict[str, Any] | None:
+        """Return the first result row as a dict, or ``None`` if not found."""
         async with self._conn.execute(query, args) as cursor:
             row = await cursor.fetchone()
         if row is None:
@@ -84,14 +87,17 @@ class SqliteAdapter(DatabaseAdapter):
         return dict(row)
 
     async def fetchall(self, query: str, *args: Any) -> list[dict[str, Any]]:
+        """Return all result rows as a list of dicts."""
         async with self._conn.execute(query, args) as cursor:
             rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
     async def commit(self) -> None:
+        """Commit the current transaction."""
         await self._conn.commit()
 
     async def close(self) -> None:
+        """Release the underlying connection."""
         await self._conn.close()
 
 
@@ -107,15 +113,18 @@ class PostgresAdapter(DatabaseAdapter):
     """
 
     def __init__(self, pool: Any) -> None:  # asyncpg.Pool
+        """Initialise with an ``asyncpg.Pool``."""
         self._pool = pool
 
     async def execute(self, query: str, *args: Any) -> int:
+        """Execute a DML statement and return the number of affected rows."""
         pg_query = _to_pg_params(query)
         async with self._pool.acquire() as conn:
             result = await conn.execute(pg_query, *args)
         return _pg_rowcount(result)
 
     async def fetchone(self, query: str, *args: Any) -> dict[str, Any] | None:
+        """Return the first result row as a dict, or ``None`` if not found."""
         pg_query = _to_pg_params(query)
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(pg_query, *args)
@@ -124,13 +133,16 @@ class PostgresAdapter(DatabaseAdapter):
         return dict(row)
 
     async def fetchall(self, query: str, *args: Any) -> list[dict[str, Any]]:
+        """Return all result rows as a list of dicts."""
         pg_query = _to_pg_params(query)
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(pg_query, *args)
         return [dict(row) for row in rows]
 
     async def commit(self) -> None:
+        """Commit the current transaction (no-op — asyncpg auto-commits single statements)."""
         pass  # asyncpg commits each statement automatically
 
     async def close(self) -> None:
+        """Release the underlying connection pool."""
         await self._pool.close()

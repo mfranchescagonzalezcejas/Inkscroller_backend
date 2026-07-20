@@ -1,6 +1,8 @@
-from pydantic import BaseModel
-from typing import Optional
+"""Pydantic model for MangaDex chapter metadata."""
+
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class Chapter(BaseModel):
@@ -12,11 +14,24 @@ class Chapter(BaseModel):
     """
 
     id: str
-    number: Optional[str]
-    title: Optional[str]
-    date: Optional[datetime]
-    scanlation_group: Optional[str] = None
+    number: str | None
+    title: str | None
+    date: datetime | None
+    scanlation_group: str | None = None
+    language: str
 
     readable: bool
     external: bool
-    externalUrl: Optional[str]
+    externalUrl: str | None
+
+
+class ChapterLanguagesResponse(BaseModel):
+    """Response for the chapter language discovery endpoint.
+
+    Returns the available languages, the matched language based on the
+    user's preference, and the chapters in that matched language.
+    """
+
+    available: list[str]
+    matched: str
+    chapters: list[Chapter]

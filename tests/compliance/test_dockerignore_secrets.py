@@ -1,8 +1,7 @@
 """Docker build context safety checks."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -49,7 +48,9 @@ def _pattern_positions(
 ) -> dict[str, list[int]]:
     return {
         required_pattern: [
-            index for index, pattern in enumerate(patterns) if pattern == required_pattern
+            index
+            for index, pattern in enumerate(patterns)
+            if pattern == required_pattern
         ]
         for required_pattern in required_patterns
     }

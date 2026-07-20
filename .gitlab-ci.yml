@@ -17,12 +17,15 @@ validate:
   image: python:3.12.10
   before_script:
     - python -m pip install --upgrade pip
-    - pip install "ruff==0.15.9"
+    - pip install "ruff==0.15.9" "mypy==2.3.0" "pytest==9.0.3" "pytest-cov==7.1.0"
     - pip install -r requirements.txt
   script:
-    - ruff check app/ main.py
-    - ruff format --check app/ main.py
-    - python -m unittest discover -s tests -v
+    - ruff check app/ main.py tests/
+    - ruff format --check app/ main.py tests/
+    - mypy app/ main.py
+    # 75% threshold (configured in pyproject.toml [tool.coverage.report])
+    # blocks CI if coverage drops below baseline.
+    - python -m pytest --cov=app --cov-report=term-missing tests/
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "develop"'

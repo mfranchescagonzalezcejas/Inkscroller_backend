@@ -1,8 +1,7 @@
 """Pydantic models for the user profile and reading preferences endpoints."""
 
-from datetime import date
 import re
-
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
@@ -31,6 +30,7 @@ class UpdateUserProfileRequest(BaseModel):
     @field_validator("username", mode="before")
     @classmethod
     def normalize_username(cls, value: object) -> object:
+        """Strip, lowercase, and validate username format (3-30 chars, alphanumeric/dash/underscore)."""
         if value is None:
             return None
         if not isinstance(value, str):
@@ -45,6 +45,7 @@ class UpdateUserProfileRequest(BaseModel):
     @field_validator("birth_date")
     @classmethod
     def validate_birth_date(cls, value: date | None) -> date | None:
+        """Reject future or pre-1900 birth dates."""
         if value is None:
             return None
         if value > date.today():
@@ -60,6 +61,8 @@ class ReadingPreferences(BaseModel):
     firebase_uid: str
     default_reader_mode: str = "vertical"
     default_language: str = "en"
+    content_rating_filter: str | None = None
+    demographic_filter: list[str] | None = None
     updated_at: str
 
 
@@ -68,12 +71,28 @@ class UpdatePreferencesRequest(BaseModel):
 
     default_reader_mode: str | None = None
     default_language: str | None = None
+    content_rating_filter: str | None = None
+    demographic_filter: list[str] | None = None
 
 
 class UpdateLibraryStatusRequest(BaseModel):
     """Payload accepted by `PATCH /users/me/library/{manga_id}`."""
 
     library_status: Literal["reading", "completed", "paused"]
+
+
+class UpdateReadingProgressRequest(BaseModel):
+    """Payload accepted by ``PATCH /users/me/library/{manga_id}/progress``."""
+
+    chapters_read: int
+
+    @field_validator("chapters_read")
+    @classmethod
+    def validate_chapters_read(cls, value: int) -> int:
+        """Reject negative chapter counts."""
+        if value < 0:
+            raise ValueError("chapters_read must be >= 0")
+        return value
 
 
 class AddToLibraryRequest(BaseModel):

@@ -1,0 +1,43 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.9
+    hooks:
+      - id: ruff-check
+        name: ruff lint
+        args: [--fix]
+      - id: ruff-format
+        name: ruff format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        # Run only at pre-push so the commit loop stays fast (just ruff).
+        # tests/ are checked by mypy at CI, not pre-commit, for the same reason.
+        # The entry calls the project's venv python directly so the hook
+        # works regardless of the developer's active shell (pre-commit runs
+        # each hook in a subprocess that does not inherit venv activation).
+        entry: venv/bin/python -m mypy app/ main.py
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: tests
+        name: unit tests
+        entry: venv/bin/python -m pytest --cov=app --cov-fail-under=75 tests/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: gga
+        name: GGA AI review (optional)
+        # GGA (Gentleman Guardian Angel) is an optional local AI code review
+        # tool. Runs at pre-push only; commit loop stays fast (ruff only).
+        # The bash wrapper skips the hook cleanly when the `gga` binary is
+        # not installed — developers without GGA can still commit and push.
+        # SKIP=gga git push     — to bypass on demand
+        # Timeout and provider are configured in .gga.
+        entry: bash -c 'command -v gga >/dev/null 2>&1 || { echo "gga not installed, skipping AI review"; exit 0; }; gga run --ci'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

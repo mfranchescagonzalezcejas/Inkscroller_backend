@@ -1,8 +1,8 @@
 # Security Public Readiness — InkScroller Backend
 
-> Documento de referencia para mantener el repositorio público de forma segura y auditable en el tiempo.
+> Reference document for keeping the public repository secure and auditable over time.
 >
-> **Modelo actual:** GitLab es la fuente de trabajo/MR, GitHub es mirror público y Railway despliega desde el mirror.
+> **Current model:** GitLab is the work/MR source, GitHub is the public mirror, and Railway deploys from the mirror.
 
 ---
 
@@ -220,4 +220,36 @@ Ejecutar esta checklist por release y en auditorías periódicas:
 - Riesgo residual conocido: refs ocultos de MR/PR pueden conservar historial viejo.
 - Decisión operativa actual (portfolio): riesgo bajo aceptado + auditorías periódicas.
 
-_Última actualización: 2026-05-05 — documento migrado a estado post-publicación/mantenimiento_
+---
+
+## 7. Novedades — Security Audit v1.0.0 (Jul 2026)
+
+El audit de seguridad completo y sus correcciones están documentados en el issue [#129](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/issues/129) y PR [#130](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/pull/130).
+
+### Nuevas defensas implementadas
+
+| Medida | Descripción | Archivo clave |
+|--------|-------------|---------------|
+| **Rate limiting** | Sliding-window in-memory: 30 req/min públicos, 60 auth, 10 CSP | `app/core/rate_limiter.py` |
+| **Token revocation** | `check_revoked=True` en `verify_id_token()` | `app/core/firebase_auth.py` |
+| **CSP origin validation** | Solo acepta reports desde origins permitidos | `app/api/security.py` |
+| **Output sanitization** | Texto de upstreams sin escapar — el frontend sanitiza según su contexto de render | (responsabilidad del frontend) |
+| **LRU Cache** | `OrderedDict` con purga de expirados | `app/core/cache.py` |
+| **Error genéricos** | Mensajes unificados para prevenir user enumeration | `app/services/user_service.py` |
+| **Permissions-Policy** | Todas las features restringidas por defecto | `app/core/security_headers.py` |
+| **debug forzado** | `debug=False` en entornos production-like | `app/core/config.py` |
+| **Trusted proxy** | `TRUSTED_PROXY` env var — Railway/Cloudflare pasa IP real via X-Forwarded-For | `app/core/rate_limiter.py` |
+| **CORS en 429** | Rate-limit responses incluyen `Access-Control-Allow-Origin` | `app/core/rate_limiter.py` |
+| **Path-churn prevention** | Rate-limiter key por categoría, no por path (máx 3 buckets/cliente) | `app/core/rate_limiter.py` |
+| **Body middleware O(n)** | `list.pop(0)` reemplazado por índice — evita costo cuadrático | `main.py` |
+| **CSP log hardening** | Caracteres de control < 0x20 (excepto tab) eliminados del log | `app/api/security.py` |
+
+### Próximas mejoras recomendadas
+
+- Migrar rate limiter a Redis para soporte multi-instancia (actualmente in-memory, se pierde al reiniciar)
+- Agregar sanitización HTML en frontend como defensa en profundidad
+- Monitorear logs de CSP reports para detectar ataques tempranos
+
+---
+
+_Última actualización: 2026-07-19 — post-audit v1.0.0 — todos los hallazgos corregidos_

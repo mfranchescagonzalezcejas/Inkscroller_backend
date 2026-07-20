@@ -1,35 +1,125 @@
-# InkScroller Backend
+<!-- ────────────────────────────────────────────────────────────── -->
+<!--  InkScroller Backend README (EN) — matching frontend style    -->
+<!-- ────────────────────────────────────────────────────────────── -->
 
-![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=flat-square&logo=fastapi&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
-![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+<div align="center">
 
----
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f172a,25:1e40af,50:0d9488,75:3b82f6,100:0f172a&height=220&section=header&text=InkScroller&fontSize=56&fontColor=fafafa&fontAlignY=38&desc=FastAPI%20Backend%20%E2%80%A2%20Clean%20Architecture%20%E2%80%A2%20MangaDex%20Proxy&descAlignY=58&descSize=16&descColor=fafafa&animation=fadeIn" width="100%"/>
 
-## Features
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app)
+[![Tests](https://img.shields.io/badge/Tests-318%20%E2%9C%94-0d9488?style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/Inkscroller_backend/actions)
+[![License](https://img.shields.io/badge/license-MIT-0d9488?style=for-the-badge)](LICENSE)
+
+<br/>
+
+[![Frontend](https://img.shields.io/badge/frontend-InkScroller%20Flutter-02569B?logo=flutter&style=for-the-badge)](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend)
+[![Spanish](https://img.shields.io/badge/Leer%20en%20espa%C3%B1ol-README.es.md-0d9488?style=for-the-badge)](README.es.md)
+
+</div>
+
+<br/>
+
+<div align="center">
+  <sub><b>· &nbsp; A B O U T &nbsp; ·</b></sub>
+</div>
+
+<br/>
+
+**InkScroller** is a full-stack manga reading platform. This repository contains the **backend API** — a FastAPI service that proxies and enriches data from [MangaDex](https://mangadex.org) and [Jikan/MyAnimeList](https://jikan.moe), with Firebase authentication, age-gated content access, user preferences, and personal manga libraries.
+
+The backend serves as the data layer for the [InkScroller Flutter app](https://github.com/mfranchescagonzalezcejas/inkscroller_frontend), providing a unified API for catalogue browsing, search, chapter listing, and image proxying.
+
+🎓 &nbsp;**TFM submission** — See [TFM Deliverables](#tfm-deliverables) below.
+
+<br/>
+
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## Table of Contents
+
+- [Deployment](#deployment)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [API Reference](#api-reference)
+- [Age Gating](#age-gating)
+- [Running Locally](#running-locally)
+- [Project Structure](#project-structure)
+- [Quality Gates](#quality-gates)
+- [TFM Deliverables](#tfm-deliverables)
+- [Attribution & Disclaimer](#attribution--disclaimer)
+- [License](#license)
+
+<br/>
+
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## 🚀 Deployment
+
+**Production API:** [`https://api.inkscroller.devdigi.dev`](https://api.inkscroller.devdigi.dev)
+
+| Environment | URL | Status |
+|------------|-----|--------|
+| **Production** | `https://api.inkscroller.devdigi.dev` | ✅ [`/ping`](https://api.inkscroller.devdigi.dev/ping) |
+| Development | `https://api.dev.inkscroller.devdigi.dev` | ✅ [`/ping`](https://api.dev.inkscroller.devdigi.dev/ping) |
+| Staging | `https://api.stg.inkscroller.devdigi.dev` | ✅ [`/ping`](https://api.stg.inkscroller.devdigi.dev/ping) |
+
+📖 **API Documentation:** [`ReDoc`](https://api.inkscroller.devdigi.dev/redoc) · [`Swagger UI`](https://api.inkscroller.devdigi.dev/docs) · [`OpenAPI JSON`](https://api.inkscroller.devdigi.dev/openapi.json)
+
+> Full deployment guide: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+
+<br/>
+
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## ✨ Features
 
 | Area | Description |
 |------|-------------|
 | **Manga catalogue** | Browse, filter, and paginate the MangaDex catalogue |
-| **Search** | Title-based manga search with pagination (`limit`, `offset`) |
-| **Detail enrichment** | MangaDex data augmented with Jikan/MAL metadata (score, rank, authors, genres) |
+| **Search** | Title-based manga search with pagination |
+| **Detail enrichment** | MangaDex data augmented with Jikan/MAL metadata |
+| **Demographic filter** | Multi-value filtering with `unspecified` union support |
+| **Content rating filter** | Age-based content filtering |
 | **Chapter listing** | Per-manga chapter list with language filtering |
 | **Page URLs** | MangaDex@Home image URLs for any chapter |
-| **Auth** | Firebase ID token verification on protected endpoints |
-| **User profile** | Auto-created user row on first authenticated request (`/users/me`) |
-| **Preferences** | Reading preferences per user (`defaultReaderMode`, `defaultLanguage`) |
-| **Caching** | In-memory 5-minute TTL cache on all service calls |
-| **Health check** | Liveness probe at `/ping` |
-| **Profile metadata** | `username` and `birth_date` on authenticated user profile |
-| **Account deletion** | Full account and data deletion (`DELETE /users/me`) |
-| **Library** | Personal manga library with CRUD, content-rating storage, and age-based filtering |
-| **Age-gated content** | Content access enforcement by age (safe/suggestive/erotica/pornographic) |
-| **Home feed** | Latest chapters endpoint for the home screen (`/chapters/latest`) |
+| **Home feed** | Latest chapters with age gating |
+| **Auth** | Firebase ID token verification |
+| **User profiles** | Auto-created on first authenticated request |
+| **Preferences** | Reading mode, language, demographic, content rating |
+| **Library** | Personal manga library with age-based filtering |
+| **Account deletion** | Full account and data deletion |
+| **Age-gated content** | Content + demographic enforcement by age |
+| **Cursor pagination** | Tamper-proof HMAC-signed cursor tokens |
+| **Rate limiting** | Sliding-window in-memory per IP (30 req/min public, 60 auth, 10 CSP). 429 responses include CORS headers. Keyed by route category, not path. `TRUSTED_PROXY` env var for Railway/Cloudflare |
+| **Security headers** | X-Content-Type-Options, X-Frame-Options, HSTS, CSP-RO, Permissions-Policy |
+| **Output sanitization** | Upstream text fields returned raw — frontend sanitizes per rendering context |
+| **Token revocation** | Firebase `check_revoked=True` — revoked sessions rejected immediately |
+| **Caching** | In-memory LRU cache with TTL (1000 entries max) |
+| **Quality gates** | Pre-commit hooks + pre-push (mypy, 318 tests) |
 
----
+<br/>
 
-## Tech Stack
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -38,200 +128,231 @@
 | Data validation | Pydantic v2 |
 | ASGI server | Uvicorn |
 | Auth | Firebase Admin SDK |
-| Persistence | PostgreSQL on Railway (`DATABASE_URL`) / SQLite local fallback |
+| Database | PostgreSQL (Railway) / SQLite (local) |
 | Runtime | Python 3.12 |
-| Deploy | Railway (dev / staging / production) |
+| Testing | unittest (318 tests) |
+| Linting | Ruff 0.15.9 |
+| Type checking | mypy |
+| Deployment | Railway (prod / dev / staging) |
+| Container | Docker multi-stage build |
 
----
+<br/>
 
-## API Reference
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## 📡 API Reference
 
 ### Public
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/ping` | Liveness probe → `{"ok": true}` |
-| `GET` | `/ready` | Readiness probe — DB connectivity check → `{"ready": true}` or `503` |
-| `GET` | `/manga` | Paginated manga list (`limit`, `offset`, `title`, `demographic`, `status`, `order`) |
-| `GET` | `/manga/search?q=&limit=&offset=` | Paginated title search (`limit`: 1-100, default 10; `offset`: 0+, default 0) |
+| `GET` | `/ready` | Readiness probe → `{"ready": true}` or `503` |
+| `GET` | `/manga` | Paginated list with filters |
+| `GET` | `/manga/search?q=` | Title search with pagination |
+| `GET` | `/manga/capabilities` | API capability contract |
+| `GET` | `/manga/tags` | MangaDex filter tags by type |
+| `GET` | `/manga/genres` | Flat list of available genres |
 | `GET` | `/manga/{id}` | Manga detail with Jikan enrichment |
-| `GET` | `/manga/tags` | MangaDex filter tags |
-| `GET` | `/chapters/latest` | Latest chapters for the home feed |
-| `GET` | `/chapters/manga/{id}` | Chapter list (filtered by `lang`, default `en`) |
-| `GET` | `/chapters/{id}/pages` | Page image URLs via MangaDex@Home |
+| `GET` | `/chapters/latest` | Latest chapters (age-filtered) |
+| `GET` | `/chapters/manga/{id}` | Chapter list by language |
+| `GET` | `/chapters/{id}/pages` | Page images via MangaDex@Home |
+| `POST` | `/csp-report` | CSP violation reports (origin-validated, PII-safe) |
 
-### Authenticated (requires `Authorization: Bearer <firebase-id-token>`)
+### Authenticated
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/users/me` | Get or create user profile |
-| `PATCH` | `/users/me` | Update profile — `username` and/or `birth_date` (birth_date is immutable after first set) |
-| `DELETE` | `/users/me` | Delete account and all associated data |
+| `PATCH` | `/users/me` | Update profile |
+| `DELETE` | `/users/me` | Delete account and all data |
 | `GET` | `/users/me/preferences` | Get reading preferences |
-| `PUT` | `/users/me/preferences` | Update `defaultReaderMode` and/or `defaultLanguage` |
-| `GET` | `/users/me/library` | List library entries (age-filtered) |
-| `POST` | `/users/me/library/{manga_id}` | Add manga to library |
-| `PATCH` | `/users/me/library/{manga_id}` | Update library status for a saved manga |
-| `DELETE` | `/users/me/library/{manga_id}` | Remove manga from library |
+| `PUT` | `/users/me/preferences` | Update preferences |
+| `GET` | `/users/me/library` | List library (age-filtered) — returns enriched manga objects with `library` metadata |
+| `POST` | `/users/me/library/{manga_id}` | Add manga to library (caches metadata at insert time) |
+| `PATCH` | `/users/me/library/{manga_id}` | Update library status (`reading`, `completed`, `paused`) |
+| `PATCH` | `/users/me/library/{manga_id}/progress` | Update reading progress (`chapters_read`) |
+| `DELETE` | `/users/me/library/{manga_id}` | Remove from library |
 
-> Full API details: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
+> **Library response model:** `GET /users/me/library` returns full [`Manga`](app/models/manga.py) objects with enriched fields from MangaDex + Jikan (`malId`, `chapters`, `score`, `authors`, `genres`, `demographic`, `status`, etc.) plus a nested `library` object:
+>
+> ```json
+> {
+>   "library": {
+>     "library_status": "reading",
+>     "chapters_read": 42,
+>     "added_at": "2026-07-01T12:00:00",
+>     "updated_at": "2026-07-20T15:30:00"
+>   }
+> }
+> ```
+>
+> `PATCH /users/me/library/{manga_id}/progress` accepts `{"chapters_read": <int>}` and returns the same `LibraryMetadata` shape.
 
----
+<br/>
 
-### Age Gating — Content Rating Thresholds
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
 
-Content from MangaDex is classified into four age tiers. Access is enforced
-at the route and service layers:
+<br/>
+
+## 🔒 Age Gating
 
 | Tier | Content Rating | Access |
 |------|---------------|--------|
-| 0+ | `safe` | All users (including unauthenticated guests) |
+| 0+ | `safe` | All users (including guests) |
 | 16+ | `suggestive` | Authenticated users aged 16+ |
 | 18+ | `erotica` | Authenticated users aged 18+ |
 | 18+ | `pornographic` | Authenticated users aged 18+ |
 
-- **Guest users** (unauthenticated): only `safe` content is accessible.
-- **Age computation**: derived from `birth_date` on the user profile. Guests have no age → safe-only.
-- **403 responses**: restricted content returns `403` with a message like
-  `"This content is age-restricted (requires 16+)"`.
-- **Library**: `content_rating` is stored when adding to library; GET library
-  filters entries by the caller's age automatically.
-- **birth_date immutability**: once set, `birth_date` cannot be changed (prevents
-  age-gating bypass).
+- **Guests**: only `safe` content.
+- **Age**: derived from `birth_date` on profile.
+- **Demographic gating**: null-demographic (doujinshi) requires 18+.
+- **403**: restricted content returns minimum age required.
+- **Library**: filtered by caller's age automatically.
+- **birth_date**: immutable once set.
 
----
+<br/>
 
-## Running Locally
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## 💻 Running Locally
 
 ```bash
-# 1. Create and activate virtualenv
 python -m venv venv
-source venv/bin/activate        # Linux / macOS
-# venv\Scripts\activate         # Windows
-
-# 2. Install dependencies
-python -m pip install -r requirements.txt
-
-# 3. Configure environment
+source venv/bin/activate
+python -m pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env
-# Edit .env — set FIREBASE_PROJECT_ID and either
-# GOOGLE_APPLICATION_CREDENTIALS (local) or FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (Railway).
-# Keep production/staging CORS origins explicit; use CORS_ORIGINS=* only for local development.
-
-# 4. Start server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 | URL | Description |
 |-----|-------------|
-| `http://localhost:8000/ping` | Liveness probe |
-| `http://localhost:8000/ready` | Readiness probe (DB check) |
 | `http://localhost:8000/docs` | Swagger UI |
 | `http://localhost:8000/redoc` | ReDoc |
+| `http://localhost:8000/ping` | Liveness probe |
 
-> **Windows note:** Use `python -m pip` and `python -m uvicorn` — never bare `pip`/`uvicorn` — to avoid launcher path issues.
+<br/>
 
----
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
 
-## Deployment
+<br/>
 
-Deployed to **Railway** across 3 environments:
-
-| Environment | API base URL | Health check |
-|------------|--------------|--------------|
-| dev | `https://api.dev.inkscroller.devdigi.dev` | `https://api.dev.inkscroller.devdigi.dev/ping` |
-| staging | `https://api.stg.inkscroller.devdigi.dev` | `https://api.stg.inkscroller.devdigi.dev/ping` |
-| prod | `https://api.inkscroller.devdigi.dev` | `https://api.inkscroller.devdigi.dev/ping` |
-
-Production and development `/ping` have been verified online. The staging custom domain is reserved for the staging environment and should be verified after that environment is deployed/routed.
-
-Railway serves the backend on port `8080` in each environment. Cloudflare hosts the CNAME and TXT verification records for these custom API domains. The existing portfolio remains on `https://devdigi.dev` / `https://www.devdigi.dev` and is not routed to Railway.
-
-> Full deployment guide (Railway environments, Firebase secrets, Postgres): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 Inkscroller_backend/
-├── main.py                        # App entry — mounts all routers
-├── Dockerfile                     # Multi-stage build for Railway / container deploys
-├── requirements.txt
+├── main.py                     # App entry
+├── Dockerfile                  # Multi-stage build
+├── pyproject.toml              # Project config
 │
-└── app/
-    ├── api/                       # FastAPI route handlers
-    │   ├── health.py              # GET /ping, GET /ready
-    │   ├── manga.py               # GET /manga, /manga/search, /manga/{id}, /manga/tags
-    │   ├── chapters.py            # GET /chapters/latest, /chapters/manga/{id}, /chapters/{id}/pages
-    │   └── users.py               # GET/PATCH/DELETE /users/me, prefs, library CRUD
-    │
-    ├── core/
-    │   ├── age.py                 # Age computation and content restriction rules
-    │   ├── cache.py               # SimpleCache — TTL-based in-memory cache
-    │   ├── config.py              # Settings via env vars
-    │   ├── firebase_auth.py       # Firebase ID token verification middleware
-    │   ├── dependencies.py        # FastAPI DI factories
-    │   ├── db_adapter.py          # Database adapter (SQLite / PostgreSQL)
-    │   ├── database.py            # Database bootstrap and migration helpers
-    │   ├── exceptions.py          # Global exception handlers
-    │   ├── logging.py             # Structured logging configuration
-    │   └── resilience.py          # Retry decorator with exponential backoff
-    │
-    ├── models/                    # Pydantic response models
-    │   ├── manga.py
-    │   ├── chapter.py
-    │   └── user.py                # UserProfile, UserPreferences
-    │
-    ├── services/                  # Business logic
-    │   ├── manga_service.py
-    │   ├── chapter_service.py
-    │   ├── chapter_pages_service.py
-    │   └── user_service.py        # User creation, preference read/write
-    │
-    └── sources/                   # External API clients (async httpx)
-        ├── mangadex_client.py
-        └── jikan_client.py
-
-tests/
-├── api/                           # Route and authenticated endpoint tests
-├── services/                      # Service/mapper unit tests
-└── compliance/                    # API/legal compliance audit tests
+├── app/
+│   ├── api/                    # FastAPI route handlers
+│   ├── core/                   # Framework & cross-cutting
+│   ├── models/                 # Pydantic models
+│   ├── services/               # Business logic
+│   └── sources/                # External API clients
+│
+├── tests/                      # 318+ tests
+├── docs/                       # Documentation
+├── README.md
+├── CHANGELOG.md
+└── AGENTS.md                   # Coding standards
 ```
 
----
+<br/>
 
-## Contributing
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
 
-InkScroller Backend is a public portfolio project maintained by the author.
+<br/>
 
-External contributions are not actively accepted at this time, but issues,
-feedback, and code review comments are welcome.
+## ✅ Quality Gates
 
-## Security Reporting
+| Gate | When | What runs |
+|------|------|-----------|
+| **ruff lint** | `git commit` | Static analysis, unused imports, bugs |
+| **ruff format** | `git commit` | Code style enforcement |
+| **mypy** | `git push` | Type correctness |
+| **unit tests** | `git push` | 318 tests — all green |
+| **GGA** | `git push` | AI code review via OpenCode |
 
-If you discover a security issue, **do not publish secrets or exploit details in a public issue**.
+```bash
+pip install pre-commit
+pre-commit install && pre-commit install --hook-type pre-push
+```
 
-- Preferred: report privately through the main GitLab workflow (linked from project profile)
-- If only GitHub is available, open a minimal issue without sensitive details and request private follow-up
+<br/>
 
-General security posture and secret-handling guidance: [`SECURITY_PUBLIC_READINESS.md`](SECURITY_PUBLIC_READINESS.md)
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
 
----
+<br/>
 
-## Atribución y Disclaimer
+## 📦 TFM Deliverables
 
-InkScroller Backend agrega datos de las siguientes fuentes externas:
+<div align="center">
 
-- **MangaDex** — fuente primaria de catálogo, capítulos e imágenes de manga. InkScroller no está afiliado a MangaDex. Todo el contenido pertenece a sus respectivos autores y grupos de scanlation. Se respetan los [Términos de Servicio de MangaDex](https://mangadex.org/about/terms-of-service).
-- **Jikan / MyAnimeList** — capa de enriquecimiento de metadatos (score, rank, géneros). Jikan es un servicio no oficial de terceros. InkScroller no está afiliado a MyAnimeList ni a Jikan. Se respetan los [Términos de Uso de MyAnimeList](https://myanimelist.net/about/terms_of_use).
+<table>
+<thead>
+<tr><th>Item</th><th>URL</th></tr>
+</thead>
+<tbody>
+<tr><td>🗂️ <b>Frontend repo</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/inkscroller_frontend">mfranchescagonzalezcejas/inkscroller_frontend</a></td></tr>
+<tr><td>⚙️ <b>Backend repo</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/Inkscroller_backend">mfranchescagonzalezcejas/Inkscroller_backend</a></td></tr>
+<tr><td>📦 <b>App releases</b></td><td><a href="https://github.com/mfranchescagonzalezcejas/inkscroller_frontend/releases">GitHub Releases</a></td></tr>
+<tr><td>🔌 <b>Backend API</b></td><td><a href="https://api.inkscroller.devdigi.dev">api.inkscroller.devdigi.dev</a> · <a href="https://api.inkscroller.devdigi.dev/redoc">ReDoc</a></td></tr>
+<tr><td>👤 <b>Test user</b></td><td><code>testuserdevdigi@proton.me</code> / <code>1234qweASD-</code> (already verified). To test the email verification flow, register with your own email instead.</td></tr>
+<tr><td>📽️ <b>Slides & demo</b></td><td>See <a href="https://github.com/mfranchescagonzalezcejas/inkscroller_frontend">frontend repo</a></td></tr>
+</tbody>
+</table>
 
-Este proyecto actúa como **proxy de lectura**. No almacena ni redistribuye imágenes de manga. Los derechos sobre el contenido pertenecen a sus titulares originales.
+</div>
 
-Para consultas legales o solicitudes de takedown, ver [`docs/legal/api-compliance.md`](docs/legal/api-compliance.md).
+<br/>
 
----
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
 
-## License
+<br/>
+
+## 📝 Attribution & Disclaimer
+
+InkScroller Backend aggregates data from external sources:
+
+- **MangaDex** — primary catalogue, chapters, and page images. InkScroller is not affiliated with MangaDex. Content belongs to its respective authors and scanlation groups. [Terms of Service](https://mangadex.org/about/terms-of-service).
+- **Jikan / MyAnimeList** — metadata enrichment (score, rank, genres). InkScroller is not affiliated with MyAnimeList or Jikan. [Terms of Use](https://myanimelist.net/about/terms_of_use).
+
+This project acts as a **reading proxy**. It does not host, store, or redistribute manga images.
+
+For legal inquiries or takedown requests, see [`docs/legal/api-compliance.md`](docs/legal/api-compliance.md).
+
+<br/>
+
+<div align="center">
+  <img width="55%" src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,50:0d9488,100:0f172a&height=3" alt=""/>
+</div>
+
+<br/>
+
+## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f172a,50:0d9488,100:0f172a&height=120&section=footer&animation=fadeIn" width="100%"/>

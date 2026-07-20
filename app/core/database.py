@@ -34,10 +34,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
-    firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
-    default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
-    default_language     TEXT    NOT NULL DEFAULT 'en',
-    updated_at           TEXT    NOT NULL
+    firebase_uid            TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
+    default_reader_mode     TEXT    NOT NULL DEFAULT 'vertical',
+    default_language        TEXT    NOT NULL DEFAULT 'en',
+    content_rating_filter   TEXT,
+    demographic_filter      TEXT,
+    updated_at              TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_library (
@@ -49,6 +51,22 @@ CREATE TABLE IF NOT EXISTS user_library (
     title          TEXT,
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
+    chapters_read  INTEGER NOT NULL DEFAULT 0,
+    description    TEXT,
+    demographic    TEXT,
+    status         TEXT,
+    score          REAL,
+    rank           INTEGER,
+    popularity     INTEGER,
+    members        INTEGER,
+    favorites      INTEGER,
+    serialization  TEXT,
+    genres         TEXT  NOT NULL DEFAULT '[]',
+    chapters       INTEGER,
+    start_year     INTEGER,
+    end_year       INTEGER,
+    mal_id         INTEGER,
+    manga_type     TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -59,6 +77,31 @@ CREATE TABLE IF NOT EXISTS user_pending_deletions (
     last_error    TEXT
 );
 """
+
+# ── Additive PostgreSQL migrations ─────────────────────────────────────────────
+# These run after the base DDL to add columns that were introduced in later
+# schema versions. PostgreSQL's ADD COLUMN IF NOT EXISTS is idempotent.
+_POSTGRES_MIGRATIONS = [
+    "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS content_rating_filter TEXT",
+    "ALTER TABLE reading_preferences ADD COLUMN IF NOT EXISTS demographic_filter TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS content_rating TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS chapters_read INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS description TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS demographic TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS status TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS score REAL",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS rank INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS popularity INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS members INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS favorites INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS serialization TEXT",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS genres TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS chapters INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS start_year INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS end_year INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS mal_id INTEGER",
+    "ALTER TABLE user_library ADD COLUMN IF NOT EXISTS manga_type TEXT",
+]
 
 _POSTGRES_DDL = """
 CREATE TABLE IF NOT EXISTS users (
@@ -77,10 +120,12 @@ ON users(username)
 WHERE username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS reading_preferences (
-    firebase_uid         TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
-    default_reader_mode  TEXT    NOT NULL DEFAULT 'vertical',
-    default_language     TEXT    NOT NULL DEFAULT 'en',
-    updated_at           TEXT    NOT NULL
+    firebase_uid            TEXT    PRIMARY KEY REFERENCES users(firebase_uid),
+    default_reader_mode     TEXT    NOT NULL DEFAULT 'vertical',
+    default_language        TEXT    NOT NULL DEFAULT 'en',
+    content_rating_filter   TEXT,
+    demographic_filter      TEXT,
+    updated_at              TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_library (
@@ -93,6 +138,22 @@ CREATE TABLE IF NOT EXISTS user_library (
     cover_url      TEXT,
     authors        TEXT  NOT NULL DEFAULT '[]',
     content_rating TEXT,
+    chapters_read  INTEGER NOT NULL DEFAULT 0,
+    description    TEXT,
+    demographic    TEXT,
+    status         TEXT,
+    score          REAL,
+    rank           INTEGER,
+    popularity     INTEGER,
+    members        INTEGER,
+    favorites      INTEGER,
+    serialization  TEXT,
+    genres         TEXT  NOT NULL DEFAULT '[]',
+    chapters       INTEGER,
+    start_year     INTEGER,
+    end_year       INTEGER,
+    mal_id         INTEGER,
+    manga_type     TEXT,
     PRIMARY KEY (firebase_uid, manga_id)
 );
 
@@ -166,10 +227,45 @@ async def _migrate_sqlite_columns(conn: object) -> None:
             "ALTER TABLE user_library ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'",
         ),
         ("content_rating", "ALTER TABLE user_library ADD COLUMN content_rating TEXT"),
+        (
+            "chapters_read",
+            "ALTER TABLE user_library ADD COLUMN chapters_read INTEGER NOT NULL DEFAULT 0",
+        ),
+        ("description", "ALTER TABLE user_library ADD COLUMN description TEXT"),
+        ("demographic", "ALTER TABLE user_library ADD COLUMN demographic TEXT"),
+        ("status", "ALTER TABLE user_library ADD COLUMN status TEXT"),
+        ("score", "ALTER TABLE user_library ADD COLUMN score REAL"),
+        ("rank", "ALTER TABLE user_library ADD COLUMN rank INTEGER"),
+        ("popularity", "ALTER TABLE user_library ADD COLUMN popularity INTEGER"),
+        ("members", "ALTER TABLE user_library ADD COLUMN members INTEGER"),
+        ("favorites", "ALTER TABLE user_library ADD COLUMN favorites INTEGER"),
+        ("serialization", "ALTER TABLE user_library ADD COLUMN serialization TEXT"),
+        (
+            "genres",
+            "ALTER TABLE user_library ADD COLUMN genres TEXT NOT NULL DEFAULT '[]'",
+        ),
+        ("chapters", "ALTER TABLE user_library ADD COLUMN chapters INTEGER"),
+        ("start_year", "ALTER TABLE user_library ADD COLUMN start_year INTEGER"),
+        ("end_year", "ALTER TABLE user_library ADD COLUMN end_year INTEGER"),
+        ("mal_id", "ALTER TABLE user_library ADD COLUMN mal_id INTEGER"),
+        ("manga_type", "ALTER TABLE user_library ADD COLUMN manga_type TEXT"),
     ]
     for col, ddl in migrations:
         if col not in columns:
             await conn.execute(ddl)
+
+    # Ponytail: additive migration for reading_preferences.content_rating_filter
+    async with conn.execute("PRAGMA table_info(reading_preferences)") as cursor:
+        rows = await cursor.fetchall()
+    prefs_columns = {row["name"] for row in rows}
+    if "content_rating_filter" not in prefs_columns:
+        await conn.execute(
+            "ALTER TABLE reading_preferences ADD COLUMN content_rating_filter TEXT"
+        )
+    if "demographic_filter" not in prefs_columns:
+        await conn.execute(
+            "ALTER TABLE reading_preferences ADD COLUMN demographic_filter TEXT"
+        )
 
     await conn.execute(
         "UPDATE user_library "
@@ -230,6 +326,10 @@ async def _init_postgres() -> DatabaseAdapter:
                 s = stmt.strip()
                 if s:
                     await conn.execute(s)
+
+            # ── Additive migrations for columns added after the initial DDL ──
+            for migration in _POSTGRES_MIGRATIONS:
+                await conn.execute(migration)
 
     return PostgresAdapter(pool)
 

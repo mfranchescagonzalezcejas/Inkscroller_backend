@@ -1,13 +1,19 @@
-from datetime import datetime, timezone
-from typing import List
-from app.sources.mangadex_client import MangaDexClient
+"""Service for fetching and caching MangaDex chapter data."""
+
+from datetime import UTC, datetime
+
+from app.core.age import can_access_content, can_access_demographic
 from app.core.cache import SimpleCache
 from app.services.chapter_mapper import map_mangadex_chapter
 from app.services.manga_mapper import COVER_BASE_URL
+from app.sources.mangadex_client import MangaDexClient
 
 
 class ChapterService:
+    """Fetches and caches chapter data from MangaDex, including home-page latest chapters."""
+
     def __init__(self, client: MangaDexClient, cache: SimpleCache):
+        """Initialise with a MangaDex client and a shared cache instance."""
         self._client = client
         self._cache = cache
 
@@ -36,19 +42,29 @@ class ChapterService:
     async def get_chapters(
         self,
         manga_id: str,
-        language: str = "en",
-    ) -> List[dict]:
+        language: str | None = "en",
+    ) -> list[dict]:
+        """Return the chapter list for a manga, filtered to readable/external entries."""
         cache_key = f"chapters:{manga_id}:{language}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
 
-        payload = await self._client.get_chapters(
-            manga_id=manga_id,
-            language=language,
-        )
+        items: list[dict] = []
+        offset = 0
+        while True:
+            payload = await self._client.get_chapters(
+                manga_id=manga_id,
+                language=language,
+                limit=100,
+                offset=offset,
+            )
+            page_items = payload.get("data", [])
+            items.extend(page_items)
+            if not page_items or offset + 100 >= payload.get("total", len(items)):
+                break
+            offset += 100
 
-        items = payload.get("data", [])
         result = [
             map_mangadex_chapter(item)
             for item in items
@@ -61,12 +77,56 @@ class ChapterService:
         self._cache.set(cache_key, result)
         return result
 
+    async def get_available_languages(self, manga_id: str) -> list[str]:
+        """Return sorted unique languages that have at least one readable or external chapter.
+
+        Paginates all pages (limit=100) without language filter so no
+        language is missed. Cached under ``chapters:languages:{manga_id}``.
+        Only includes languages whose chapters pass the same eligibility
+        filter as ``get_chapters`` (pages > 0 or externalUrl).
+        """
+        cache_key = f"chapters:languages:{manga_id}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        items: list[dict] = []
+        offset = 0
+        while True:
+            payload = await self._client.get_chapters(
+                manga_id=manga_id,
+                language=None,
+                limit=100,
+                offset=offset,
+            )
+            page_items = payload.get("data", [])
+            items.extend(page_items)
+            if not page_items or offset + 100 >= payload.get("total", len(items)):
+                break
+            offset += 100
+
+        languages = {
+            item.get("attributes", {}).get("translatedLanguage")
+            for item in items
+            if (
+                item.get("attributes", {}).get("pages", 0) > 0
+                or item.get("attributes", {}).get("externalUrl") is not None
+            )
+            and item.get("attributes", {}).get("translatedLanguage")
+        }
+        result = sorted(languages)
+        self._cache.set(cache_key, result)
+        return result
+
     async def get_latest_home_chapters(
         self,
         language: str = "en",
         limit: int = 10,
-    ) -> List[dict]:
-        cache_key = f"chapters:latest:home:v4:{language}:{limit}"
+        user_age: int | None = None,
+    ) -> list[dict]:
+        """Return the latest chapters for the home feed, deduplicated (max 2 per manga)."""
+        age_key = "none" if user_age is None else str(user_age)
+        cache_key = f"chapters:latest:home:v4:{language}:{limit}:age:{age_key}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -89,7 +149,7 @@ class ChapterService:
         ]
 
         # Filter out future-dated chapters from upstream.
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         chapter_items = [
             item
             for item in chapter_items
@@ -115,6 +175,15 @@ class ChapterService:
         for manga in manga_items:
             manga_id = manga.get("id")
             attributes = manga.get("attributes", {})
+            demographic = attributes.get("publicationDemographic")
+            if demographic == "none":
+                demographic = None
+            content_rating = attributes.get("contentRating")
+            if not (
+                can_access_demographic(demographic, user_age, content_rating)
+                and can_access_content(content_rating, user_age)
+            ):
+                continue
             titles = attributes.get("title", {})
             title = titles.get("en") or next(iter(titles.values()), "Unknown")
 
@@ -136,7 +205,7 @@ class ChapterService:
                     "coverUrl": cover_url,
                 }
 
-        raw_result: List[dict] = []
+        raw_result: list[dict] = []
         for chapter_item in chapter_items:
             chapter_base = map_mangadex_chapter(chapter_item)
             chapter_id = chapter_base.get("id")
@@ -168,7 +237,7 @@ class ChapterService:
 
         # Cap repeated entries per manga to preserve variety in Home feed.
         max_per_manga = 2
-        deduped: List[dict] = []
+        deduped: list[dict] = []
         per_manga_count: dict[str, int] = {}
 
         for item in raw_result:
@@ -191,6 +260,7 @@ class ChapterService:
 
 
 def _chapter_publish_at(item: dict) -> datetime | None:
+    """Extract and parse the ``publishAt`` datetime from a raw MangaDex chapter item."""
     value = item.get("attributes", {}).get("publishAt")
     if not value:
         return None
