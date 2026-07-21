@@ -299,25 +299,29 @@ class MangaDexClient:
 
     @with_retry(retryable_status_codes=_RETRYABLE_STATUS_CODES)
     async def get_statistics(self, manga_ids: list[str]) -> dict[str, Any]:
-        """Fetch statistics (rating, follows) for multiple manga IDs.
-
-        MangaDex doesn't support bulk - fetches one by one in parallel.
-        """
+        """Fetch statistics (rating, follows) for multiple manga IDs."""
         if not manga_ids:
             return {}
 
-        # Fetch all stats in parallel
-        async def fetch_one(manga_id: str) -> tuple[str, dict]:
-            try:
-                response = await self._get(f"/statistics/manga/{manga_id}")
-                response.raise_for_status()
-                data = response.json()
-                stats = data.get("statistics", {}).get(manga_id, {})
-                return manga_id, stats
-            except Exception:
-                return manga_id, {}
+        statistics: dict[str, Any] = {}
+        try:
+            response = await self._get(
+                "/statistics/manga", params={"manga[]": manga_ids}
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, dict) and isinstance(
+                payload.get("statistics"), dict
+            ):
+                statistics = payload["statistics"]
+        except Exception:
+            pass
 
-        results = await asyncio.gather(*[fetch_one(mid) for mid in manga_ids])
-
-        # Convert to statistics dict format
-        return {"statistics": dict(results)}
+        return {
+            "statistics": {
+                manga_id: record
+                if isinstance(record := statistics.get(manga_id), dict)
+                else {}
+                for manga_id in manga_ids
+            }
+        }

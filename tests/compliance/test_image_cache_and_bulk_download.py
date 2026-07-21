@@ -544,19 +544,22 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
             msg="P0-B5 FAIL — pages endpoint must return URL strings.",
         )
 
-    def test_mangadex_get_statistics_uses_one_request_per_manga_id_p0_b5(self):
-        """P0-B5 — get_statistics confirma por comportamiento que NO hay endpoint bulk."""
+    def test_mangadex_get_statistics_uses_bulk_request_p0_b5(self):
+        """P0-B5 — get_statistics uses MangaDex's documented bulk endpoint."""
         from app.sources.mangadex_client import MangaDexClient
 
         class _StatsResponse:
-            def __init__(self, manga_id: str):
-                self._manga_id = manga_id
-
             def raise_for_status(self):
                 return None
 
             def json(self):
-                return {"statistics": {self._manga_id: {"follows": 1}}}
+                return {
+                    "statistics": {
+                        "manga-a": {"follows": 1},
+                        "manga-b": {"follows": 2},
+                        "manga-invalid": "unexpected",
+                    }
+                }
 
         class _RecordingClient:
             def __init__(self):
@@ -566,31 +569,69 @@ class TestNoBulkDownloadEndpoint(unittest.TestCase):
             async def get(self, path, params=None):
                 self.paths.append(path)
                 self.params.append(params or {})
-                manga_id = str(path).rsplit("/", 1)[-1]
-                return _StatsResponse(manga_id)
+                return _StatsResponse()
 
         recorder = _RecordingClient()
         client = MangaDexClient(recorder)
 
-        result = asyncio.run(client.get_statistics(["manga-a", "manga-b"]))
+        result = asyncio.run(
+            client.get_statistics(
+                ["manga-a", "manga-b", "manga-invalid", "manga-missing"]
+            )
+        )
 
         self.assertEqual(
             recorder.paths,
-            ["/statistics/manga/manga-a", "/statistics/manga/manga-b"],
-            msg=(
-                "P0-B5 FAIL — get_statistics dejó de hacer fan-out one-by-one; "
-                "se esperaba una request por manga_id sin endpoint bulk."
-            ),
+            ["/statistics/manga"],
+            msg="P0-B5 FAIL — get_statistics must issue one bulk request.",
         )
         self.assertEqual(
             recorder.params,
-            [{}, {}],
-            msg="P0-B5 FAIL — get_statistics no debe enviar payload/query bulk en la request.",
+            [
+                {
+                    "manga[]": [
+                        "manga-a",
+                        "manga-b",
+                        "manga-invalid",
+                        "manga-missing",
+                    ]
+                }
+            ],
+            msg="P0-B5 FAIL — get_statistics must send all IDs in manga[] query params.",
         )
         self.assertEqual(
-            sorted(result.get("statistics", {}).keys()),
-            ["manga-a", "manga-b"],
-            msg="P0-B5 FAIL — contrato de estadísticas agregado por manga_id cambió.",
+            result,
+            {
+                "statistics": {
+                    "manga-a": {"follows": 1},
+                    "manga-b": {"follows": 2},
+                    "manga-invalid": {},
+                    "manga-missing": {},
+                }
+            },
+            msg="P0-B5 FAIL — preserve the per-ID statistics result shape.",
+        )
+
+    def test_mangadex_get_statistics_returns_empty_values_on_error_p0_b5(self):
+        """P0-B5 — statistics failures preserve the per-ID empty-value contract."""
+        from app.sources.mangadex_client import MangaDexClient
+
+        class _FailingResponse:
+            def raise_for_status(self):
+                raise RuntimeError("upstream failed")
+
+        class _FailingClient:
+            async def get(self, path, params=None):
+                return _FailingResponse()
+
+        result = asyncio.run(
+            MangaDexClient(_FailingClient()).get_statistics(["manga-a", "manga-b"])
+        )
+
+        self.assertEqual(
+            result,
+            {"statistics": {"manga-a": {}, "manga-b": {}}},
+            msg="P0-B5 FAIL — statistics errors must preserve empty per-ID values.",
         )
 
     def test_no_route_exposes_binary_download_contract(self):
