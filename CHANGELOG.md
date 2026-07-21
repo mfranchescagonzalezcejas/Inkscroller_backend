@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.1 — 2026-07-21
+
+Hotfix release for post-v1.0.0 production stability and MangaDex upstream latency.
+
+### Fixes
+
+- **MangaDex upstream errors**: map transport failures to safe `502` responses and enforce upstream cooldown handling.
+- **MangaDex statistics latency**: replace per-manga statistics fan-out with the bulk statistics endpoint to cut `/manga` cold-start latency from ~6s to ~1.2–1.5s in dev validation.
+
+### Internal
+
+- **Retry configuration**: `retryable_status_codes` is now authoritative and documented for MangaDex resilience behavior.
+- **Regression coverage**: added focused MangaDex throttle/statistics tests and compliance coverage for the bulk statistics request.
+
+---
+
 ## v1.0.0 — 2026-07-20
 
 First stable release — TFM delivery.
