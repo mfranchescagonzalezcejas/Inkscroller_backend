@@ -59,7 +59,7 @@ class Settings:
             "Features Firebase authentication, age-gated content access, "
             "user preferences, personal manga libraries, and demographic filtering."
         )
-        self.version: str = "1.0.0"
+        self.version: str = "1.0.1"
         self.environment: str = _runtime_environment()
         raw_debug = _parse_bool(os.getenv("DEBUG", "false"))
         self.debug: bool = (
